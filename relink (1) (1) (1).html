@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RELINK</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+  --bg: #0e1621;       /* deep dark blue background */
+  --muted: #1b2838;    /* sidebar/panel background */
+  --panel: #22324a;    /* headers, chat input background */
+  --accent: #2d4a7c;   /* primary blue */
+  --accent-hover: #3a5d99;
+  --text: #e0e6ed;     /* main text */
+  --text-muted: #9fb3d1;
+}
+
+/* Global */
+html,body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+}
+.app { display:flex; height:100vh }
+
+/* Sidebar (servers) */
+.servers {
+  width: 72px;
+  background: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  gap: 8px;
+}
+.server-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.2s, transform 0.1s;
+}
+.server-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+.server-btn.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.server-btn.create { background: transparent; border: 2px dashed #444; }
+
+/* Channels panel */
+.server-panel {
+  width: 260px;
+  background: var(--muted);
+  display: flex;
+  flex-direction: column;
+}
+.server-header {
+  padding: 12px;
+  font-weight: 700;
+  border-bottom: 1px solid #242629;
+}
+.channel-list { flex:1; overflow:auto; padding:6px; }
+.channel-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background 0.2s;
+}
+.channel-item:hover { background: rgba(255,255,255,0.08); }
+.channel-item.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.channel-actions {
+  padding: 8px;
+  border-top: 1px solid #242629;
+}
+.btn {
+  background: var(--accent);
+  border: none;
+  color: white;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn:hover { background: var(--accent-hover); }
+
+/* Chat */
+.chat { flex:1; display:flex; flex-direction:column; }
+.chat-header {
+  background: var(--panel);
+  padding: 12px;
+  border-bottom: 1px solid #242629;
+  font-weight: 700;
+}
+.messages {
+  flex:1;
+  padding: 16px;
+  overflow:auto;
+  background: var(--bg);
+}
+.message {
+  margin-bottom: 12px;
+  padding:6px 8px;
+  border-radius:6px;
+  background: rgba(255,255,255,0.03);
+}
+.message.self {
+  background: rgba(45,74,124,0.3);
+  text-align: right;
+}
+.message .meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+/* Input composer */
+.composer {
+  display:flex;
+  padding:12px;
+  background: var(--panel);
+  gap:8px;
+  border-top: 1px solid #242629;
+}
+.input {
+  flex:1;
+  padding:10px;
+  border-radius:8px;
+  border:none;
+  background:#0b0c0d;
+  color: var(--text);
+}
+#sendBtn {
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#sendBtn:hover { background: var(--accent-hover); }
+
+/* Right panel */
+.right {
+  width:200px;
+  background: var(--muted);
+  padding:12px;
+  border-left:1px solid #242629;
+}
+.small { font-size:12px; color: var(--text-muted); }
+
+/* Auth row */
+.auth { display:flex; gap:8px; align-items:center }
+input[type=text], input[type=password] {
+  padding:6px;
+  border-radius:6px;
+  border:1px solid #34383c;
+  background:#0b0c0d;
+  color: var(--text);
+}
+
+.ping-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  background: red;
+  border-radius: 50%;
+}
+.server-btn {
+  position: relative;
+}
+
+#loginScreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(14,22,33,0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.login-box {
+  background: var(--muted);
+  padding: 32px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 300px;
+  text-align: center;
+}
+
+.login-box h2 {
+  margin: 0 0 12px 0;
+  color: var(--text);
+}
+
+.login-box input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #34383c;
+  background: #0b0c0d;
+  color: var(--text);
+}
+
+.login-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* make the overlay the full screen anchor */
+#loginScreen {
+  position: fixed;
+  inset: 0;
+}
+
+/* stick copyright to the bottom */
+.login-footer {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .servers {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 4px;
+  }
+  .server-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .server-panel {
+    width: 100%;
+    order: 2;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .channel-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .channel-item {
+    margin-right: 6px;
+  }
+
+  .chat {
+    order: 1;
+    width: 100%;
+  }
+
+  .right {
+    width: 100%;
+    order: 3;
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .composer {
+    flex-direction: column;
+  }
+  #inputMsg {
+    width: 100%;
+  }
+  #sendBtn {
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  .login-box {
+    width: 90%;
+    min-width: 0;
+  }
+}
+
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen Login Overlay -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>RELINK</h2>
+    <p class="login-subtext">Sign up or Login to Join the Fun!</p>
+
+    <input id="usernameLogin" type="text" placeholder="Username">
+    <input id="passwordLogin" type="password" placeholder="Password">
+
+    <div class="login-actions">
+      <button id="loginBtnScreen" class="btn">Login</button>
+      <button id="signupBtnScreen" class="btn">Signup</button>
+    </div>
+  </div>
+
+  <div class="login-footer">
+    © RELINK Team 2026 All Rights Reserved!
+  </div>
+</div>
+
+
+  <div class="app">
+
+    <!-- Sidebar (Servers) -->
+    <div class="servers" id="serversCol">
+      <div class="server-btn" id="homeBtn">R</div>
+      <div class="server-btn create" id="createServerBtn">+</div>
+    </div>
+
+    <!-- Server Panel -->
+    <div class="server-panel" id="serverPanel">
+      <div class="server-header" id="serverHeader">No server</div>
+      <div id="inviteCode" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
+      <div class="channel-list" id="channelList"></div>
+      <div class="channel-actions">
+        <button class="btn" id="addChannelBtn">+ Add Channel</button>
+      </div>
+    </div>
+
+    <!-- Chat Column -->
+    <div class="chat">
+      <div class="chat-header" id="chatHeader"># none</div>
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <input id="inputMsg" class="input" placeholder="Message..." />
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+
+      <!-- Bottom Row with ONLY Join by Invite -->
+      <div style="padding:12px;background:var(--muted);border-top:1px solid #242629;">
+        <div class="auth" style="display:flex; justify-content:flex-end; align-items:center;">
+          <button id="joinByInviteBtn" class="btn">Join by Invite</button>
+        </div>
+      </div>
+    </div> <!-- close chat -->
+
+    <!-- Right Panel -->
+    <div class="right">
+      <div class="small">Online in channel</div>
+      <ul id="onlineList"></ul>
+      <hr style="border:none;height:1px;background:#242629;margin:8px 0">
+      <div class="small">My Servers</div>
+      <ul id="myServersList"></ul>
+    </div>
+
+  </div> <!-- close app -->
+
+<script>
+let lastRead = {}; // { channelName: timestamp }
+let myUsername = null;
+let unreadPings = {}; // { serverId: true }
+/*
+  IMPORTANT:
+  Replace RENDER_HOST with your render host (no protocol).
+  e.g. const RENDER_HOST = "relink-server.onrender.com"
+*/
+const RENDER_HOST = "relink-backend.kyklos.online";
+const API = `https://${RENDER_HOST}`;
+const WS = `wss://${RENDER_HOST}`;
+
+let token = null;
+let ws = null;
+let currentServer = null; // serverId
+let currentChannel = "general";
+let inDM = false;
+let currentDM = null;
+
+// helper DOM refs
+const serverHeader = document.getElementById('serverHeader');
+const chatHeader = document.getElementById('chatHeader');
+const channelList = document.getElementById('channelList');
+const messagesBox = document.getElementById('messages');
+const onlineList = document.getElementById('onlineList');
+const myServersList = document.getElementById('myServersList');
+// DOM references
+const loginOverlay = document.getElementById("loginScreen");
+const usernameInput = document.getElementById("usernameLogin");
+const passwordInput = document.getElementById("passwordLogin");
+const loginBtnScreen = document.getElementById("loginBtnScreen");
+const signupBtnScreen = document.getElementById("signupBtnScreen");
+const inputMsg = document.getElementById("inputMsg");
+const sendBtn = document.getElementById("sendBtn");
+
+// disable chat until login
+inputMsg.disabled = true;
+sendBtn.disabled = true;
+
+// LOGIN
+loginBtnScreen.onclick = async function handleLogin() {
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value;
+  if (!u || !p) return alert("Enter username/password");
+
+  const res = await fetch(API + "/login", {
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username: u, password: p })
+  });
+  const data = await res.json();
+  if (data.token) {
+    token = data.token;
+    myUsername = data.username;
+    if ("Notification" in window && Notification.permission !== "granted") {
+  Notification.requestPermission();
+}
+
+    // hide overlay
+    loginOverlay.style.display = "none";
+
+    // enable chat input
+    inputMsg.disabled = false;
+    sendBtn.disabled = false;
+
+    // load servers, DMs, connect WS
+    await loadMyServers();
+    await loadDMList();
+    connectWS();
+  } else {
+    alert("Login failed");
+  }
+};
+
+// SIGNUP
+signupBtnScreen.onclick = async function handleSignup() {
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value;
+  if (!u || !p) return alert("Enter username/password");
+
+  const res = await fetch(API + "/signup", {
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username: u, password: p })
+  });
+
+  alert(res.ok ? "Signup successful! Please log in." : "Signup failed.");
+};
+
+const MAX_SERVERS = 9; // change to whatever limit you want
+let serverInvites = {}; // store invite codes { serverId: inviteCode }
+async function createServer() {
+  if (!token) return alert("You must be logged in to create a server.");
+
+  const rServers = await fetch(API + "/servers?token=" + encodeURIComponent(token));
+  const userServers = await rServers.json();
+  if (userServers.length >= MAX_SERVERS) {
+    return alert(`Server limit reached! You can only create up to ${MAX_SERVERS} servers.`);
+  }
+
+  const name = prompt("Server name:");
+  if (!name) return;
+
+  const r = await fetch(API + "/server", { 
+    method: "POST", 
+    headers: { 'Content-Type': 'application/json' }, 
+    body: JSON.stringify({ name, token }) 
+  });
+
+  const j = await r.json();
+  if (j.id) {
+    alert(`Server created!`);
+     serverInvites[j.id] = j.invite; // save invite code
+    await loadMyServers();
+    selectServer(j.id);
+
+    // Show invite code in UI
+    const inviteDiv = document.getElementById("inviteCode");
+    inviteDiv.textContent = `Invite: ${j.invite}`;
+  } else {
+    alert("Error creating server");
+  }
+}
+
+
+// join by invite
+async function joinByInvite() {
+  const inv = prompt("Paste invite code:");
+  if (!inv) return;
+  const r = await fetch(API + "/join/" + encodeURIComponent(inv), { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) });
+  const j = await r.json();
+  if (j.serverId) {
+    alert("Joined server: " + j.name);
+    await loadMyServers();
+    selectServer(j.serverId);
+  } else {
+    alert("Invite failed: " + (j.error || "unknown"));
+  }
+}
+document.getElementById('joinByInviteBtn').onclick = joinByInvite;
+
+async function loadMyServers() {
+  if (!token) return;
+  const r = await fetch(API + "/servers?token=" + encodeURIComponent(token));
+  const arr = await r.json();
+  updateCreateButtonState();
+
+  // right panel "My Servers" list
+  myServersList.innerHTML = "";
+  arr.forEach(s => {
+    const li = document.createElement('li');
+    li.textContent = s.name;
+    li.style.cursor = 'pointer';
+    li.onclick = () => selectServer(s.id);
+    myServersList.appendChild(li);
+  });
+
+  // left sidebar icons
+  // keep only the first (home) and last (+ create) buttons
+  const serversCol = document.getElementById("serversCol");
+  serversCol.innerHTML = "";
+  const homeBtn = document.createElement("div");
+  homeBtn.className = "server-btn";
+  homeBtn.textContent = "R";
+  homeBtn.onclick = () => { loadDMList(); };
+  serversCol.appendChild(homeBtn);
+
+  // add server icons
+  arr.forEach(s => {
+    const btn = document.createElement("div");
+    btn.className = "server-btn";
+    btn.textContent = s.name[0].toUpperCase(); // first letter
+    btn.title = s.name;
+    btn.dataset.serverId = s.id;
+btn.onclick = () => {
+  unreadPings[s.id] = false;
+  updateServerBadges();
+  selectServer(s.id);
+};
+    serversCol.appendChild(btn);
+  });
+
+  // create server button
+  const createBtn = document.createElement("div");
+  createBtn.className = "server-btn create";
+  createBtn.textContent = "+";
+  createBtn.onclick = createServer;
+  serversCol.appendChild(createBtn);
+}
+
+
+async function selectServer(serverId) {
+  currentServer = serverId;
+  inDM = false;       // <-- reset DM mode
+  currentDM = null;   // <-- clear current DM
+
+  serverHeader.textContent = "Server";
+  channelList.innerHTML = "";
+  messagesBox.innerHTML = "";
+  onlineList.innerHTML = "";
+  chatHeader.textContent = "# general";
+  currentChannel = "general";
+
+  document.getElementById("addChannelBtn").style.display = "block";
+
+  // fetch channels
+  const r = await fetch(API + "/channels/" + encodeURIComponent(serverId));
+  if (!r.ok) return alert("failed to load channels");
+  const channels = await r.json();
+  channels.forEach(ch => {
+    const el = document.createElement('div');
+    el.className = 'channel-item' + (ch === currentChannel ? ' active' : '');
+    el.textContent = '# ' + ch;
+    el.onclick = () => joinChannel(ch);
+    channelList.appendChild(el);
+  });
+
+  // server info / invite code
+  const inviteDiv = document.getElementById("inviteCode");
+  if (serverInvites[serverId]) {
+    inviteDiv.textContent = `Invite: ${serverInvites[serverId]}`;
+  } else {
+    inviteDiv.textContent = "Invite: —";
+  }
+
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "joinServer", token, serverId: currentServer, channel: currentChannel }));
+  } else {
+    connectWS();
+  }
+
+  loadHistory();
+}
+
+
+// add channel to current server
+async function addChannel() {
+  if (!currentServer) return alert("select a server first");
+  const name = prompt("Channel name (no #):");
+  if (!name) return;
+  const r = await fetch(API + "/channels/" + encodeURIComponent(currentServer), {
+    method: "POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name })
+  });
+  const j = await r.json();
+  if (j.ok) {
+    await selectServer(currentServer);
+    joinChannel(name);
+  } else alert("error creating channel: " + (j.error || '?'));
+}
+document.getElementById('addChannelBtn').onclick = addChannel;
+
+async function loadHistory() {
+  if (!currentServer || !currentChannel) return;
+  const r = await fetch(API + "/history/" + encodeURIComponent(currentServer) + "/" + encodeURIComponent(currentChannel));
+  if (!r.ok) return;
+  const arr = await r.json();
+  messagesBox.innerHTML = "";
+  arr.forEach(m => appendMessage(m));
+  messagesBox.scrollTop = messagesBox.scrollHeight;
+}
+
+// join channel in UI + inform WS
+function joinChannel(ch) {
+  currentChannel = ch;
+  chatHeader.textContent = "# " + ch;
+  Array.from(channelList.children).forEach(c => c.classList.remove('active'));
+  const toActivate = Array.from(channelList.children).find(c => c.textContent === '# ' + ch);
+  if (toActivate) toActivate.classList.add('active');
+  messagesBox.innerHTML = "";
+  onlineList.innerHTML = "";
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "switch", channel: ch }));
+    ws.send(JSON.stringify({ type: "joinServer", token, serverId: currentServer, channel: ch }));
+  }
+  loadHistory();
+}
+
+async function appendMessage(m) {
+  const div = document.createElement('div');
+  div.className = 'message';
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const time = new Date(m.ts).toLocaleTimeString();
+
+  // Username span
+  const nameSpan = document.createElement("span");
+  nameSpan.textContent = m.username;
+  nameSpan.style.fontWeight = "600";
+
+  // Badges
+  if (m.username === "RELINK") {
+    const badge = document.createElement("span");
+    badge.textContent = "OWNER";
+    badge.style.cssText = "background:#ffcc00;color:#000;font-size:10px;font-weight:700;padding:2px 4px;border-radius:4px;margin-left:6px;";
+    nameSpan.appendChild(badge);
+  }
+  if (m.username === "kyklos") {
+    const badge = document.createElement("span");
+    badge.textContent = "RELINK TEAM";
+    badge.style.cssText = "background:#ADD8E6;color:#000;font-size:10px;font-weight:700;padding:2px 4px;border-radius:4px;margin-left:6px;";
+    nameSpan.appendChild(badge);
+  }
+  if (m.username === "@rok") {
+    const badge = document.createElement("span");
+    badge.textContent = "RELINK AI";
+    badge.style.cssText = "background:#636363;color:#fff;font-size:10px;font-weight:700;padding:2px 4px;border-radius:4px;margin-left:6px;";
+    nameSpan.appendChild(badge);
+  }
+
+  // Append username and timestamp
+  meta.appendChild(nameSpan);
+  meta.appendChild(document.createTextNode(` • ${time}`));
+
+  const txt = document.createElement('div');
+
+  // Replace emoji codes
+  const messageText = replaceEmojis(m.text);
+
+  const isPing = myUsername && messageText.toLowerCase().includes("@" + myUsername.toLowerCase());
+if (isPing && Notification.permission === "granted" && m.username !== myUsername) {
+  new Notification(`Ping from ${m.username}`, {
+    body: messageText,
+    icon: "/path/to/icon.png" // optional, put your app icon here
+  });
+}
+  // Highlight pings
+  if (isPing) {
+    const parts = messageText.split(new RegExp(`(@${myUsername})`, "gi"));
+    parts.forEach(p => {
+      if (p.toLowerCase() === "@" + myUsername.toLowerCase()) {
+        const span = document.createElement("span");
+        span.textContent = p;
+        span.style.cssText = "color:#4da6ff;font-weight:700;background:rgba(77,166,255,0.15);padding:0 4px;border-radius:4px;";
+        txt.appendChild(span);
+      } else {
+        txt.appendChild(document.createTextNode(p));
+      }
+    });
+    div.style.background = "rgba(77,166,255,0.08)";
+  } else {
+    txt.textContent = messageText;
+  }
+
+  div.appendChild(meta);
+  div.appendChild(txt);
+
+  const atBottom = messagesBox.scrollHeight - messagesBox.scrollTop <= messagesBox.clientHeight + 50;
+  messagesBox.appendChild(div);
+
+  // Tenor GIF handling
+  const tenorRegex = /https?:\/\/(?:www\.)?tenor\.com\/view\/[^\s]+/gi;
+  const matches = [...messageText.matchAll(tenorRegex)];
+
+  for (const match of matches) {
+    if (match.index !== undefined) {
+      if (match.index > 0) {
+        txt.appendChild(document.createTextNode(messageText.slice(0, match.index)));
+      }
+      const url = match[0];
+      try {
+        const apiRes = await fetch(`https://api.tenor.com/v1/pages?url=${encodeURIComponent(url)}`);
+        const data = await apiRes.json();
+        if (data.results?.[0]?.media?.[0]?.gif?.url) {
+          const img = document.createElement('img');
+          img.src = data.results[0].media[0].gif.url;
+          img.style.cssText = "max-width:300px;border-radius:8px;display:block;margin-top:4px;";
+          txt.appendChild(img);
+        } else {
+          txt.appendChild(document.createTextNode(url));
+        }
+      } catch {
+        txt.appendChild(document.createTextNode(url));
+      }
+    }
+  }
+
+  if (atBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
+
+  // mark pings for unread badge
+  if (isPing && m.username !== myUsername && m.serverId !== currentServer) {
+    unreadPings[m.serverId] = true;
+    updateServerBadges();
+  }
+}
+
+
+// connect web socket
+function connectWS() {
+  if (ws && (ws.readyState === 1 || ws.readyState === 0)) return;
+  ws = new WebSocket(WS);
+  ws.onopen = () => {
+    if (currentServer) ws.send(JSON.stringify({ type: "joinServer", token, serverId: currentServer, channel: currentChannel }));
+  };
+  ws.onmessage = ev => {
+    const d = JSON.parse(ev.data);
+    if (d.type === 'message') {
+      if (d.message.serverId === currentServer && d.message.channel === currentChannel) appendMessage(d.message);
+    }
+    if (d.type === 'presence') {
+      // check server/channel match
+      if (d.serverId === currentServer && d.channel === currentChannel) {
+        onlineList.innerHTML = d.users.map(u => `<li>${u}</li>`).join('');
+      }
+    }
+      if (d.type === 'dm') {
+    if (inDM && currentDM && 
+       (d.message.from === currentDM || d.message.to === currentDM)) {
+      appendDM(d.message);
+    }
+  }
+    if (d.type === 'error') {
+      console.warn('ws error', d.error);
+    }
+  };
+  }
+
+// send message button
+function sendMessage() {
+  const text = inputMsg.value.trim();
+  if (!text) return;
+ 
+  // Limit text length
+  if (text.length > 200) {
+    alert("Message too long! Max 200 characters.");
+    return;
+  }
+  
+  if (!ws || ws.readyState !== 1) return alert("not connected");
+
+  if (inDM && currentDM) {
+    ws.send(JSON.stringify({ type: "dm", token, to: currentDM, text }));
+  } else {
+    ws.send(JSON.stringify({ type: "message", token, text }));
+  }
+  inputMsg.value = "";
+}
+
+async function loadDMList() {
+  inDM = true;
+  currentServer = null;
+  currentDM = null;
+  serverHeader.textContent = "Direct Messages";
+  chatHeader.textContent = "DMs";
+  channelList.innerHTML = "";
+  messagesBox.innerHTML = "";
+  onlineList.innerHTML = "";
+ 
+  // Hide the "+ Add Channel" button while in DMs
+  document.getElementById("addChannelBtn").style.display = "none";
+
+  // 👇 Add "New DM" button at the top of the DM list
+  const newBtn = document.createElement("div");
+  newBtn.className = "channel-item";
+  newBtn.style.fontWeight = "bold";
+  newBtn.textContent = "+ New DM";
+  newBtn.onclick = async () => {
+    const user = prompt("Enter the username to DM:");
+    if (!user) return;
+
+    // check if user exists by trying to fetch DM history
+    const resCheck = await fetch(`${API}/dm/${encodeURIComponent(user)}?token=${token}`);
+    if (!resCheck.ok) {
+      alert("User not found!");
+      return;
+    }
+    openDM(user);
+  };
+  channelList.appendChild(newBtn);
+
+  try {
+    const res = await fetch(`${API}/dms?token=${token}`);
+    if (!res.ok) return;
+    const users = await res.json();
+
+    if (users.length === 0) {
+      const empty = document.createElement("div");
+      empty.textContent = "No direct messages yet.";
+      empty.style.padding = "10px";
+      channelList.appendChild(empty);
+    }
+
+    users.forEach(u => {
+      const el = document.createElement("div");
+      el.className = "channel-item";
+      el.textContent = u;
+      el.onclick = () => openDM(u);
+      channelList.appendChild(el);
+    });
+  } catch (err) {
+    console.error("Error loading DMs", err);
+  }
+}
+
+async function openDM(user) {
+  inDM = true;
+  currentDM = user;
+  chatHeader.textContent = "DM with " + user;
+  messagesBox.innerHTML = "";
+
+  const res = await fetch(`${API}/dm/${encodeURIComponent(user)}?token=${token}`);
+  if (!res.ok) return;
+  const msgs = await res.json();
+  msgs.forEach(m => appendDM(m));
+}
+
+function appendDM(m) {
+  const div = document.createElement("div");
+  div.className = "message";
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const time = new Date(m.ts).toLocaleTimeString();
+  meta.textContent = `${m.from} • ${time}`;
+  const txt = document.createElement("div");
+  txt.textContent = replaceEmojis(m.text);
+  txt.textContent = m.text;
+  div.appendChild(meta);
+  div.appendChild(txt);
+  messagesBox.appendChild(div);
+}
+
+// Send on Enter key (Shift+Enter for newline)
+inputMsg.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// Send on button click
+document.getElementById('sendBtn').onclick = sendMessage;
+
+// initial UI wiring
+document.getElementById('createServerBtn').onclick = createServer;
+document.getElementById('homeBtn').onclick = () => {
+  loadDMList();
+};
+
+// initial load
+(async function init() {
+  // Optionally, auto-load public or pre-created demo server if you want.
+  // For prototype, we won't create a server automatically.
+  // But if you have a server already (e.g. created by you), call loadMyServers() after login.
+})();
+
+
+// dynamically disable button if user already reached limit
+async function updateCreateButtonState() {
+  if (!token) {
+    createBtn.disabled = true;
+    createBtn.style.opacity = 0.5;
+    return;
+  }
+  const rServers = await fetch(API + "/servers?token=" + encodeURIComponent(token));
+  const userServers = await rServers.json();
+  if (userServers.length >= MAX_SERVERS) {
+    createBtn.disabled = true;
+    createBtn.style.opacity = 0.5;
+  } else {
+    createBtn.disabled = false;
+    createBtn.style.opacity = 1;
+  }
+}
+
+function updateServerBadges() {
+  document.querySelectorAll(".server-btn").forEach(btn => {
+    const sid = btn.dataset.serverId;
+    if (!sid) return;
+
+    let dot = btn.querySelector(".ping-dot");
+
+    if (unreadPings[sid]) {
+      if (!dot) {
+        dot = document.createElement("div");
+        dot.className = "ping-dot";
+        btn.appendChild(dot);
+      }
+    } else {
+      if (dot) dot.remove();
+    }
+  });
+}
+
+function replaceEmojis(text) {
+  // add more mappings as needed
+  const map = {
+    ":sob:": "😭",
+    ":smile:": "😄",
+    ":heart:": "❤️",
+    ":thumbsup:": "👍",
+    ":skull:": "💀",
+    ":pray:": "🙏",
+    ":nerd:": "🤓",
+    
+
+  };
+
+  return text.replace(/:\w+:/g, (match) => map[match] || match);
+}
+
+</script>
+</body>
+</html>
