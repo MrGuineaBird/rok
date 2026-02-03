@@ -100,6 +100,10 @@ html,body {
   padding: 12px;
   border-bottom: 1px solid #242629;
   font-weight: 700;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
 }
 .messages {
   flex:1;
@@ -199,33 +203,26 @@ input[type=text], input[type=password] {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 300px;
+  min-width: 320px;
   text-align: center;
+  position: relative;
 }
 
 .login-box h2 {
-  margin: 0 0 12px 0;
+  margin: 0 0 6px 0;
   color: var(--text);
 }
 
-.login-box input {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #34383c;
-  background: #0b0c0d;
-  color: var(--text);
+.login-subtext {
+  margin: 0 0 6px 0;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .login-actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-}
-
-/* make the overlay the full screen anchor */
-#loginScreen {
-  position: fixed;
-  inset: 0;
 }
 
 /* stick copyright to the bottom */
@@ -239,11 +236,41 @@ input[type=text], input[type=password] {
   opacity: 0.6;
 }
 
+/* Google button styling */
+.google-btn {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #34383c;
+  background: #0b0c0d;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s, transform 0.05s ease;
+  user-select: none;
+}
+.google-btn:hover { background: rgba(255,255,255,0.06); }
+.google-btn:active { transform: translateY(1px); }
+.google-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.google-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: #fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#000;
+  font-size: 12px;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
-  .app {
-    flex-direction: column;
-  }
+  .app { flex-direction: column; }
 
   .servers {
     width: 100%;
@@ -270,14 +297,9 @@ input[type=text], input[type=password] {
     flex-direction: row;
     overflow-x: auto;
   }
-  .channel-item {
-    margin-right: 6px;
-  }
+  .channel-item { margin-right: 6px; }
 
-  .chat {
-    order: 1;
-    width: 100%;
-  }
+  .chat { order: 1; width: 100%; }
 
   .right {
     width: 100%;
@@ -286,21 +308,11 @@ input[type=text], input[type=password] {
     overflow-x: auto;
   }
 
-  .composer {
-    flex-direction: column;
-  }
-  #inputMsg {
-    width: 100%;
-  }
-  #sendBtn {
-    width: 100%;
-    margin-top: 6px;
-  }
+  .composer { flex-direction: column; }
+  #inputMsg { width: 100%; }
+  #sendBtn { width: 100%; margin-top: 6px; }
 
-  .login-box {
-    width: 90%;
-    min-width: 0;
-  }
+  .login-box { width: 90%; min-width: 0; }
 }
 
 #tosOverlay {
@@ -336,15 +348,8 @@ input[type=text], input[type=password] {
   cursor: pointer;
 }
 
-.tosContent h2 {
-  margin-top: 0;
-  color: var(--text);
-}
-
-.tosContent h3 {
-  margin-top: 16px;
-  color: var(--text);
-}
+.tosContent h2 { margin-top: 0; color: var(--text); }
+.tosContent h3 { margin-top: 16px; color: var(--text); }
 
 .tosContent p, .tosContent li {
   color: var(--text-muted);
@@ -352,14 +357,9 @@ input[type=text], input[type=password] {
   line-height: 1.5;
 }
 
-.tosContent ul {
-  padding-left: 20px;
-}
+.tosContent ul { padding-left: 20px; }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 #discoverOverlay {
   display: none;
@@ -378,11 +378,10 @@ input[type=text], input[type=password] {
   border-radius: 12px;
   max-height: 80vh;
   overflow-y: auto;
+  position: relative;
 }
 
-.discoverBox h2 {
-  margin-top: 0;
-}
+.discoverBox h2 { margin-top: 0; }
 
 .discover-server {
   padding: 12px;
@@ -393,24 +392,19 @@ input[type=text], input[type=password] {
   transition: background 0.2s;
 }
 
-.discover-server:hover {
-  background: var(--accent-hover);
-}
+.discover-server:hover { background: var(--accent-hover); }
 
 #closeDiscover {
   position: absolute;
   top: 12px;
   right: 12px;
-
   background: transparent;
   border: none;
   color: var(--text-muted);
-
   font-size: 14px;
   cursor: pointer;
   padding: 6px 10px;
   border-radius: 6px;
-
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -419,95 +413,92 @@ input[type=text], input[type=password] {
   color: var(--text);
 }
 
-#closeDiscover:active {
-  background: rgba(255, 255, 255, 0.14);
-}
+#closeDiscover:active { background: rgba(255, 255, 255, 0.14); }
 
   </style>
 </head>
 <body>
 
- <!-- Fullscreen Login Overlay -->
+<!-- Fullscreen Login Overlay (GOOGLE ONLY) -->
 <div id="loginScreen">
   <div class="login-box">
     <h2>RELINK</h2>
-    <p class="login-subtext">Sign up or Login</p>
-
-    <input id="usernameLogin" type="text" placeholder="Username">
-    <input id="passwordLogin" type="password" placeholder="Password">
-  
+    <p class="login-subtext">For security, RELINK requires Google sign-in.</p>
 
     <!-- TOS Checkbox -->
-<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-  <input type="checkbox" id="tosCheckbox">
-  <label for="tosCheckbox" style="font-size:12px;color:var(--text-muted)">
-    By continuing, you agree to the 
-    <a href="#" id="openTosLink" style="color:var(--accent)">Terms of Service</a>
-  </label>
-</div>
+    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 2px 0;">
+      <input type="checkbox" id="tosCheckbox">
+      <label for="tosCheckbox" style="font-size:12px;color:var(--text-muted)">
+        By continuing, you agree to the
+        <a href="#" id="openTosLink" style="color:var(--accent)">Terms of Service</a>
+      </label>
+    </div>
 
-    <div class="login-actions">
-      <button id="loginBtnScreen" class="btn">Login</button>
-      <button id="signupBtnScreen" class="btn">Signup</button>
+    <!-- Google-only login button -->
+    <button id="googleLoginBtn" class="google-btn" disabled>
+      <span class="google-icon">G</span>
+      <span>Continue with Google</span>
+    </button>
+
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.4;margin-top:6px;">
+      Please log in with google to continue.
     </div>
   </div>
 
   <div class="login-footer">
-  © RELINK Team 2026 All Rights Reserved! <a href="#tos" style="color:var(--accent);text-decoration:underline;">Terms of Service</a>
-</div>
-</div>
-
-
-
-  <div class="app">
-
-    <!-- Sidebar (Servers) -->
-    <div class="servers" id="serversCol">
-  <div class="server-btn home" id="homeBtn">R</div>
-
-  <div id="serverList"></div>
-
-  <div class="server-btn create" id="createServerBtn">+</div>
+    © RELINK Team 2026 All Rights Reserved! <a href="#tos" style="color:var(--accent);text-decoration:underline;">Terms of Service</a>
+  </div>
 </div>
 
+<div class="app">
 
-    <!-- Server Panel -->
-    <div class="server-panel" id="serverPanel">
-      <div class="server-header" id="serverHeader">No server</div>
-      <div id="inviteCode" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
-      <div class="channel-list" id="channelList"></div>
-      <div class="channel-actions">
-        <button class="btn" id="addChannelBtn">+ Add Channel</button>
-      </div>
+  <!-- Sidebar (Servers) -->
+  <div class="servers" id="serversCol">
+    <div class="server-btn home" id="homeBtn">R</div>
+    <div id="serverList"></div>
+    <div class="server-btn create" id="createServerBtn">+</div>
+  </div>
+
+  <!-- Server Panel -->
+  <div class="server-panel" id="serverPanel">
+    <div class="server-header" id="serverHeader">No server</div>
+    <div id="inviteCode" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
+    <div class="channel-list" id="channelList"></div>
+    <div class="channel-actions">
+      <button class="btn" id="addChannelBtn">+ Add Channel</button>
+    </div>
+  </div>
+
+  <!-- Chat Column -->
+  <div class="chat">
+    <div class="chat-header" id="chatHeader">
+      <span id="chatTitle"># none</span>
+      <button id="logoutBtn" class="btn" style="display:none;padding:6px 10px;font-size:12px;">Logout</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="composer">
+      <input id="inputMsg" class="input" placeholder="Message..." />
+      <button class="btn" id="sendBtn">Send</button>
     </div>
 
-    <!-- Chat Column -->
-    <div class="chat">
-      <div class="chat-header" id="chatHeader"># none</div>
-      <div class="messages" id="messages"></div>
-      <div class="composer">
-        <input id="inputMsg" class="input" placeholder="Message..." />
-        <button class="btn" id="sendBtn">Send</button>
+    <!-- Bottom Row with ONLY Join by Invite -->
+    <div style="padding:12px;background:var(--muted);border-top:1px solid #242629;">
+      <div class="auth" style="display:flex; justify-content:flex-end; align-items:center;">
+        <button id="joinByInviteBtn" class="btn">Join by Invite</button>
       </div>
-
-      <!-- Bottom Row with ONLY Join by Invite -->
-      <div style="padding:12px;background:var(--muted);border-top:1px solid #242629;">
-        <div class="auth" style="display:flex; justify-content:flex-end; align-items:center;">
-          <button id="joinByInviteBtn" class="btn">Join by Invite</button>
-        </div>
-      </div>
-    </div> <!-- close chat -->
-
-    <!-- Right Panel -->
-    <div class="right">
-      <div class="small">Online in channel</div>
-      <ul id="onlineList"></ul>
-      <hr style="border:none;height:1px;background:#242629;margin:8px 0">
-      <div class="small">My Servers</div>
-      <ul id="myServersList"></ul>
     </div>
+  </div> <!-- close chat -->
 
-  </div> <!-- close app -->
+  <!-- Right Panel -->
+  <div class="right">
+    <div class="small">Online in channel</div>
+    <ul id="onlineList"></ul>
+    <hr style="border:none;height:1px;background:#242629;margin:8px 0">
+    <div class="small">My Servers</div>
+    <ul id="myServersList"></ul>
+  </div>
+
+</div> <!-- close app -->
 
 <!-- TOS Overlay -->
 <div id="tosOverlay">
@@ -613,7 +604,7 @@ input[type=text], input[type=password] {
     </div>
   </div>
 </div>
- 
+
 <div id="discoverOverlay">
   <div class="discoverBox">
     <button id="closeDiscover">Close</button>
@@ -622,42 +613,179 @@ input[type=text], input[type=password] {
   </div>
 </div>
 
-
 <script>
-const tosCheckbox = document.getElementById("tosCheckbox");
-
-tosCheckbox.addEventListener("change", () => {
-  const enabled = tosCheckbox.checked;
-  loginBtnScreen.disabled = !enabled;
-  signupBtnScreen.disabled = !enabled;
-});
-
 /*
+  GOOGLE-ONLY AUTH MODEL (frontend side):
+  - User clicks "Continue with Google" -> backend starts Google OAuth
+  - Backend redirects back to this site with token+username in URL OR sets an HttpOnly session cookie.
+  - Frontend saves token in localStorage for "account saving" and auto-login.
+
   IMPORTANT:
-  Replace RENDER_HOST with your render host (no protocol).
-  e.g. const RENDER_HOST = "relink-server.onrender.com"
+  "Limit to one per Google account" MUST be enforced server-side by storing Google's unique user id ("sub")
+  and preventing a second RELINK account with the same sub.
 */
+
 const RENDER_HOST = "relink-backend.kyklos.online";
 const API = `https://${RENDER_HOST}`;
-const WS = `wss://${RENDER_HOST}`;
+const WS  = `wss://${RENDER_HOST}`;
+
+// ---- Local storage keys (account saving) ----
+const LS_TOKEN = "relink_token";
+const LS_USERNAME = "relink_username";
+
 // --- GLOBAL VARIABLES ---
-let createBtn = null; // previously scoped in loadMyServers
-let lastRead = {}; // { channelName: timestamp }
+let createBtn = null;
+let lastRead = {};
 let myUsername = null;
-let unreadPings = {}; // { serverId: true }
+let unreadPings = {};
 let token = null;
 let ws = null;
-let currentServer = null; // serverId
+let currentServer = null;
 let currentChannel = "general";
 let inDM = false;
 let currentDM = null;
 
+// DOM references
+const serverHeader = document.getElementById('serverHeader');
+const chatHeader = document.getElementById('chatHeader');
+const chatTitle  = document.getElementById('chatTitle');
+const channelList = document.getElementById('channelList');
+const messagesBox = document.getElementById('messages');
+const onlineList = document.getElementById('onlineList');
+const myServersList = document.getElementById('myServersList');
+const loginOverlay = document.getElementById("loginScreen");
+const inputMsg = document.getElementById("inputMsg");
+const sendBtn  = document.getElementById("sendBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+
+const tosCheckbox = document.getElementById("tosCheckbox");
+const googleLoginBtn = document.getElementById("googleLoginBtn");
+
+// disable chat until auth
+inputMsg.disabled = true;
+sendBtn.disabled = true;
+
+// Enable Google button only after TOS accept
+tosCheckbox.addEventListener("change", () => {
+  googleLoginBtn.disabled = !tosCheckbox.checked;
+});
+
+// Start Google OAuth via backend (simple + secure redirect flow)
+googleLoginBtn.onclick = () => {
+  if (!tosCheckbox.checked) return alert("You must agree to the Terms of Service.");
+  // backend should redirect back with token+username OR set cookie
+  const redirect = window.location.origin; // https://relink.kyklos.online
+  window.location.href = `${API}/auth/google?redirect=${encodeURIComponent(redirect)}`;
+};
+
+// Logout (clears saved session)
+logoutBtn.onclick = () => {
+  localStorage.removeItem(LS_TOKEN);
+  localStorage.removeItem(LS_USERNAME);
+  token = null;
+  myUsername = null;
+
+  try { if (ws) ws.close(); } catch {}
+  ws = null;
+
+  // reset UI
+  loginOverlay.style.display = "flex";
+  inputMsg.disabled = true;
+  sendBtn.disabled = true;
+  logoutBtn.style.display = "none";
+
+  // optional: clear panels
+  serverHeader.textContent = "No server";
+  chatTitle.textContent = "# none";
+  channelList.innerHTML = "";
+  messagesBox.innerHTML = "";
+  onlineList.innerHTML = "";
+  myServersList.innerHTML = "";
+};
+
+// ---- helper: read query param ----
+function getQueryParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+// ---- helper: remove token params from URL ----
+function cleanAuthParamsFromUrl() {
+  const url = new URL(window.location.href);
+  ["token","username"].forEach(k => url.searchParams.delete(k));
+  window.history.replaceState({}, "", url.toString());
+}
+
+// ---- Verify token quickly by calling servers endpoint ----
+async function verifyToken(t) {
+  try {
+    const r = await fetch(`${API}/servers?token=${encodeURIComponent(t)}`);
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ---- Accept backend redirect AND save account locally ----
+async function acceptAuthFromRedirectOrStorage() {
+  // 1) token from redirect
+  const urlToken = getQueryParam("token");
+  const urlUser  = getQueryParam("username");
+
+  if (urlToken && urlUser) {
+    // Save session (account saving)
+    localStorage.setItem(LS_TOKEN, urlToken);
+    localStorage.setItem(LS_USERNAME, urlUser);
+
+    token = urlToken;
+    myUsername = urlUser;
+
+    cleanAuthParamsFromUrl();
+    return true;
+  }
+
+  // 2) token from saved storage
+  const savedToken = localStorage.getItem(LS_TOKEN);
+  const savedUser  = localStorage.getItem(LS_USERNAME);
+
+  if (savedToken && savedUser) {
+    const ok = await verifyToken(savedToken);
+    if (!ok) {
+      localStorage.removeItem(LS_TOKEN);
+      localStorage.removeItem(LS_USERNAME);
+      return false;
+    }
+    token = savedToken;
+    myUsername = savedUser;
+    return true;
+  }
+
+  return false;
+}
+
+// ---- Session bootstrap ----
+async function startAppAfterLogin() {
+  // hide overlay
+  loginOverlay.style.display = "none";
+
+  // enable chat input
+  inputMsg.disabled = false;
+  sendBtn.disabled = false;
+  logoutBtn.style.display = "inline-flex";
+
+  if ("Notification" in window && Notification.permission !== "granted") {
+    Notification.requestPermission();
+  }
+
+  await loadMyServers();
+  await loadDMList();
+  connectWS();
+}
+
 // Ping notification helper
 const recentPings = new Set();
-
 function notifyPing(username, text) {
   if (!("Notification" in window)) return;
-
   if (!document.hidden) return;
 
   if (Notification.permission !== "granted") {
@@ -679,98 +807,12 @@ function notifyPing(username, text) {
   });
 }
 
-// DOM references
-const serverHeader = document.getElementById('serverHeader');
-const chatHeader = document.getElementById('chatHeader');
-const channelList = document.getElementById('channelList');
-const messagesBox = document.getElementById('messages');
-const onlineList = document.getElementById('onlineList');
-const myServersList = document.getElementById('myServersList');
-const loginOverlay = document.getElementById("loginScreen");
-const usernameInput = document.getElementById("usernameLogin");
-const passwordInput = document.getElementById("passwordLogin");
-const loginBtnScreen = document.getElementById("loginBtnScreen");
-const signupBtnScreen = document.getElementById("signupBtnScreen");
-const inputMsg = document.getElementById("inputMsg");
-const sendBtn = document.getElementById("sendBtn");
+const MAX_SERVERS = 10;
+let serverInvites = {};
 
-// disable chat until login
-inputMsg.disabled = true;
-sendBtn.disabled = true;
-
-// LOGIN
-loginBtnScreen.onclick = async function handleLogin() {
-  const u = usernameInput.value.trim();
-  const p = passwordInput.value;
-  if (!u || !p) return alert("Enter username/password");
-
-  const res = await fetch(API + "/login", {
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ username: u, password: p })
-  });
-  const data = await res.json();
-  if (data.token) {
-    token = data.token;
-    myUsername = data.username;
-    if ("Notification" in window && Notification.permission !== "granted") {
-  Notification.requestPermission();
-}
-
-    // hide overlay
-    loginOverlay.style.display = "none";
-
-    // enable chat input
-    inputMsg.disabled = false;
-    sendBtn.disabled = false;
-
-    // load servers, DMs, connect WS
-    await loadMyServers();
-    await loadDMList();
-    connectWS();
-  } else {
-    alert("Login failed");
-  }
-};
-
-// SIGNUP
-signupBtnScreen.onclick = async function() {
-  if (!document.getElementById('tosCheckbox').checked) {
-    return alert("You must agree to the Terms of Service.");
-  }
-
-  const u = usernameInput.value.trim();
-  const p = passwordInput.value;
-  const e = document.getElementById("emailSignup").value.trim();
-
-  if (!u || !p || !e) {
-    return alert("Enter username, password, and email");
-  }
-
-  const res = await fetch(API + "/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: u,
-      password: p,
-      email: e
-    })
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    alert(data.error || "Signup failed.");
-  } else {
-    alert("Signup successful! Please log in.");
-  }
-};
-
-
-const MAX_SERVERS = 10; // change to whatever limit you want
-let serverInvites = {}; // store invite codes { serverId: inviteCode }
+// create server
 async function createServer() {
-  if (!token) return alert("You must be logged in to create a server.");
+  if (!token) return alert("You must be logged in.");
 
   const rServers = await fetch(API + "/servers?token=" + encodeURIComponent(token));
   const userServers = await rServers.json();
@@ -781,20 +823,19 @@ async function createServer() {
   const name = prompt("Server name:");
   if (!name) return;
 
-  const r = await fetch(API + "/server", { 
-    method: "POST", 
-    headers: { 'Content-Type': 'application/json' }, 
-    body: JSON.stringify({ name, token }) 
+  const r = await fetch(API + "/server", {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, token })
   });
 
   const j = await r.json();
   if (j.id) {
     alert(`Server created!`);
-     serverInvites[j.id] = j.invite; // save invite code
+    serverInvites[j.id] = j.invite;
     await loadMyServers();
     selectServer(j.id);
 
-    // Show invite code in UI
     const inviteDiv = document.getElementById("inviteCode");
     inviteDiv.textContent = `Invite: ${j.invite}`;
   } else {
@@ -802,12 +843,15 @@ async function createServer() {
   }
 }
 
-
 // join by invite
 async function joinByInvite() {
   const inv = prompt("Paste invite code:");
   if (!inv) return;
-  const r = await fetch(API + "/join/" + encodeURIComponent(inv), { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) });
+  const r = await fetch(API + "/join/" + encodeURIComponent(inv), {
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ token })
+  });
   const j = await r.json();
   if (j.serverId) {
     alert("Joined server: " + j.name);
@@ -823,12 +867,8 @@ document.getElementById('joinByInviteBtn').onclick = joinByInvite;
 async function loadMyServers() {
   if (!token) return;
 
-  console.log("loadMyServers called");
-
   const r = await fetch(API + "/servers?token=" + encodeURIComponent(token));
   const arr = await r.json();
-
-  console.log("servers response:", arr);
 
   // --- RIGHT PANEL ---
   myServersList.innerHTML = "";
@@ -840,71 +880,66 @@ async function loadMyServers() {
     myServersList.appendChild(li);
   });
 
- // --- LEFT SIDEBAR ---
-const serversCol = document.getElementById("serversCol");
-serversCol.innerHTML = "";
+  // --- LEFT SIDEBAR ---
+  const serversCol = document.getElementById("serversCol");
+  serversCol.innerHTML = "";
 
-const homeBtn = document.createElement("div");
-homeBtn.className = "server-btn";
-homeBtn.textContent = "R";
-homeBtn.onclick = () => loadDMList();
-serversCol.appendChild(homeBtn);
+  const homeBtn = document.createElement("div");
+  homeBtn.className = "server-btn";
+  homeBtn.textContent = "R";
+  homeBtn.onclick = () => loadDMList();
+  serversCol.appendChild(homeBtn);
 
-const discoverBtn = document.createElement("div");
-discoverBtn.className = "server-btn";
-discoverBtn.textContent = "🌐"; // globe icon for discover
-discoverBtn.title = "Discover Servers";
-discoverBtn.onclick = showDiscoverServers;
-serversCol.appendChild(discoverBtn);
+  const discoverBtn = document.createElement("div");
+  discoverBtn.className = "server-btn";
+  discoverBtn.textContent = "🌐";
+  discoverBtn.title = "Discover Servers";
+  discoverBtn.onclick = showDiscoverServers;
+  serversCol.appendChild(discoverBtn);
 
+  arr.forEach(s => {
+    const btn = document.createElement("div");
+    btn.className = "server-btn";
+    btn.textContent = s.name[0].toUpperCase();
+    btn.title = s.name;
+    btn.dataset.serverId = s.id;
 
-arr.forEach(s => {
-  const btn = document.createElement("div");
-  btn.className = "server-btn";
-  btn.textContent = s.name[0].toUpperCase();
-  btn.title = s.name;
-  btn.dataset.serverId = s.id;
+    btn.onclick = () => {
+      unreadPings[s.id] = false;
+      updateServerBadges();
+      selectServer(s.id);
+    };
 
-  btn.onclick = () => {
-    unreadPings[s.id] = false;
-    updateServerBadges();
-    selectServer(s.id);
-  };
+    serversCol.appendChild(btn);
+  });
 
-  serversCol.appendChild(btn);
-});
-
-
-
-  // --- CREATE SERVER BUTTON ---
   createBtn = document.createElement("div");
   createBtn.className = "server-btn create";
   createBtn.textContent = "+";
   createBtn.onclick = createServer;
   serversCol.appendChild(createBtn);
-  updateCreateButtonState(); // initial state
+  updateCreateButtonState();
 }
 
 async function selectServer(serverId) {
   currentServer = serverId;
-  inDM = false;       // <-- reset DM mode
-  currentDM = null;   // <-- clear current DM
+  inDM = false;
+  currentDM = null;
 
   const serverObj = await fetch(API + "/servers?token=" + encodeURIComponent(token))
-  .then(r => r.json())
-  .then(arr => arr.find(s => s.id === serverId));
+    .then(r => r.json())
+    .then(arr => arr.find(s => s.id === serverId));
 
-serverHeader.textContent = serverObj ? serverObj.name : "Server";
+  serverHeader.textContent = serverObj ? serverObj.name : "Server";
 
   channelList.innerHTML = "";
   messagesBox.innerHTML = "";
   onlineList.innerHTML = "";
-  chatHeader.textContent = "# general";
+  chatTitle.textContent = "# general";
   currentChannel = "general";
 
   document.getElementById("addChannelBtn").style.display = "block";
 
-  // fetch channels
   const r = await fetch(API + "/channels/" + encodeURIComponent(serverId));
   if (!r.ok) return alert("failed to load channels");
   const channels = await r.json();
@@ -916,13 +951,8 @@ serverHeader.textContent = serverObj ? serverObj.name : "Server";
     channelList.appendChild(el);
   });
 
-  // server info / invite code
   const inviteDiv = document.getElementById("inviteCode");
-  if (serverInvites[serverId]) {
-    inviteDiv.textContent = `Invite: ${serverInvites[serverId]}`;
-  } else {
-    inviteDiv.textContent = "Invite: —";
-  }
+  inviteDiv.textContent = serverInvites[serverId] ? `Invite: ${serverInvites[serverId]}` : "Invite: —";
 
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: "joinServer", token, serverId: currentServer, channel: currentChannel }));
@@ -933,14 +963,14 @@ serverHeader.textContent = serverObj ? serverObj.name : "Server";
   loadHistory();
 }
 
-
-// add channel to current server
 async function addChannel() {
   if (!currentServer) return alert("select a server first");
   const name = prompt("Channel name (no #):");
   if (!name) return;
   const r = await fetch(API + "/channels/" + encodeURIComponent(currentServer), {
-    method: "POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name })
+    method: "POST",
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
   });
   const j = await r.json();
   if (j.ok) {
@@ -960,10 +990,9 @@ async function loadHistory() {
   messagesBox.scrollTop = messagesBox.scrollHeight;
 }
 
-// join channel in UI + inform WS
 function joinChannel(ch) {
   currentChannel = ch;
-  chatHeader.textContent = "# " + ch;
+  chatTitle.textContent = "# " + ch;
   Array.from(channelList.children).forEach(c => c.classList.remove('active'));
   const toActivate = Array.from(channelList.children).find(c => c.textContent === '# ' + ch);
   if (toActivate) toActivate.classList.add('active');
@@ -984,12 +1013,10 @@ async function appendMessage(m) {
   meta.className = 'meta';
   const time = new Date(m.ts).toLocaleTimeString();
 
-  // Username span
   const nameSpan = document.createElement("span");
   nameSpan.textContent = m.username;
   nameSpan.style.fontWeight = "600";
 
-  // Badges
   if (m.username === "RELINK") {
     const badge = document.createElement("span");
     badge.textContent = "OWNER";
@@ -1009,21 +1036,17 @@ async function appendMessage(m) {
     nameSpan.appendChild(badge);
   }
 
-  // Append username and timestamp
   meta.appendChild(nameSpan);
   meta.appendChild(document.createTextNode(` • ${time}`));
 
   const txt = document.createElement('div');
-
-  // Replace emoji codes
   const messageText = replaceEmojis(m.text);
 
- const isPing = myUsername && messageText.toLowerCase().includes("@" + myUsername.toLowerCase());
-if (isPing && m.username !== myUsername) {
-  notifyPing(m.username, messageText);
-}
+  const isPing = myUsername && messageText.toLowerCase().includes("@" + myUsername.toLowerCase());
+  if (isPing && m.username !== myUsername) {
+    notifyPing(m.username, messageText);
+  }
 
-  // Highlight pings
   if (isPing) {
     const parts = messageText.split(new RegExp(`(@${myUsername})`, "gi"));
     parts.forEach(p => {
@@ -1047,44 +1070,14 @@ if (isPing && m.username !== myUsername) {
   const atBottom = messagesBox.scrollHeight - messagesBox.scrollTop <= messagesBox.clientHeight + 50;
   messagesBox.appendChild(div);
 
-  // Tenor GIF handling
-  const tenorRegex = /https?:\/\/(?:www\.)?tenor\.com\/view\/[^\s]+/gi;
-  const matches = [...messageText.matchAll(tenorRegex)];
-
-  for (const match of matches) {
-    if (match.index !== undefined) {
-      if (match.index > 0) {
-        txt.appendChild(document.createTextNode(messageText.slice(0, match.index)));
-      }
-      const url = match[0];
-      try {
-        const apiRes = await fetch(`https://api.tenor.com/v1/pages?url=${encodeURIComponent(url)}`);
-        const data = await apiRes.json();
-        if (data.results?.[0]?.media?.[0]?.gif?.url) {
-          const img = document.createElement('img');
-          img.src = data.results[0].media[0].gif.url;
-          img.style.cssText = "max-width:300px;border-radius:8px;display:block;margin-top:4px;";
-          txt.appendChild(img);
-        } else {
-          txt.appendChild(document.createTextNode(url));
-        }
-      } catch {
-        txt.appendChild(document.createTextNode(url));
-      }
-    }
-  }
-
   if (atBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
 
-  // mark pings for unread badge
   if (isPing && m.username !== myUsername && m.serverId !== currentServer) {
     unreadPings[m.serverId] = true;
     updateServerBadges();
   }
 }
 
-
-// connect web socket
 function connectWS() {
   if (ws && (ws.readyState === 1 || ws.readyState === 0)) return;
   ws = new WebSocket(WS);
@@ -1097,34 +1090,31 @@ function connectWS() {
       if (d.message.serverId === currentServer && d.message.channel === currentChannel) appendMessage(d.message);
     }
     if (d.type === 'presence') {
-      // check server/channel match
       if (d.serverId === currentServer && d.channel === currentChannel) {
         onlineList.innerHTML = d.users.map(u => `<li>${u}</li>`).join('');
       }
     }
-      if (d.type === 'dm') {
-    if (inDM && currentDM && 
-       (d.message.from === currentDM || d.message.to === currentDM)) {
-      appendDM(d.message);
+    if (d.type === 'dm') {
+      if (inDM && currentDM &&
+        (d.message.from === currentDM || d.message.to === currentDM)) {
+        appendDM(d.message);
+      }
     }
-  }
     if (d.type === 'error') {
       console.warn('ws error', d.error);
     }
   };
-  }
+}
 
-// send message button
 function sendMessage() {
   const text = inputMsg.value.trim();
   if (!text) return;
- 
-  // Limit text length
+
   if (text.length > 150) {
     alert("Message too long! Max 150 characters.");
     return;
   }
-  
+
   if (!ws || ws.readyState !== 1) return alert("not connected");
 
   if (inDM && currentDM) {
@@ -1140,15 +1130,13 @@ async function loadDMList() {
   currentServer = null;
   currentDM = null;
   serverHeader.textContent = "Direct Messages";
-  chatHeader.textContent = "DMs";
+  chatTitle.textContent = "DMs";
   channelList.innerHTML = "";
   messagesBox.innerHTML = "";
   onlineList.innerHTML = "";
- 
-  // Hide the "+ Add Channel" button while in DMs
+
   document.getElementById("addChannelBtn").style.display = "none";
 
-  // 👇 Add "New DM" button at the top of the DM list
   const newBtn = document.createElement("div");
   newBtn.className = "channel-item";
   newBtn.style.fontWeight = "bold";
@@ -1157,7 +1145,6 @@ async function loadDMList() {
     const user = prompt("Enter the username to DM:");
     if (!user) return;
 
-    // check if user exists by trying to fetch DM history
     const resCheck = await fetch(`${API}/dm/${encodeURIComponent(user)}?token=${token}`);
     if (!resCheck.ok) {
       alert("User not found!");
@@ -1194,7 +1181,7 @@ async function loadDMList() {
 async function openDM(user) {
   inDM = true;
   currentDM = user;
-  chatHeader.textContent = "DM with " + user;
+  chatTitle.textContent = "DM with " + user;
   messagesBox.innerHTML = "";
 
   const res = await fetch(`${API}/dm/${encodeURIComponent(user)}?token=${token}`);
@@ -1217,32 +1204,17 @@ function appendDM(m) {
   messagesBox.appendChild(div);
 }
 
-// Send on Enter key (Shift+Enter for newline)
 inputMsg.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
   }
 });
-
-// Send on button click
 document.getElementById('sendBtn').onclick = sendMessage;
 
-// initial UI wiring
 document.getElementById('createServerBtn').onclick = createServer;
-document.getElementById('homeBtn').onclick = () => {
-  loadDMList();
-};
+document.getElementById('homeBtn').onclick = () => loadDMList();
 
-// initial load
-(async function init() {
-  // Optionally, auto-load public or pre-created demo server if you want.
-  // For prototype, we won't create a server automatically.
-  // But if you have a server already (e.g. created by you), call loadMyServers() after login.
-})();
-
-
-// --- UPDATE CREATE BUTTON ---
 async function updateCreateButtonState() {
   if (!createBtn) return;
   if (!token) {
@@ -1281,7 +1253,6 @@ function updateServerBadges() {
 }
 
 function replaceEmojis(text) {
-  // add more mappings as needed
   const map = {
     ":sob:": "😭",
     ":smile:": "😄",
@@ -1290,68 +1261,26 @@ function replaceEmojis(text) {
     ":skull:": "💀",
     ":pray:": "🙏",
     ":nerd:": "🤓",
-    
-
   };
-
   return text.replace(/:\w+:/g, (match) => map[match] || match);
 }
 
-async function leaveServer(serverId, serverName) {
-  if (!confirm(`Are you sure you want to leave "${serverName}"?`)) return;
-
-  if (!token) return alert("You must be logged in.");
-
-  try {
-    const res = await fetch(`${API}/leave/${encodeURIComponent(serverId)}`, {
-      method: "POST",
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      return alert(`Failed to leave server: ${data.error || "Unknown error"}`);
-    }
-
-    // Remove server from unread pings list
-    delete unreadPings[serverId];
-
-    // Reload servers list
-    await loadMyServers();
-
-    // If you were in this server, switch to DM view
-    if (currentServer === serverId) {
-      currentServer = null;
-      loadDMList();
-    }
-
-    alert(`You left "${serverName}"`);
-  } catch (err) {
-    console.error(err);
-    alert("Error leaving server.");
-  }
-}
-
-// Open overlay from footer link
+// TOS overlay open/close
 document.querySelectorAll('a[href="#tos"]').forEach(link => {
   link.onclick = e => {
     e.preventDefault();
     document.getElementById('tosOverlay').style.display = 'block';
   };
 });
-
-// Close overlay
 document.getElementById('closeTosOverlay').onclick = () => {
   document.getElementById('tosOverlay').style.display = 'none';
 };
-
-// Open TOS overlay from checkbox link
 document.getElementById('openTosLink').onclick = function(e) {
   e.preventDefault();
   document.getElementById('tosOverlay').style.display = 'block';
 };
 
+// Discover servers
 async function showDiscoverServers() {
   document.getElementById("discoverOverlay").style.display = "block";
   const list = document.getElementById("discoverList");
@@ -1404,6 +1333,16 @@ document.getElementById("closeDiscover").onclick = () => {
   document.getElementById("discoverOverlay").style.display = "none";
 };
 
+// ---- BOOT ----
+(async function init() {
+  const ok = await acceptAuthFromRedirectOrStorage();
+  if (ok) {
+    await startAppAfterLogin();
+  } else {
+    // stay on login overlay
+    loginOverlay.style.display = "flex";
+  }
+})();
 </script>
 </body>
 </html>
