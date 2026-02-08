@@ -158,6 +158,36 @@ html,body {
   border-left:1px solid #242629;
 }
 .small { font-size:12px; color: var(--text-muted); }
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.feature-list li {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.feature-list li:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+}
+.feature-list .feature-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
 
 /* Auth row */
 .auth { display:flex; gap:8px; align-items:center }
@@ -505,6 +535,30 @@ input[type=text], input[type=password] {
       <hr style="border:none;height:1px;background:#242629;margin:8px 0">
       <div class="small">My Servers</div>
       <ul id="myServersList"></ul>
+      <hr style="border:none;height:1px;background:#242629;margin:8px 0">
+      <div class="small">Ambient Experiments</div>
+      <ul class="feature-list">
+        <li><span class="feature-title">Live Channel Mood</span>The UI tint of a channel slowly shifts based on recent message length, emoji density, and activity speed.</li>
+        <li><span class="feature-title">Message Echo Trails</span>When someone sends a message, it leaves a fading ghost trail behind it as the chat scrolls.</li>
+        <li><span class="feature-title">Conversation Heatmap</span>Scrollbar shows subtle highlights where conversation spiked earlier.</li>
+        <li><span class="feature-title">Time-Warp Scroll</span>Scrolling upward subtly “rewinds” typing sounds, animations, or message fade-ins.</li>
+        <li><span class="feature-title">Message Weight</span>Longer or more emotional messages visually “sink” lower and push others up more slowly.</li>
+        <li><span class="feature-title">Ambient Presence</span>Each online user adds a tiny animated particle to the channel header.</li>
+        <li><span class="feature-title">Channel Breathing</span>Inactive channels slowly pulse; active ones feel rigid and sharp.</li>
+        <li><span class="feature-title">Focus Lens</span>The message you’re hovering slightly sharpens while others blur.</li>
+        <li><span class="feature-title">Draft Snapshots</span>Every draft you abandon leaves a faint ghost that can be recalled later.</li>
+        <li><span class="feature-title">Live Typing Rhythm</span>Typing indicators pulse at the actual typing rhythm, not just on/off.</li>
+        <li><span class="feature-title">Message Aging</span>Old messages subtly desaturate instead of jumping to a “read” state.</li>
+        <li><span class="feature-title">Scroll Memory</span>When you return to a channel, it remembers exactly where your eyes last were.</li>
+        <li><span class="feature-title">Soundless Feedback</span>Tiny visual vibrations replace notification sounds.</li>
+        <li><span class="feature-title">Presence Drift</span>User avatars drift slowly in the member list instead of being static.</li>
+        <li><span class="feature-title">Conversation Layers</span>Overlapping conversations subtly separate into visual depth layers.</li>
+        <li><span class="feature-title">Emotion Shadows</span>Messages cast faint color shadows based on sentiment, without labels.</li>
+        <li><span class="feature-title">Typing Fog</span>While you’re typing, unread messages blur until you send or cancel.</li>
+        <li><span class="feature-title">Server Pulse</span>Each server icon gently pulses based on its activity over time.</li>
+        <li><span class="feature-title">Micro-Reactions</span>Hovering a message briefly reveals tiny animated reactions that disappear if not clicked.</li>
+        <li><span class="feature-title">Attention Gravity</span>The chat naturally scrolls toward where conversation is densest, not strictly newest.</li>
+      </ul>
     </div>
 
   </div> <!-- close app -->
