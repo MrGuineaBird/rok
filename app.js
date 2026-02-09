@@ -106,7 +106,7 @@ async function send() {
   input.focus();
 
   sendBtn.disabled = true;
-  const typing = addMessage("system", "SCHOOLGPT is thinking...");
+  const typing = addMessage("system", "ROK is thinking...");
 
   try {
     const res = await fetch(API_URL, {
@@ -151,4 +151,4 @@ if (newChatBtn) {
   newChatBtn.addEventListener("click", () => clearChat(true));
 }
 
-addMessage("system", "SCHOOLGPT is ready. Ask me anything.");
+addMessage("system", "ROK is ready. Ask me anything.");
