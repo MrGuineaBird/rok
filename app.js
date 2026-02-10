@@ -3,9 +3,17 @@ const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const clearBtn = document.getElementById("clearBtn");
 const newChatBtn = document.getElementById("newChatBtn");
+const cooldownEl = document.getElementById("cooldown");
 
 const API_URL = "https://chalky-organoleptic-hope.ngrok-free.dev/chat";
 const TYPING_SPEED_MS = 12;
+const COOLDOWN_MS = 15000;
+const HISTORY_LIMIT = 10;
+
+const history = [];
+let isSending = false;
+let nextAllowedAt = 0;
+let cooldownTimer = null;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -14,6 +22,13 @@ if (hasMarked) {
 
 function scrollToBottom() {
   chat.scrollTop = chat.scrollHeight;
+}
+
+function autoResizeInput() {
+  if (!input) return;
+  input.style.height = "auto";
+  const next = Math.min(input.scrollHeight, 180);
+  input.style.height = next + "px";
 }
 
 function setBubbleContent(bubble, text, markdown) {
@@ -47,7 +62,7 @@ function addMessage(role, text, options = {}) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
-  avatar.textContent = role === "user" ? "You" : "S";
+  avatar.textContent = role === "user" ? "Y" : "R";
 
   setBubbleContent(bubble, text, markdown);
 
@@ -64,8 +79,53 @@ function addMessage(role, text, options = {}) {
   return { row, bubble };
 }
 
+function updateCooldownUI() {
+  if (!cooldownEl) return false;
+  const remaining = Math.max(0, nextAllowedAt - Date.now());
+  if (remaining <= 0) {
+    cooldownEl.textContent = "";
+    return false;
+  }
+  const seconds = Math.ceil(remaining / 1000);
+  cooldownEl.textContent = `Wait ${seconds}s before sending again.`;
+  return true;
+}
+
+function refreshSendState() {
+  const cooldownActive = Date.now() < nextAllowedAt;
+  sendBtn.disabled = isSending || cooldownActive;
+  if (cooldownActive) {
+    updateCooldownUI();
+  } else if (cooldownEl) {
+    cooldownEl.textContent = "";
+  }
+}
+
+function startCooldownTimer() {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+  }
+  updateCooldownUI();
+  cooldownTimer = setInterval(() => {
+    if (!updateCooldownUI()) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 500);
+}
+
 function clearChat(showNotice) {
   chat.innerHTML = "";
+  history.length = 0;
+  nextAllowedAt = 0;
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+  if (cooldownEl) {
+    cooldownEl.textContent = "";
+  }
+  refreshSendState();
   if (showNotice) {
     addMessage("system", "New chat started.");
   }
@@ -100,19 +160,38 @@ function typeIn(bubble, fullText) {
 async function send() {
   const text = input.value.trim();
   if (!text) return;
+  if (isSending) return;
+
+  if (Date.now() < nextAllowedAt) {
+    startCooldownTimer();
+    refreshSendState();
+    return;
+  }
+
+  const recentHistory = history.slice(-HISTORY_LIMIT);
 
   addMessage("user", text);
+  history.push({ role: "user", content: text });
+  if (history.length > 200) {
+    history.splice(0, history.length - 200);
+  }
+
   input.value = "";
+  autoResizeInput();
   input.focus();
 
-  sendBtn.disabled = true;
+  isSending = true;
+  nextAllowedAt = Date.now() + COOLDOWN_MS;
+  startCooldownTimer();
+  refreshSendState();
+
   const typing = addMessage("system", "ROK is thinking...");
 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text, history: recentHistory })
     });
 
     const data = await res.json();
@@ -125,17 +204,23 @@ async function send() {
     const reply = data.reply || "(No response)";
     const botMsg = addMessage("bot", "");
     await typeIn(botMsg.bubble, reply);
+    history.push({ role: "assistant", content: reply });
+    if (history.length > 200) {
+      history.splice(0, history.length - 200);
+    }
   } catch (err) {
     if (typing.row.isConnected) {
       typing.row.remove();
     }
     addMessage("system", "Error: " + err.message);
   } finally {
-    sendBtn.disabled = false;
+    isSending = false;
+    refreshSendState();
   }
 }
 
 sendBtn.addEventListener("click", send);
+input.addEventListener("input", autoResizeInput);
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -152,3 +237,5 @@ if (newChatBtn) {
 }
 
 addMessage("system", "ROK is ready. Ask me anything.");
+autoResizeInput();
+refreshSendState();
