@@ -3,41 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
   <title>ROK</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="layout">
+  <div class="app">
     <aside class="sidebar">
-      <div class="side-top">
+      <div class="side-header">
         <div class="brand">ROK</div>
-        <button id="newChatBtn" class="side-btn">+ New chat</button>
+        <button id="newChatBtn" class="side-btn" type="button">New chat</button>
       </div>
 
       <div class="side-section">
-        <div class="side-title">Today</div>
-        <div class="side-item active">Local session</div>
+        <div class="side-label">Today</div>
+        <button class="side-item active" type="button">Local session</button>
       </div>
 
-      <div class="side-footer">Nothing is saved!</div>
+      <div class="side-footer">
+        <div class="side-hint">Local only. Nothing is saved.</div>
+      </div>
     </aside>
 
     <div class="main">
       <header class="topbar">
         <div class="top-left">
           <div class="title">ROK</div>
-          <div class="pill">Made with ❤️ from MrGuineaBird</div>
+          <div class="model-pill">1.0.0-stable</div>
         </div>
-        <button id="clearBtn" class="ghost">Clear</button>
+        <button id="clearBtn" class="ghost" type="button">Clear</button>
       </header>
 
       <main id="chat" class="chat"></main>
 
-      <div class="composer">
-        <input id="input" placeholder="Message ROK..." autocomplete="off" />
-        <button id="sendBtn">Send</button>
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="input" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
+          <button id="sendBtn" type="button">Send</button>
+        </div>
+        <div class="composer-meta">
+          <div class="composer-hint">ROK can make mistakes. Check important info.</div>
+          <div id="cooldown" class="cooldown"></div>
+        </div>
       </div>
-      <div class="composer-hint">ROK can make mistakes. Check important info.</div>
     </div>
   </div>
 
