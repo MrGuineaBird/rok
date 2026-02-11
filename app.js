@@ -329,7 +329,7 @@ async function send() {
 sendBtn.addEventListener("click", send);
 input.addEventListener("input", autoResizeInput);
 input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
     e.preventDefault();
     send();
   }
@@ -346,3 +346,4 @@ if (newChatBtn) {
 addMessage("system", "ROK is ready. Ask me anything.");
 autoResizeInput();
 refreshSendState();
+
