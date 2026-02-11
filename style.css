@@ -17,9 +17,11 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
-  min-height: 100vh;
+  overflow: hidden;
   font-family: "Sora", "Segoe UI", sans-serif;
   color: var(--text);
   background:
@@ -29,9 +31,10 @@ body {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 260px 1fr;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -110,10 +113,12 @@ body {
 }
 
 .main {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: rgba(13, 17, 23, 0.72);
+  overflow: hidden;
 }
 
 .topbar {
@@ -140,6 +145,14 @@ body {
   font-weight: 600;
 }
 
+.title-beta {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 .model-pill {
   font-size: 12px;
   color: var(--muted);
@@ -151,6 +164,7 @@ body {
 
 .chat {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 0 12px;
   display: flex;
@@ -318,6 +332,9 @@ textarea {
   line-height: 1.4;
   resize: none;
   outline: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 textarea:focus {
@@ -404,3 +421,9 @@ button.ghost {
     padding: 12px 12px;
   }
 }
+
+textarea::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
