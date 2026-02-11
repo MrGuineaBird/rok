@@ -194,17 +194,124 @@ async function send() {
       body: JSON.stringify({ message: text, history: recentHistory })
     });
 
-    const data = await res.json();
-    typing.row.remove();
-
     if (!res.ok) {
-      throw new Error(data.reply || "Request failed.");
+      let errorMessage = "Request failed.";
+      try {
+        const data = await res.json();
+        errorMessage = data.reply || data.error || errorMessage;
+      } catch {
+        const textBody = await res.text();
+        if (textBody) errorMessage = textBody;
+      }
+      throw new Error(errorMessage);
     }
 
-    const reply = data.reply || "(No response)";
+    typing.row.remove();
+
     const botMsg = addMessage("bot", "");
-    await typeIn(botMsg.bubble, reply);
-    history.push({ role: "assistant", content: reply });
+    const bubble = botMsg.bubble;
+    bubble.classList.remove("markdown");
+    bubble.classList.add("plain");
+    bubble.textContent = "";
+
+    let fullText = "";
+    const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+
+    if (!reader) {
+      const reply = (await res.text()) || "(No response)";
+      await typeIn(bubble, reply);
+      history.push({ role: "assistant", content: reply });
+      return;
+    }
+
+    const decoder = new TextDecoder("utf-8");
+    let lastFlush = 0;
+    const flush = () => {
+      bubble.textContent = fullText;
+      scrollToBottom();
+    };
+
+    const contentType = res.headers.get("content-type") || "";
+    const isEventStream = contentType.includes("text/event-stream");
+    let buffer = "";
+    let streamEnded = false;
+
+    const handleToken = (token) => {
+      fullText += token;
+      const now = performance.now();
+      if (now - lastFlush > 40) {
+        flush();
+        lastFlush = now;
+      }
+    };
+
+    const processBuffer = () => {
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        let line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.endsWith("\r")) {
+          line = line.slice(0, -1);
+        }
+        if (!line || line.startsWith(":")) {
+          continue;
+        }
+        if (line.startsWith("data:")) {
+          const data = line.slice(5);
+          if (data === "[DONE]") {
+            streamEnded = true;
+            return;
+          }
+          if (!data) {
+            continue;
+          }
+          let token = data;
+          if (data[0] === "{") {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed && typeof parsed.token === "string") {
+                token = parsed.token;
+              }
+            } catch {
+              // Fallback to raw data if JSON parsing fails.
+            }
+          }
+          if (token) {
+            handleToken(token);
+          }
+        }
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (!chunk) continue;
+      if (isEventStream) {
+        buffer += chunk;
+        processBuffer();
+        if (streamEnded) break;
+      } else {
+        handleToken(chunk);
+      }
+    }
+
+    const tail = decoder.decode();
+    if (tail) {
+      if (isEventStream) {
+        buffer += tail;
+        processBuffer();
+      } else {
+        fullText += tail;
+      }
+    }
+    if (!fullText) {
+      fullText = "(No response)";
+    }
+    flush();
+    setBubbleContent(bubble, fullText, true);
+    history.push({ role: "assistant", content: fullText });
     if (history.length > 200) {
       history.splice(0, history.length - 200);
     }
