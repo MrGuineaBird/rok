@@ -7,23 +7,28 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=home35" />
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="side-header">
-        <div class="brand">ROK<span class="title-beta">beta</span></div>
+        <button id="brandHomeBtn" class="brand brand-btn" type="button">ROK<span class="title-beta">beta</span></button>
         <button id="newChatBtn" class="side-btn" type="button">New chat</button>
       </div>
 
       <div class="side-section">
         <div class="side-label">Right Now</div>
-        <button class="side-item active" type="button">Current Session</button>
+        <button id="currentSessionBtn" class="side-item active" type="button">Current Session</button>
+      </div>
+
+      <div class="side-section">
+        <div class="side-label">Saved Chats</div>
+        <div id="savedChatsList" class="side-sessions"></div>
       </div>
 
       <div class="side-footer">
-        <div class="side-hint">Chats are not saved or synced!</div>
+        <div class="side-hint">Chats are saved on this browser only.</div>
       </div>
     </aside>
 
@@ -31,18 +36,220 @@
       <header class="topbar">
         <div class="top-left">
           <div class="title">ROK</div>
-          <div class="model-pill">1.1.0-betatest</div>
         </div>
         <button id="clearBtn" class="ghost" type="button">Clear</button>
       </header>
+
+      <section id="homeScreen" class="home-screen" hidden>
+        <div class="home-bg-demo" aria-hidden="true">
+          <div class="home-bg-chat">
+            <div class="home-bg-line user">
+              <div class="home-bg-chip">You</div>
+              <div class="home-bg-bubble">
+                <span id="homeDemoPrompt" class="home-bg-type home-bg-type-user">Help me study for tomorrow's history quiz and make 5 flashcards.</span>
+              </div>
+            </div>
+            <div class="home-bg-line bot">
+              <div class="home-bg-chip">ROK</div>
+              <div class="home-bg-bubble">
+                <span id="homeDemoReply" class="home-bg-type home-bg-type-bot">Absolutely. Here is a quick summary and five flashcards with questions and answers.</span>
+              </div>
+            </div>
+            <div class="home-bg-line bot cards">
+              <div class="home-bg-chip">ROK</div>
+              <div class="home-bg-bubble home-bg-cards-bubble">
+                <div class="home-bg-gen-line">Generating flashcards...</div>
+                <div id="homeDemoCards" class="home-bg-cards">
+                  <div class="home-bg-card"><strong>1.</strong> What event started WWI?</div>
+                  <div class="home-bg-card"><strong>2.</strong> Which alliances shaped the war?</div>
+                  <div class="home-bg-card"><strong>3.</strong> Define trench warfare.</div>
+                  <div class="home-bg-card"><strong>4.</strong> Why did the U.S. join?</div>
+                  <div class="home-bg-card"><strong>5.</strong> Main outcomes of the Treaty?</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="home-card">
+          <div class="home-top">
+            <div class="home-logo">ROK <span class="title-beta">beta</span></div>
+            <div class="home-subtitle">Private local AI workspace</div>
+            <div class="home-status-row">
+              <span class="home-status-chip live">Proxy Protected</span>
+              <span class="home-status-chip">Saved Sessions</span>
+              <span class="home-status-chip">Streaming Replies</span>
+            </div>
+          </div>
+          <div class="home-middle">
+            <h1>Build, learn, and ask faster</h1>
+            <p>ROK keeps your chats local-first so you can code, study, and iterate without leaving your workspace.</p>
+            <button id="homeStartBtn" class="home-cta" type="button">Start chatting</button>
+            <div class="home-prompt-row">
+              <span class="home-prompt-pill">Summarize this error log</span>
+              <span class="home-prompt-pill">Explain this code snippet</span>
+              <span class="home-prompt-pill">Turn this into flashcards</span>
+            </div>
+          </div>
+          <div class="home-bottom">
+            <div class="home-block">
+              <div class="home-eyebrow">Local AI Workspace</div>
+              <div class="home-grid">
+                <div class="home-tile">
+                  <h3>Attach Files</h3>
+                  <p>Drop notes and code files directly into prompts.</p>
+                </div>
+                <div class="home-tile">
+                  <h3>Stop Stream</h3>
+                  <p>Cancel responses instantly with the square stop control.</p>
+                </div>
+                <div class="home-tile">
+                  <h3>Local Session</h3>
+                  <p>Nothing is synced. Your chat stays on your own setup.</p>
+                </div>
+              </div>
+            </div>
+            <div class="home-block">
+              <div class="home-eyebrow home-eyebrow-secondary">Why ROK</div>
+              <div class="home-strip">
+                <div class="home-strip-item">
+                  <strong>Private by default</strong>
+                  <span>Runs through your own proxy shield.</span>
+                </div>
+                <div class="home-strip-item">
+                  <strong>Fast iteration</strong>
+                  <span>Streamed output and stop control built in.</span>
+                </div>
+                <div class="home-strip-item">
+                  <strong>Session memory</strong>
+                  <span>Resume chats from browser local storage.</span>
+                </div>
+              </div>
+            </div>
+            <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
+          </div>
+        </div>
+      </section>
+
+      <nav id="workspaceTabs" class="workspace-tabs" hidden aria-label="Workspace tabs">
+        <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="model" role="tab" aria-selected="false">MODEL</button>
+      </nav>
+
+      <section id="workspacePanel" class="workspace-panel" hidden data-tab="chat">
+        <div class="workspace-document-shell">
+          <div class="workspace-panel-head">
+            <div id="workspacePanelTitle" class="workspace-panel-title">ROK Workspace</div>
+            <div class="workspace-panel-hint">Type here. When this tab is open, ROK can review and write back to this workspace.</div>
+          </div>
+          <textarea
+            id="workspaceEditor"
+            class="workspace-editor"
+            placeholder="Write anything here, then ask ROK to review, improve, or continue it."
+            spellcheck="true"
+          ></textarea>
+        </div>
+        <section id="workspaceAssistantPanel" class="workspace-assistant is-collapsed" aria-live="polite">
+          <div class="workspace-assistant-head">
+            <button
+              id="workspaceAssistantToggle"
+              class="workspace-assistant-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="workspaceAssistantBody"
+            >
+              <span id="workspaceAssistantChevron" class="workspace-assistant-chevron" aria-hidden="true">></span>
+              <span class="workspace-assistant-heading">
+                <span class="workspace-assistant-title">Workspace Assistant</span>
+                <span class="workspace-assistant-subtitle">ROK Notes</span>
+              </span>
+              <span class="workspace-assistant-indicator">
+                <span id="workspaceAssistantStatusDot" class="workspace-assistant-dot idle" aria-hidden="true"></span>
+                <span id="workspaceAssistantStatusText" class="workspace-assistant-status-text">Idle</span>
+              </span>
+            </button>
+            <button id="workspaceAssistantSuggestBtn" class="workspace-assistant-suggest-btn" type="button">Suggest Improvements</button>
+          </div>
+          <div id="workspaceAssistantBody" class="workspace-assistant-body" hidden>
+            <dl class="workspace-assistant-grid">
+              <div class="workspace-assistant-row">
+                <dt>Intent</dt>
+                <dd id="workspaceAssistantIntent">No document context yet</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Output Type</dt>
+                <dd id="workspaceAssistantOutput">Other</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Word Count</dt>
+                <dd id="workspaceAssistantWordCount">0</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Read Time</dt>
+                <dd id="workspaceAssistantReadTime">1 min</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Action</dt>
+                <dd id="workspaceAssistantAction">Not Applied</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Change Scope</dt>
+                <dd id="workspaceAssistantChangeScope">Short</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Last Action</dt>
+                <dd id="workspaceAssistantLastAction">None yet</dd>
+              </div>
+            </dl>
+            <p id="workspaceAssistantSummary" class="workspace-assistant-summary">Intent: No document context yet
+Output Type: Other
+Action: Not Applied
+Change Scope: Short</p>
+            <section id="workspaceAssistantSuggestions" class="workspace-assistant-suggestions" hidden>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Clarity improvements</h4>
+                <ul id="workspaceAssistantClarityList"></ul>
+              </div>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Grammar issues</h4>
+                <ul id="workspaceAssistantGrammarList"></ul>
+              </div>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Style enhancements</h4>
+                <ul id="workspaceAssistantStyleList"></ul>
+              </div>
+            </section>
+            <div class="workspace-assistant-footnote">Visible only in Workspace mode</div>
+          </div>
+        </section>
+      </section>
+      <section id="modelPanel" class="model-panel" hidden>
+        <div class="model-panel-shell" role="dialog" aria-modal="false" aria-labelledby="modelPanelTitle">
+          <div class="model-panel-head">
+            <div id="modelPanelTitle" class="model-panel-title">Model Selection</div>
+            <p class="model-panel-hint">Choose which model ROK should use for this chat session.</p>
+          </div>
+          <div id="modelPanelCurrent" class="model-panel-current">Current model: ROK Balanced (Mistral)</div>
+          <div id="modelOptionList" class="model-option-list" role="radiogroup" aria-label="Available models"></div>
+        </div>
+      </section>
 
       <main id="chat" class="chat"></main>
 
       <div class="composer-wrap">
         <div class="composer">
           <textarea id="input" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
+          <button id="attachBtn" class="ghost attach-btn" type="button">Attach</button>
           <button id="sendBtn" type="button">Send</button>
         </div>
+        <input
+          id="fileInput"
+          class="file-input"
+          type="file"
+          accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.java,.c,.cpp,.h,.hpp,text/*"
+          multiple
+        />
+        <div id="attachmentList" class="attachment-list" aria-live="polite"></div>
         <div class="composer-meta">
           <div class="composer-hint">ROK is currently in beta! Check imporant info.</div>
           <div id="cooldown" class="cooldown"></div>
@@ -51,7 +258,60 @@
     </div>
   </div>
 
+  <section id="serverDownScreen" class="server-down" hidden>
+    <div class="server-down-card">
+      <div class="server-down-badge">Connection issue</div>
+      <div class="server-down-logo">ROK <span class="title-beta">beta</span></div>
+      <h2 class="server-down-title">ROK is currently unavailable</h2>
+      <p id="serverDownMessage">Server is currently down. Check back later.</p>
+      <div id="serverDownMeta" class="server-down-meta">Unable to connect to the backend right now.</div>
+      <div class="server-down-actions">
+        <button id="serverDownRetryBtn" class="server-down-btn" type="button">Try again</button>
+        <button id="serverDownHomeBtn" class="server-down-btn ghost" type="button">Back to home</button>
+      </div>
+      <button
+        id="serverDownWhyBtn"
+        class="server-down-why-btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="serverDownWhyPanel"
+      >
+        Why does this happen?
+      </button>
+      <div id="serverDownWhyPanel" class="server-down-why-panel" hidden>
+        ROK is currently offline due to server capacity limits. We’re actively scaling to support 24/7 availability
+      </div>
+    </div>
+  </section>
+
+  <section id="workspaceApplyModal" class="workspace-apply-modal" hidden aria-hidden="true">
+    <div
+      class="workspace-apply-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="workspaceApplyTitle"
+      aria-describedby="workspaceApplyModalIntro workspaceApplyModalPreview"
+    >
+      <div class="workspace-apply-head">
+        <div class="workspace-apply-badge">Workspace edit</div>
+        <button id="workspaceApplyCloseBtn" class="workspace-apply-close" type="button" aria-label="Close dialog">x</button>
+      </div>
+      <h2 id="workspaceApplyTitle" class="workspace-apply-title">Apply these changes?</h2>
+      <p id="workspaceApplyModalIntro" class="workspace-apply-intro"></p>
+      <pre id="workspaceApplyModalPreview" class="workspace-apply-preview"></pre>
+      <div class="workspace-apply-actions">
+        <button id="workspaceApplyCancelBtn" class="workspace-apply-btn ghost" type="button">Cancel</button>
+        <button id="workspaceApplyConfirmBtn" class="workspace-apply-btn" type="button">Apply changes</button>
+      </div>
+    </div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="app.js"></script>
+  <script>
+    window.ROK_CONFIG = {
+      apiBaseUrl: "https://vocal-mating-calendar-gnu.trycloudflare.com"
+    };
+  </script>
+  <script src="app.js?v=home34"></script>
 </body>
 </html>
