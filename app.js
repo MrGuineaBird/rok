@@ -1,1 +1,3188 @@
-const n1=H,n0=N,W=F;(function(f,L){const d=H,Q=F,S=N,B=f();while(!![]){try{const l=-parseInt(S(0x1a1))/0x1+parseInt(Q(0x209))/0x2+-parseInt(Q(0x1bd))/0x3*(parseInt(Q(0x216))/0x4)+parseInt(S(0x236))/0x5*(parseInt(d(0x221,'r@E%'))/0x6)+-parseInt(S(0x228))/0x7*(-parseInt(S(0x1d8))/0x8)+-parseInt(Q(0x225))/0x9*(-parseInt(d(0x1ec,'M2@a'))/0xa)+-parseInt(d(0x231,'IoFg'))/0xb*(-parseInt(d(0x220,'N4a['))/0xc);if(l===L)break;else B['push'](B['shift']());}catch(Z){B['push'](B['shift']());}}}(D,0xc16d6));const U=(function(){let f=!![];return function(L,B){const l=f?function(){const r=H;if(B){const Z=B[r(0x1cb,'HfRP')](L,arguments);return B=null,Z;}}:function(){};return f=![],l;};}()),O=U(this,function(){const J=F,M=H,f=function(){const k=F,R=N;let g;try{g=Function(R(0x1c4)+k(0x203)+');')();}catch(s){g=window;}return g;},L=f(),B=new RegExp(M(0x1cc,'tjTi'),'g'),l='mrohkXHxYJp.UjkykSEablosaI.poPPnlinefCzxzpSJIKKgdxHbDFYOLQXYIfPh'[J(0x1ff)](B,'')[J(0x1f0)](';');let Z,e,E,V;const q=function(g,s,y){const m=J;if(g[m(0x20e)]!=s)return![];for(let K=0x0;K<s;K++){for(let a=0x0;a<y[m(0x20e)];a+=0x2){if(K==y[a]&&g['charCodeAt'](K)!=y[a+0x1])return![];}}return!![];},o=function(g,s,y){return q(s,y,g);},X=function(g,s,y){return o(s,g,y);},T=function(g,s,y){return X(s,y,g);};for(let g in L){if(q(g,0x8,[0x7,0x74,0x5,0x65,0x3,0x75,0x0,0x64])){Z=g;break;}}for(let s in L[Z]){if(T(0x6,s,[0x5,0x6e,0x0,0x64])){e=s;break;}}for(let y in L[Z]){if(X(y,[0x7,0x6e,0x0,0x6c],0x8)){E=y;break;}}if(!('~'>e))for(let K in L[Z][E]){if(o([0x7,0x65,0x0,0x68],K,0x8)){V=K;break;}}if(!Z||!L[Z])return;const A=L[Z][e],j=!!L[Z][E]&&L[Z][E][V],P=A||j;if(!P)return;let t=![];for(let a=0x0;a<l[J(0x20e)];a++){const z=l[a],v=z[0x0]===String[J(0x226)](0x2e)?z['slice'](0x1):z,x=P[J(0x20e)]-v[M(0x1ab,'CN7P')],u=P[M(0x1f2,'#xf3')](v,x),h=u!==-0x1&&u===x;h&&((P['length']==z['length']||z[J(0x212)]('.')===0x0)&&(t=!![]));}if(!t){const p=new RegExp(M(0x23b,'qogg'),'g'),C=M(0x1c5,'LX%@')[J(0x1ff)](p,'');L[Z][E]=C;}});function D(){const nA=['scrollTop','W5tcRNVcQCo6WRxdQmokW5O','parse','ywrK','W4hdHZdcO8koj37cG8kZ','y29UC29Szq','avatar','mZGWote0nu9Irw5Wtq','altKey','BxnNia','CgfYC2u','DhjHy2u','BuqxWP9yrq','body','return\x20(function()\x20','WOJcI8o3WQ3dQwf0wCoDDCouWOJcKZ0GW6jhWO7dQ8kxc8oxW6SBWO3dRfFcLhxdOdDRg8kRdCoFW5ddTZNcHsVdQehdUSo4stv7sctdMmkUWOi+W7/dVCo+WRC4W6tcGW','qCoZsYZdTCo6','WRnoCxfXFG','WQlcPx0m','z8k/FG','WRJdTSodW7bl','WO14gHLQ','reWsWQHMwmkIugGJdJ3cO8o7W50vndRcGZJdR2BdGdtdMexdNmkVWPNdR8ozsmo1W7ddLw1sW5nXAxeTCrtcQqBcMeRdSW','CMvHza','ESosWPldR8o2','createElement','ANnVBG','WQJcPmokheXV','scrollHeight','assistant','DhjPBq','mmkpW4mYW5Ohe8khrq','textContent','yNvIyMXLihbSywLU','5674688sHERLA','WQO1WR4','WRndCgX6DmkLbSkU','text','clearBtn','length','cSkRWRBdK8kJfW','value','fGpcNmohWOhdHqBcIW','CMvTB3zL','BM93','row','bind','bot','D2fYBG','W74cymo7W5jZdvPF','(No\x20response)','yxbWBgLJyxrPB24VANnVBG','W7ZcHJBcV8oNgCoWWRBcVSocWQLJq8k4vW','WP/cI1y','W6VdIHtdLNRcTSkQDG','yCoaW4m','smoqf8kxAq','oCkNW4ipD0DOlSogWOvFW5pcV8kq','C3bSAxq','w8otgmknAmkJfa','vCoNfSkOhmouW5C','y3rYBeTLEq','z2v0','W43cJYBcUCoXjSoTW6xcRa','WQG+WRxcGCo4Fwy5','headers','jGqYW509WQi','WOFcS2yrW5yg','b8k4W6T3W4mawSkAtSkMcSoFW7OJAmk9omk/W6ysWObhW7pcQmoUW7/dUJjMWOK','if9uWOVdUt5xFYG','BwfYA2rVD24','WPJcUMevW4C','W6eEE23cNq','CMvWBgfJzq','WOldUJVdISkUW63cUmojW4v7sdzR','DxrMltG','WPJcONOFW4Wj','E30Uy29UC3rYDwn0B3iOiNjLDhvYBIb0AgLZiIKOicK','ccu+wmoKW5i','W78By8oQW41A','C3LZDgvT','E3q9','W57cRNVcMSouWRhdTq','mteXmZaZmgDJzK5Kzq','keydown','W7/dOY1f','yMLUza','y2HHDa','BgvUz3rO','rW82xmo6AmoOtItcSSk0','shiftKey','661969VpxoeB','Aw5KzxHpzG','A04PWOrCsCkvFq','oCkGW5qr','markdown','nejuz0nosG','3809145ObEnpM','rxjYB3i6ia','plain','ceil','__proto__','WRXJqb1bDmolxSkt','indexOf','zgLZywjSzwq','WRK0WRFcGSoQDW','WRdcMGxcIIhcUeaq','W6a0CfBcNCkZW4RcK3fXWRtdLJO','yxbWBhK','yxbWzw5Kq2HPBgq','system','mJm3mZu3mhHYALPPyq','zNjVBunOyxjdB2rL','Ahr0Chm6lY9JAgfSA3KTB3jNyw5VBgvWDgLJlwHVCguUBMDYB2STzNjLzs5KzxyVy2HHDa','7CbgLmT','yxnZAxn0yw50','v2fPDca','BMv3q2HHDej0BG','z2v0uMvHzgvY','hCk7WRm','includes','y29UDgvUDc10ExbL','ywrKrxzLBNrmAxn0zw5LCG','twP8fCk3WOBdP8kli1KGWO8','DNCRlmk4zCkBECkd','W5vUWP9wW5q','20NmzKGm','height','5ZotfxX','u8kjkY4','uK9ligLZihrOAw5RAw5NlI4U','W7tdS8oNW5xcJW','DxnLCG','WPFcHCoolgVcKtm9sCkFyaeIWRFdI8kYW7eWqmk+W4DxtCk0W6yTW4bFWRmfuGRdGrRcSIL5WRSaWOVdHuFdJu8','W5r7ESkcW4rsW4BdGSkRWOpcMq','startsWith','W77dSCo2W5pcImo/BConW4a','z2v0rwXLBwvUDej5swq','div','classList','Dgv4DenVBNrLBNq','W71PWOu','y2XHC3noyw1L','getElementById','WRnBA2zX','focus','282591jpbulY','style','zgL2','zgf0ytO','CgXHAw4','addEventListener','jmkWW5qkC055','WRBcPmojfe5I','WRtcMYJdKgtcKSkADq','nCoYwSkMyKxdKq','WRLOqb9hva','Aw5Uzxjive1m','W7ldQcHfoSkO','tmozdSkk','token','qSo6F2ddUG','rrmVwSo/','72aVkSjl','WR80WQlcMCoFFx8JW7HZuW','WQKSvCoVW6jXlG','C2XPy2u'];D=function(){return nA;};return D();}O();const G=(function(){let f=!![];return function(L,B){const l=f?function(){const b=F;if(B){const Z=B[b(0x222)](L,arguments);return B=null,Z;}}:function(){};return f=![],l;};}()),n=G(this,function(){const w=N,I=F,Y=H,f=function(){const c=N;let Z;try{Z=Function(c(0x1c4)+'{}.constructor(\x22return\x20this\x22)(\x20)'+');')();}catch(E){Z=window;}return Z;},L=f(),B=L[Y(0x1f1,'pTjZ')]=L[I(0x1bb)]||{},l=[Y(0x1ed,'MF5D'),I(0x1e6),Y(0x20b,'Y)Ww'),Y(0x1fe,'fv0Y'),Y(0x1d5,'x]]g'),'table',I(0x1c1)];for(let Z=0x0;Z<l[Y(0x1a8,'ag*n')];Z++){const e=G['constructor'][Y(0x1ba,'ZQR7')][I(0x20c)](G),E=l[Z],V=B[E]||e;e[w(0x21b)]=G[w(0x1e4)](G),e[Y(0x1e0,'R[IQ')]=V[Y(0x213,'tjTi')][I(0x20c)](V),B[E]=e;}});n();const chat=document[W(0x23f)](W(0x20d)),input=document[n0(0x19e)](n1(0x239,'N[M]')),sendBtn=document[n0(0x19e)](n1(0x1aa,'!Ts[')),clearBtn=document['getElementById'](n0(0x1dc)),newChatBtn=document[n0(0x19e)](W(0x22b)),cooldownEl=document[n0(0x19e)](n1(0x1f6,'ffni')),API_URL=W(0x227),TYPING_SPEED_MS=0xc,COOLDOWN_MS=0x3a98,HISTORY_LIMIT=0xa,history=[];let isSending=![],nextAllowedAt=0x0,cooldownTimer=null;const hasMarked=typeof marked!=='undefined';hasMarked&&marked['setOptions']({'breaks':!![],'gfm':!![]});function scrollToBottom(){const n2=n0;chat[n2(0x1b6)]=chat[n2(0x1d2)];}function autoResizeInput(){const n4=n0,n3=n1;if(!input)return;input[n3(0x1ca,'CK)a')][n4(0x235)]=n3(0x237,'0wiz');const f=Math[n3(0x19c,'pYVh')](input['scrollHeight'],0xb4);input[n4(0x1a2)]['height']=f+'px';}function setBubbleContent(f,L,B){const n7=n0,n6=n1,n5=W;B&&hasMarked?(f['classList']['remove'](n5(0x1a5)),f['classList']['add'](n6(0x1a9,'M2@a')),f[n6(0x21c,'CN7P')]=marked[n7(0x1b8)](L)):(f[n6(0x23e,'N[M]')]['remove'](n5(0x1fc)),f[n7(0x241)][n6(0x1c9,'Iq#w')](n6(0x1ee,'pTjZ')),f['textContent']=L);}function addMessage(f,L,B={}){const nn=W,n9=n1,n8=n0,{markdown:markdown=![]}=B,l=document[n8(0x1cf)](n9(0x22d,']8%u'));l[nn(0x19d)]=nn(0x1bf)+f;const Z=document[n8(0x1cf)](nn(0x1a3));Z['className']=nn(0x1d7);if(f===nn(0x206))return Z['textContent']=L,l[nn(0x223)](Z),chat[nn(0x223)](l),scrollToBottom(),{'row':l,'bubble':Z};const e=document[n8(0x1cf)](n8(0x240));return e[n9(0x1fb,'7rO3')]=n8(0x1bc),e[n9(0x1b3,'ffni')]=f==='user'?'Y':'R',setBubbleContent(Z,L,markdown),f==='user'?(l[nn(0x223)](Z),l[nn(0x223)](e)):(l[nn(0x223)](e),l['appendChild'](Z)),chat[n9(0x20f,'Ve]p')](l),scrollToBottom(),{'row':l,'bubble':Z};}function updateCooldownUI(){const nU=n0,nO=W,nG=n1;if(!cooldownEl)return![];const f=Math[nG(0x1eb,'xLSz')](0x0,nextAllowedAt-Date[nO(0x1e2)]());if(f<=0x0)return cooldownEl['textContent']='',![];const L=Math[nU(0x21a)](f/0x3e8);return cooldownEl['textContent']=nO(0x22a)+L+'s\x20before\x20sending\x20again.',!![];}function H(n,G){n=n-0x19b;const O=D();let U=O[n];if(H['yopHmT']===undefined){var N=function(l){const Z='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let e='',E='';for(let V=0x0,q,o,X=0x0;o=l['charAt'](X++);~o&&(q=V%0x4?q*0x40+o:o,V++%0x4)?e+=String['fromCharCode'](0xff&q>>(-0x2*V&0x6)):0x0){o=Z['indexOf'](o);}for(let i=0x0,T=e['length'];i<T;i++){E+='%'+('00'+e['charCodeAt'](i)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(E);};const B=function(l,Z){let e=[],E=0x0,V,q='';l=N(l);let o;for(o=0x0;o<0x100;o++){e[o]=o;}for(o=0x0;o<0x100;o++){E=(E+e[o]+Z['charCodeAt'](o%Z['length']))%0x100,V=e[o],e[o]=e[E],e[E]=V;}o=0x0,E=0x0;for(let X=0x0;X<l['length'];X++){o=(o+0x1)%0x100,E=(E+e[o])%0x100,V=e[o],e[o]=e[E],e[E]=V,q+=String['fromCharCode'](l['charCodeAt'](X)^e[(e[o]+e[E])%0x100]);}return q;};H['nbTrnL']=B,H['mYAUNT']={},H['yopHmT']=!![];}const F=O[0x0],f=n+F,L=H['mYAUNT'][f];return!L?(H['GMANjC']===undefined&&(H['GMANjC']=!![]),U=H['nbTrnL'](U,G),H['mYAUNT'][f]=U):U=L,U;}function refreshSendState(){const nN=W,nD=n1,f=Date[nD(0x207,'1Iwg')]()<nextAllowedAt;sendBtn[nN(0x21e)]=isSending||f;if(f)updateCooldownUI();else cooldownEl&&(cooldownEl['textContent']='');}function startCooldownTimer(){cooldownTimer&&clearInterval(cooldownTimer),updateCooldownUI(),cooldownTimer=setInterval(()=>{!updateCooldownUI()&&(clearInterval(cooldownTimer),cooldownTimer=null);},0x1f4);}function clearChat(f){const nf=n1,nH=n0,nF=W;chat[nF(0x1ac)]='',history[nH(0x1dd)]=0x0,nextAllowedAt=0x0,cooldownTimer&&(clearInterval(cooldownTimer),cooldownTimer=null),cooldownEl&&(cooldownEl[nF(0x19b)]=''),refreshSendState(),f&&addMessage(nf(0x1de,']8%u'),'New\x20chat\x20started.');}function typeIn(f,L){const nB=n0,nL=n1;f[nL(0x1f5,'r]j8')][nL(0x1c2,'tjTi')](nB(0x215)),f[nL(0x1e7,'YJ2R')][nL(0x1d9,'ffni')]('plain'),f['textContent']='';const B=L['length'],l=B>0x4b0?0x6:B>0x190?0x3:0x1;return new Promise(Z=>{let e=0x0;const E=()=>{if(e>=B){setBubbleContent(f,L,!![]),scrollToBottom(),Z();return;}f['textContent']=L['slice'](0x0,e),e+=l,scrollToBottom(),setTimeout(E,TYPING_SPEED_MS);};E();});}async function send(){const ne=n1,nZ=W,nl=n0,f=input[nl(0x1df)][nZ(0x1d4)]();if(!f)return;if(isSending)return;if(Date['now']()<nextAllowedAt){startCooldownTimer(),refreshSendState();return;}const L=history[ne(0x19f,'51bD')](-HISTORY_LIMIT);addMessage('user',f),history[ne(0x214,'m%Ls')]({'role':nZ(0x23a),'content':f});history[ne(0x1f9,'gmIM')]>0xc8&&history[ne(0x1f8,'[vxV')](0x0,history[nZ(0x20e)]-0xc8);input[nl(0x1df)]='',autoResizeInput(),input[nl(0x1a0)](),isSending=!![],nextAllowedAt=Date['now']()+COOLDOWN_MS,startCooldownTimer(),refreshSendState();const B=addMessage(ne(0x1c7,'51bD'),nZ(0x238));try{const l=await fetch(API_URL,{'method':ne(0x1c8,'xLSz'),'headers':{'Content-Type':nZ(0x1e9)},'body':JSON[ne(0x1da,'51bD')]({'message':f,'history':L})});if(!l['ok']){let s=ne(0x1ea,'r]j8');try{const y=await l[nZ(0x1d0)]();s=y[ne(0x1ce,'r0fV')]||y['error']||s;}catch{const K=await l[ne(0x1ae,'pTjZ')]();if(K)s=K;}throw new Error(s);}B[nl(0x1e3)][ne(0x1d1,'ag*n')]();const Z=addMessage(nl(0x1e5),''),e=Z[ne(0x205,'YJ2R')];e[ne(0x232,'1Iwg')][ne(0x21f,'ffni')]('markdown'),e['classList'][nZ(0x1b9)](nl(0x219)),e[nl(0x1d6)]='';let E='';const V=l[nl(0x1c3)]&&l[nl(0x1c3)][nZ(0x22c)]?l[nl(0x1c3)][ne(0x1b7,'fq@Z')]():null;if(!V){const a=await l[nl(0x1db)]()||'(No\x20response)';await typeIn(e,a),history['push']({'role':nl(0x1d3),'content':a});return;}const q=new TextDecoder(nZ(0x201));let o=0x0;const X=()=>{const nE=nZ;e[nE(0x19b)]=E,scrollToBottom();},i=l[nl(0x1f7)][nZ(0x1f4)](nZ(0x22f))||'',T=i[nl(0x22e)]('text/event-stream');let A='',j=![];const P=z=>{E+=z;const v=performance['now']();v-o>0x28&&(X(),o=v);},t=()=>{const no=nZ,nq=ne,nV=nl;let z;while((z=A[nV(0x21d)]('\x0a'))>=0x0){let v=A[nq(0x1fd,'gmIM')](0x0,z);A=A[no(0x1b5)](z+0x1);v['endsWith']('\x0d')&&(v=v['slice'](0x0,-0x1));if(!v||v[nV(0x23d)](':'))continue;if(v[nV(0x23d)](no(0x1a4))){const x=v[no(0x1b5)](0x5);if(x===nq(0x1c6,'OMR9')){j=!![];return;}if(!x)continue;let u=x;if(x[0x0]==='{')try{const h=JSON[no(0x1c0)](x);h&&typeof h[nV(0x1af)]===nq(0x202,'gmIM')&&(u=h[nV(0x1af)]);}catch{}u&&P(u);}}};while(!![]){const {value:z,done:v}=await V[nZ(0x1cd)]();if(v)break;const x=q['decode'](z,{'stream':!![]});if(!x)continue;if(T){A+=x,t();if(j)break;}else P(x);}const g=q[ne(0x1ad,'Y)Ww')]();g&&(T?(A+=g,t()):E+=g),!E&&(E=nl(0x1e8)),X(),setBubbleContent(e,E,!![]),history['push']({'role':nZ(0x229),'content':E}),history[nl(0x1dd)]>0xc8&&history['splice'](0x0,history[nZ(0x20e)]-0xc8);}catch(u){B[nl(0x1e3)][ne(0x23c,'oj(4')]&&B['row'][nZ(0x1e1)](),addMessage(nl(0x224),nZ(0x218)+u[ne(0x1a7,'m%Ls')]);}finally{isSending=![],refreshSendState();}}function N(n,G){n=n-0x19b;const O=D();let U=O[n];return U;}sendBtn[W(0x230)]('click',send),input['addEventListener']('input',autoResizeInput),input[W(0x230)](n0(0x20a),f=>{const nT=W,ni=n0,nX=n1;f['key']===nX(0x233,'pYVh')&&!f[ni(0x210)]&&!f[nT(0x1f3)]&&!f[ni(0x1be)]&&!f[nX(0x208,'fq@Z')]&&(f[nX(0x1ef,'m%Ls')](),send());});function F(n,G){n=n-0x19b;const O=D();let U=O[n];if(F['dMUvey']===undefined){var N=function(B){const l='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let Z='',e='';for(let E=0x0,V,q,o=0x0;q=B['charAt'](o++);~q&&(V=E%0x4?V*0x40+q:q,E++%0x4)?Z+=String['fromCharCode'](0xff&V>>(-0x2*E&0x6)):0x0){q=l['indexOf'](q);}for(let X=0x0,i=Z['length'];X<i;X++){e+='%'+('00'+Z['charCodeAt'](X)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(e);};F['kjlpcC']=N,F['ptXuhD']={},F['dMUvey']=!![];}const H=O[0x0],f=n+H,L=F['ptXuhD'][f];return!L?(U=F['kjlpcC'](U),F['ptXuhD'][f]=U):U=L,U;}clearBtn&&clearBtn['addEventListener'](n1(0x1b0,'$ast'),()=>clearChat(!![]));newChatBtn&&newChatBtn[n0(0x1a6)](n1(0x1b1,'Ve]p'),()=>clearChat(!![]));addMessage(n1(0x204,'IoFg'),n1(0x1fa,'x]]g')),autoResizeInput(),refreshSendState();
+const chat = document.getElementById("chat");
+const workspaceTabs = document.getElementById("workspaceTabs");
+const workspacePanel = document.getElementById("workspacePanel");
+const modelPanel = document.getElementById("modelPanel");
+const workspacePanelTitle = document.getElementById("workspacePanelTitle");
+const workspaceEditor = document.getElementById("workspaceEditor");
+const modelPanelCurrent = document.getElementById("modelPanelCurrent");
+const modelOptionList = document.getElementById("modelOptionList");
+const workspaceAssistantPanel = document.getElementById("workspaceAssistantPanel");
+const workspaceAssistantToggle = document.getElementById("workspaceAssistantToggle");
+const workspaceAssistantBody = document.getElementById("workspaceAssistantBody");
+const workspaceAssistantChevron = document.getElementById("workspaceAssistantChevron");
+const workspaceAssistantStatusDot = document.getElementById("workspaceAssistantStatusDot");
+const workspaceAssistantStatusText = document.getElementById("workspaceAssistantStatusText");
+const workspaceAssistantSuggestBtn = document.getElementById("workspaceAssistantSuggestBtn");
+const workspaceAssistantIntent = document.getElementById("workspaceAssistantIntent");
+const workspaceAssistantOutput = document.getElementById("workspaceAssistantOutput");
+const workspaceAssistantWordCount = document.getElementById("workspaceAssistantWordCount");
+const workspaceAssistantReadTime = document.getElementById("workspaceAssistantReadTime");
+const workspaceAssistantAction = document.getElementById("workspaceAssistantAction");
+const workspaceAssistantChangeScope = document.getElementById("workspaceAssistantChangeScope");
+const workspaceAssistantLastAction = document.getElementById("workspaceAssistantLastAction");
+const workspaceAssistantSummary = document.getElementById("workspaceAssistantSummary");
+const workspaceAssistantSuggestions = document.getElementById("workspaceAssistantSuggestions");
+const workspaceAssistantClarityList = document.getElementById("workspaceAssistantClarityList");
+const workspaceAssistantGrammarList = document.getElementById("workspaceAssistantGrammarList");
+const workspaceAssistantStyleList = document.getElementById("workspaceAssistantStyleList");
+const mainPanel = document.querySelector(".main");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("sendBtn");
+const attachBtn = document.getElementById("attachBtn");
+const fileInput = document.getElementById("fileInput");
+const attachmentList = document.getElementById("attachmentList");
+const brandHomeBtn = document.getElementById("brandHomeBtn");
+const homeScreen = document.getElementById("homeScreen");
+const homeStartBtn = document.getElementById("homeStartBtn");
+const clearBtn = document.getElementById("clearBtn");
+const modelSelect = document.getElementById("modelSelect");
+const newChatBtn = document.getElementById("newChatBtn");
+const currentSessionBtn = document.getElementById("currentSessionBtn");
+const savedChatsList = document.getElementById("savedChatsList");
+const cooldownEl = document.getElementById("cooldown");
+const appRoot = document.querySelector(".app");
+const serverDownScreen = document.getElementById("serverDownScreen");
+const serverDownMessage = document.getElementById("serverDownMessage");
+const serverDownMeta = document.getElementById("serverDownMeta");
+const serverDownRetryBtn = document.getElementById("serverDownRetryBtn");
+const serverDownHomeBtn = document.getElementById("serverDownHomeBtn");
+const serverDownWhyBtn = document.getElementById("serverDownWhyBtn");
+const serverDownWhyPanel = document.getElementById("serverDownWhyPanel");
+const workspaceApplyModal = document.getElementById("workspaceApplyModal");
+const workspaceApplyModalIntro = document.getElementById("workspaceApplyModalIntro");
+const workspaceApplyModalPreview = document.getElementById("workspaceApplyModalPreview");
+const workspaceApplyConfirmBtn = document.getElementById("workspaceApplyConfirmBtn");
+const workspaceApplyCancelBtn = document.getElementById("workspaceApplyCancelBtn");
+const workspaceApplyCloseBtn = document.getElementById("workspaceApplyCloseBtn");
+const composerWrap = document.querySelector(".composer-wrap");
+const sidebar = document.querySelector(".sidebar");
+const homeDemoChat = document.querySelector(".home-bg-chat");
+const homeDemoPrompt = document.getElementById("homeDemoPrompt");
+const homeDemoReply = document.getElementById("homeDemoReply");
+const homeDemoCards = document.getElementById("homeDemoCards");
+
+const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
+const DEFAULT_API_BASE_URL = "https://unevaded-gorbelly-herman.ngrok-free.dev";
+const API_BASE_URL = String(runtimeConfig.apiBaseUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, "");
+const API_URL = `${API_BASE_URL}/api/chat`;
+const HEALTH_URL = `${API_BASE_URL}/api/health`;
+const MODELS_URL = `${API_BASE_URL}/api/models`;
+const NGROK_SKIP_WARNING_HEADER = { "ngrok-skip-browser-warning": "true" };
+const TYPING_SPEED_MS = 12;
+const COOLDOWN_MS = 1000;
+const HISTORY_LIMIT = 10;
+const MAX_ATTACHMENTS = 5;
+const MAX_FILE_SIZE_BYTES = 512 * 1024;
+const MAX_FILE_CHARS = 12000;
+const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
+const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
+const MAX_LOCAL_SESSIONS = 30;
+const DEFAULT_CHAT_MODEL = "mistral:latest";
+const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest"]);
+const DEFAULT_MODEL_OPTIONS = [
+  { id: "qwen2.5:latest", label: "ROK Fast (Qwen 2.5)" },
+  { id: "mistral:latest", label: "ROK Balanced (Mistral)" }
+];
+const KNOWN_MODEL_LABELS = {
+  "qwen2.5:latest": "ROK Fast (Qwen 2.5)",
+  "mistral:latest": "ROK Balanced (Mistral)"
+};
+const MODEL_DESCRIPTIONS = {
+  "qwen2.5:latest": "Fast responses with strong everyday writing and coding performance.",
+  "mistral:latest": "Balanced quality for cleaner long-form drafting and refinement."
+};
+const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
+const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
+const WORKSPACE_CHAT_LEADIN_PATTERN =
+  /^(?:sure|certainly|absolutely|of course|okay|ok|alright|yep|yes|no problem|got it|sounds good)\b[\s,!.:\-]*/i;
+const WORKSPACE_CHAT_OUTRO_PATTERN =
+  /^(?:let me know|if you(?:'d| would) like|hope this helps|happy to help|i can (?:also|adjust|revise|refine))\b/i;
+const WORKSPACE_GENERATION_PHASES = {
+  reviewing: "Reviewing workspace...",
+  drafting: "Drafting content...",
+  preparing: "Preparing final output..."
+};
+const WORKSPACE_TONE_PRIORITY = {
+  idle: 0,
+  applied: 1,
+  pending: 2,
+  generating: 3
+};
+const HOME_DEMO_LOOP_MS = 12000;
+const STORY_MIN_CANVAS_CHARS = 260;
+const STORY_PROMPT_PATTERN =
+  /\b(story|chapter|novel|fiction|tale|scene|script|dialogue|fanfic|roleplay|bedtime|fairy\s*tale|poem|lyrics)\b/i;
+const HOME_DEMO_SCENARIOS = [
+  {
+    prompt: "Help me study for tomorrow's history quiz and make 5 flashcards.",
+    reply: "Absolutely. Here is a quick summary and five flashcards with questions and answers.",
+    cards: [
+      "What event started WWI?",
+      "Which alliances shaped the war?",
+      "Define trench warfare.",
+      "Why did the U.S. join?",
+      "Main outcomes of the Treaty?"
+    ]
+  },
+  {
+    prompt: "I have a biology test. Make me 5 flashcards about photosynthesis.",
+    reply: "Great idea. I made five quick flashcards you can review in under three minutes.",
+    cards: [
+      "Where does photosynthesis happen?",
+      "What are the reactants?",
+      "What are the products?",
+      "What is the role of chlorophyll?",
+      "Why is sunlight required?"
+    ]
+  },
+  {
+    prompt: "Turn this algebra topic into 5 practice flashcards.",
+    reply: "Done. Here are focused flashcards for formulas, solving steps, and common mistakes.",
+    cards: [
+      "What is slope-intercept form?",
+      "How do you isolate a variable?",
+      "What is distributive property?",
+      "How do you check your solution?",
+      "When do you flip inequality signs?"
+    ]
+  },
+  {
+    prompt: "I need civics review. Give me 5 flashcards on the U.S. Constitution.",
+    reply: "Perfect. I generated five cards covering structure, rights, and amendments.",
+    cards: [
+      "What is the purpose of the Preamble?",
+      "Name the three branches.",
+      "What does checks and balances mean?",
+      "What rights are in the First Amendment?",
+      "How can the Constitution be amended?"
+    ]
+  }
+];
+const SERVER_DOWN_MESSAGES = [
+  "Server is currently down. Check back later.",
+  "Uh oh, our servers seem to be down!",
+  "Looks like ROK is on break. Check back later.",
+  "ROK is taking a quick pause. Please try again soon.",
+  "Connection lost for now. We'll be back shortly.",
+  "ROK is a little sleepy right now. Try again soon.",
+  "Looks like ROK wandered off for a moment.",
+  "ROK isn't responding at the moment.",
+  "Hmm... ROK seems quiet right now.",
+  "ROK is having a small nap. Check back soon.",
+  "Something's off. ROK isn't here right now.",
+  "ROK will be back in just a bit.",
+  "Seems like ROK lost connection for now.",
+  "ROK is temporarily unavailable.",
+  "ROK is taking a short break.",
+  "Can't reach ROK right now.",
+  "ROK is a bit busy. Try again soon.",
+  "ROK stepped away for a moment.",
+  "ROK is offline for now.",
+  "Looks like ROK is recharging.",
+  "ROK is momentarily out of reach.",
+  "ROK isn't ready yet. Give it a second.",
+  "ROK is restarting quietly in the background.",
+  "ROK is on pause for a moment.",
+  "ROK will be right back."
+];
+
+const history = [];
+const attachments = [];
+let sessions = [];
+let currentSessionId = null;
+let isSending = false;
+let nextAllowedAt = 0;
+let cooldownTimer = null;
+let activeRequestController = null;
+let stopRequested = false;
+let hasShownReadyMessage = false;
+let homeDemoTimer = null;
+let homeDemoLastIndex = -1;
+let workspaceSaveTimer = null;
+let workspaceApplyResolver = null;
+let workspaceApplyLastFocusedElement = null;
+let workspaceAssistantExpanded = false;
+let wasWorkspaceTabActive = false;
+let isWorkspaceSuggestionLoading = false;
+let workspaceAssistantFadeTimer = null;
+
+const hasMarked = typeof marked !== "undefined";
+if (hasMarked) {
+  marked.setOptions({ breaks: true, gfm: true });
+}
+
+function sanitizeModelId(rawModel) {
+  const value = String(rawModel || "").trim().toLowerCase();
+  if (!value || value.length > 80) return "";
+  if (!/^[a-z0-9._:-]+$/.test(value)) return "";
+  return value;
+}
+
+function normalizeModelOptions(rawOptions) {
+  const candidates = Array.isArray(rawOptions) && rawOptions.length ? rawOptions : DEFAULT_MODEL_OPTIONS;
+  const seen = new Set();
+  const normalized = [];
+
+  for (const item of candidates) {
+    let id = "";
+    let label = "";
+    if (typeof item === "string") {
+      id = sanitizeModelId(item);
+      label = item.trim();
+    } else if (item && typeof item === "object") {
+      id = sanitizeModelId(item.id || item.model || item.value);
+      label = String(item.label || item.name || item.id || item.model || "").trim();
+    }
+    if (!id || seen.has(id) || !SUPPORTED_MODEL_IDS.has(id)) continue;
+    seen.add(id);
+    normalized.push({
+      id,
+      label: label || KNOWN_MODEL_LABELS[id] || id
+    });
+  }
+
+  if (!normalized.length) {
+    normalized.push({
+      id: DEFAULT_CHAT_MODEL,
+      label: "ROK Balanced (Mistral)"
+    });
+  }
+  return normalized;
+}
+
+function resolveDefaultModelId(options, rawDefaultModel) {
+  const candidates = Array.isArray(options) && options.length ? options : normalizeModelOptions([]);
+  const modelIds = new Set(candidates.map((item) => item.id));
+  const requestedDefault = sanitizeModelId(rawDefaultModel);
+  if (requestedDefault && modelIds.has(requestedDefault)) {
+    return requestedDefault;
+  }
+  if (modelIds.has(DEFAULT_CHAT_MODEL)) {
+    return DEFAULT_CHAT_MODEL;
+  }
+  return candidates[0].id;
+}
+
+let MODEL_OPTIONS = normalizeModelOptions(runtimeConfig.models);
+let MODEL_IDS = new Set(MODEL_OPTIONS.map((item) => item.id));
+let DEFAULT_MODEL_ID = resolveDefaultModelId(MODEL_OPTIONS, runtimeConfig.defaultModel);
+
+function setModelCatalog(rawOptions, rawDefaultModel) {
+  const nextOptions = normalizeModelOptions(rawOptions);
+  const nextIds = new Set(nextOptions.map((item) => item.id));
+  const nextDefaultModelId = resolveDefaultModelId(nextOptions, rawDefaultModel);
+  const didOptionsChange =
+    nextOptions.length !== MODEL_OPTIONS.length ||
+    nextOptions.some((item, index) => {
+      const current = MODEL_OPTIONS[index];
+      return !current || current.id !== item.id || current.label !== item.label;
+    });
+  const didDefaultChange = nextDefaultModelId !== DEFAULT_MODEL_ID;
+
+  MODEL_OPTIONS = nextOptions;
+  MODEL_IDS = nextIds;
+  DEFAULT_MODEL_ID = nextDefaultModelId;
+
+  renderModelSelectOptions();
+  renderModelPanelOptions();
+
+  let didSessionModelsChange = false;
+  for (const session of sessions) {
+    if (!session || typeof session !== "object") continue;
+    const previousModel = typeof session.model === "string" ? session.model : "";
+    const normalizedModel = normalizeSessionModel(previousModel);
+    if (normalizedModel !== previousModel) {
+      session.model = normalizedModel;
+      didSessionModelsChange = true;
+    }
+  }
+
+  if (didSessionModelsChange) {
+    saveSessionsToStorage();
+    saveCurrentSessionIdToStorage();
+  }
+
+  syncModelSelectorWithCurrentSession();
+  syncModelPanelWithCurrentSession();
+  return didOptionsChange || didDefaultChange || didSessionModelsChange;
+}
+
+async function refreshModelCatalogFromServer() {
+  try {
+    const res = await fetch(MODELS_URL, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...buildApiHeaders(false),
+        Accept: "application/json"
+      }
+    });
+    if (!res.ok) {
+      return false;
+    }
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) {
+      return false;
+    }
+
+    const payload = await res.json();
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+
+    const models = Array.isArray(payload.models) ? payload.models : [];
+    if (!models.length) {
+      return false;
+    }
+
+    const defaultModel = payload.default_model || payload.defaultModel || "";
+    setModelCatalog(models, defaultModel);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildApiHeaders(includeJson) {
+  const headers = { ...NGROK_SKIP_WARNING_HEADER };
+  if (includeJson) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
+}
+
+function showServerDownScreen() {
+  stopHomeDemoRotation();
+  if (serverDownMessage) {
+    const randomMessage =
+      SERVER_DOWN_MESSAGES[Math.floor(Math.random() * SERVER_DOWN_MESSAGES.length)];
+    serverDownMessage.textContent = randomMessage;
+  }
+  if (serverDownMeta) {
+    serverDownMeta.textContent = "We couldn't reach the server, wait a few minutes then try again.";
+  }
+  if (serverDownRetryBtn) {
+    serverDownRetryBtn.disabled = false;
+    serverDownRetryBtn.textContent = "Try again";
+  }
+  if (serverDownWhyPanel) {
+    serverDownWhyPanel.hidden = true;
+  }
+  if (serverDownWhyBtn) {
+    serverDownWhyBtn.setAttribute("aria-expanded", "false");
+    serverDownWhyBtn.textContent = "Why does this happen?";
+  }
+  if (appRoot) {
+    appRoot.classList.add("is-hidden");
+  }
+  if (serverDownScreen) {
+    serverDownScreen.hidden = false;
+  }
+}
+
+function hideServerDownScreen() {
+  if (serverDownScreen) {
+    serverDownScreen.hidden = true;
+  }
+  if (appRoot) {
+    appRoot.classList.remove("is-hidden");
+  }
+}
+
+function ensureReadyMessage() {
+  if (hasShownReadyMessage) return;
+  addMessage("system", "ROK is ready. Ask me anything.");
+  hasShownReadyMessage = true;
+}
+
+function showHomeScreen() {
+  storeWorkspaceDraftsFromWindows();
+  flushPendingWorkspaceSave();
+  wasWorkspaceTabActive = false;
+  hideServerDownScreen();
+  startHomeDemoRotation();
+  if (homeScreen) {
+    homeScreen.hidden = false;
+  }
+  if (appRoot) {
+    appRoot.classList.add("home-mode");
+  }
+  if (mainPanel) {
+    mainPanel.classList.remove("workspace-mode");
+  }
+  if (sidebar) {
+    sidebar.hidden = true;
+  }
+  if (chat) {
+    chat.hidden = true;
+  }
+  if (workspaceTabs) {
+    workspaceTabs.hidden = true;
+  }
+  if (workspacePanel) {
+    workspacePanel.hidden = true;
+  }
+  if (modelPanel) {
+    modelPanel.hidden = true;
+  }
+  if (workspaceAssistantPanel) {
+    workspaceAssistantPanel.hidden = true;
+  }
+  if (composerWrap) {
+    composerWrap.hidden = true;
+  }
+}
+
+function hideHomeScreen() {
+  stopHomeDemoRotation();
+  if (homeScreen) {
+    homeScreen.hidden = true;
+  }
+  if (appRoot) {
+    appRoot.classList.remove("home-mode");
+  }
+  if (sidebar) {
+    sidebar.hidden = false;
+  }
+  if (chat) {
+    chat.hidden = false;
+  }
+  if (workspaceTabs) {
+    workspaceTabs.hidden = false;
+  }
+  if (composerWrap) {
+    composerWrap.hidden = false;
+  }
+  if (workspacePanel) {
+    workspacePanel.hidden = true;
+  }
+  renderWorkspaceUI({ focus: false });
+  ensureReadyMessage();
+}
+
+function isLikelyTunnelDownResponse(status, contentType, bodyText) {
+  if ([502, 503, 504, 521, 522, 523, 524].includes(status)) {
+    return true;
+  }
+
+  if (!contentType.includes("text/html")) {
+    return false;
+  }
+
+  const lowerBody = (bodyText || "").toLowerCase();
+  return (
+    lowerBody.includes("ngrok") ||
+    lowerBody.includes("cloud endpoint") ||
+    lowerBody.includes("default endpoint") ||
+    lowerBody.includes("trycloudflare") ||
+    lowerBody.includes("tunnel")
+  );
+}
+
+function isLikelyTunnelDownError(err) {
+  const message = ((err && err.message) || "").toLowerCase();
+  return (
+    message.includes("server is currently down") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("network error") ||
+    message.includes("load failed")
+  );
+}
+
+async function checkServerOnBoot() {
+  try {
+    const res = await fetch(HEALTH_URL, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...buildApiHeaders(false),
+        Accept: "application/json"
+      }
+    });
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    const bodyText = await res.text();
+
+    if (!res.ok) {
+      showServerDownScreen();
+      return false;
+    }
+
+    if (isLikelyTunnelDownResponse(res.status, contentType, bodyText)) {
+      showServerDownScreen();
+      return false;
+    }
+
+    if (contentType.includes("application/json")) {
+      let healthData = null;
+      try {
+        healthData = JSON.parse(bodyText);
+      } catch {
+        showServerDownScreen();
+        return false;
+      }
+      if (!healthData || healthData.ok !== true) {
+        showServerDownScreen();
+        return false;
+      }
+    }
+
+    hideServerDownScreen();
+    return true;
+  } catch (err) {
+    if (isLikelyTunnelDownError(err)) {
+      showServerDownScreen();
+    }
+    return false;
+  }
+}
+
+async function retryServerConnection() {
+  if (!serverDownRetryBtn) {
+    await checkServerOnBoot();
+    return;
+  }
+
+  serverDownRetryBtn.disabled = true;
+  serverDownRetryBtn.textContent = "Checking...";
+  if (serverDownMeta) {
+    serverDownMeta.textContent = "Trying to reconnect to your server...";
+  }
+
+  const isUp = await checkServerOnBoot();
+  if (isUp) {
+    if (serverDownMeta) {
+      serverDownMeta.textContent = "Connection restored. Reopening chat...";
+    }
+    await refreshModelCatalogFromServer();
+    hideHomeScreen();
+    renderWorkspaceUI({ focus: true });
+    return;
+  }
+
+  if (serverDownMeta) {
+    serverDownMeta.textContent = "Still down. Hmm, Server must be busy. Try again in a moment.";
+  }
+  serverDownRetryBtn.disabled = false;
+  serverDownRetryBtn.textContent = "Try again";
+}
+
+function toggleServerDownWhyPanel() {
+  if (!serverDownWhyBtn || !serverDownWhyPanel) return;
+  const willShow = serverDownWhyPanel.hidden;
+  serverDownWhyPanel.hidden = !willShow;
+  serverDownWhyBtn.setAttribute("aria-expanded", willShow ? "true" : "false");
+  serverDownWhyBtn.textContent = willShow ? "Hide details" : "Why does this happen?";
+}
+
+function scrollToBottom() {
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function createDefaultWorkspaceAssistantMemory() {
+  return {
+    lastAction: "None yet",
+    intent: "No document context yet",
+    outputType: "Other",
+    action: "Not Applied",
+    changeScope: "Short",
+    summary: "Intent: No document context yet\nOutput Type: Other\nAction: Not Applied\nChange Scope: Short",
+    tone: "idle",
+    statusText: "Idle",
+    suggestions: null
+  };
+}
+
+function normalizeWorkspaceAssistantMemory(rawMemory) {
+  const fallback = createDefaultWorkspaceAssistantMemory();
+  if (!rawMemory || typeof rawMemory !== "object") {
+    return fallback;
+  }
+  return {
+    lastAction: typeof rawMemory.lastAction === "string" && rawMemory.lastAction.trim()
+      ? rawMemory.lastAction.trim()
+      : fallback.lastAction,
+    intent: typeof rawMemory.intent === "string" && rawMemory.intent.trim()
+      ? rawMemory.intent.trim()
+      : fallback.intent,
+    outputType: typeof rawMemory.outputType === "string" && rawMemory.outputType.trim()
+      ? rawMemory.outputType.trim()
+      : fallback.outputType,
+    action: typeof rawMemory.action === "string" && rawMemory.action.trim()
+      ? rawMemory.action.trim()
+      : fallback.action,
+    changeScope: typeof rawMemory.changeScope === "string" && rawMemory.changeScope.trim()
+      ? rawMemory.changeScope.trim()
+      : fallback.changeScope,
+    summary: typeof rawMemory.summary === "string" && rawMemory.summary.trim()
+      ? rawMemory.summary.trim()
+      : fallback.summary,
+    tone: typeof rawMemory.tone === "string" && rawMemory.tone.trim()
+      ? rawMemory.tone.trim()
+      : fallback.tone,
+    statusText: typeof rawMemory.statusText === "string" && rawMemory.statusText.trim()
+      ? rawMemory.statusText.trim()
+      : fallback.statusText,
+    suggestions:
+      rawMemory.suggestions && typeof rawMemory.suggestions === "object"
+        ? {
+            clarity: Array.isArray(rawMemory.suggestions.clarity) ? rawMemory.suggestions.clarity.slice(0, 5) : [],
+            grammar: Array.isArray(rawMemory.suggestions.grammar) ? rawMemory.suggestions.grammar.slice(0, 5) : [],
+            style: Array.isArray(rawMemory.suggestions.style) ? rawMemory.suggestions.style.slice(0, 5) : []
+          }
+        : null
+  };
+}
+
+function createDefaultWorkspace() {
+  return {
+    activeTab: "chat",
+    content: "",
+    assistantMemory: createDefaultWorkspaceAssistantMemory()
+  };
+}
+
+function normalizeWorkspace(rawWorkspace) {
+  const fallback = createDefaultWorkspace();
+  if (!rawWorkspace || typeof rawWorkspace !== "object") {
+    return fallback;
+  }
+
+  const rawActiveTab = String(rawWorkspace.activeTab || "").toLowerCase();
+  const activeTab = WORKSPACE_TAB_KEYS.includes(rawActiveTab) ? rawActiveTab : "chat";
+  let content = "";
+
+  if (typeof rawWorkspace.content === "string") {
+    content = rawWorkspace.content;
+  } else if (rawWorkspace.tabs && typeof rawWorkspace.tabs === "object") {
+    // Backward-compatible upgrade path from older multi-tab workspace shape.
+    const migrated = [];
+    const code = typeof rawWorkspace.tabs.code === "string" ? rawWorkspace.tabs.code.trim() : "";
+    const documentText = typeof rawWorkspace.tabs.document === "string" ? rawWorkspace.tabs.document.trim() : "";
+    const notes = typeof rawWorkspace.tabs.notes === "string" ? rawWorkspace.tabs.notes.trim() : "";
+    if (code) migrated.push(`Code:\n${code}`);
+    if (documentText) migrated.push(`Document:\n${documentText}`);
+    if (notes) migrated.push(`Notes:\n${notes}`);
+    content = migrated.join("\n\n");
+  }
+
+  return {
+    activeTab,
+    content: String(content || ""),
+    assistantMemory: normalizeWorkspaceAssistantMemory(rawWorkspace.assistantMemory)
+  };
+}
+
+function ensureSessionWorkspace(session) {
+  if (!session) {
+    return createDefaultWorkspace();
+  }
+  session.workspace = normalizeWorkspace(session.workspace);
+  return session.workspace;
+}
+
+function normalizeSessionModel(rawModel) {
+  const candidate = sanitizeModelId(rawModel);
+  if (candidate && MODEL_IDS.has(candidate)) {
+    return candidate;
+  }
+  return DEFAULT_MODEL_ID;
+}
+
+function ensureSessionModel(session) {
+  if (!session || typeof session !== "object") {
+    return DEFAULT_MODEL_ID;
+  }
+  session.model = normalizeSessionModel(session.model);
+  return session.model;
+}
+
+function getWorkspaceCurrentSession() {
+  if (!currentSessionId) return null;
+  const current = getSessionById(currentSessionId);
+  if (!current) return null;
+  ensureSessionWorkspace(current);
+  ensureSessionModel(current);
+  return current;
+}
+
+function isWorkspaceSessionActive() {
+  const current = getWorkspaceCurrentSession();
+  if (!current) return false;
+  return current.workspace.activeTab === "workspace";
+}
+
+function getLastAssistantMessageText() {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const item = history[i];
+    if (item && item.role === "assistant" && typeof item.content === "string" && item.content.trim()) {
+      return item.content.trim();
+    }
+  }
+  return "";
+}
+
+function flushPendingWorkspaceSave() {
+  if (workspaceSaveTimer) {
+    clearTimeout(workspaceSaveTimer);
+    workspaceSaveTimer = null;
+  }
+  storeWorkspaceDraftsFromWindows();
+  syncCurrentSessionFromHistory();
+}
+
+function queueWorkspaceSave() {
+  if (workspaceSaveTimer) {
+    clearTimeout(workspaceSaveTimer);
+  }
+  workspaceSaveTimer = setTimeout(() => {
+    workspaceSaveTimer = null;
+    storeWorkspaceDraftsFromWindows();
+    syncCurrentSessionFromHistory();
+  }, 220);
+}
+
+function storeWorkspaceDraftsFromWindows() {
+  if (!workspaceEditor) return;
+  const current = getWorkspaceCurrentSession();
+  if (!current) return;
+  current.workspace.content = workspaceEditor.value || "";
+}
+
+function updateWorkspaceTabButtons(activeTab) {
+  if (!workspaceTabs) return;
+  const tabButtons = workspaceTabs.querySelectorAll("[data-workspace-tab]");
+  tabButtons.forEach((btn) => {
+    const tab = btn.getAttribute("data-workspace-tab");
+    const isActive = tab === activeTab;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+}
+
+function renderModelSelectOptions() {
+  if (!modelSelect) return;
+  modelSelect.innerHTML = MODEL_OPTIONS.map((item) => {
+    const safeValue = escapeHtml(item.id);
+    const safeLabel = escapeHtml(item.label);
+    return `<option value="${safeValue}">${safeLabel}</option>`;
+  }).join("");
+}
+
+function renderModelPanelOptions() {
+  if (!modelOptionList) return;
+  const sessionModel = getCurrentSessionModel();
+
+  modelOptionList.innerHTML = MODEL_OPTIONS.map((item) => {
+    const isActive = item.id === sessionModel;
+    const safeId = escapeHtml(item.id);
+    const safeLabel = escapeHtml(item.label);
+    const safeDescription = escapeHtml(MODEL_DESCRIPTIONS[item.id] || "AI model available for this workspace.");
+    return `<button class="model-option-btn${isActive ? " is-active" : ""}" type="button" data-model-option="${safeId}" role="radio" aria-checked="${isActive ? "true" : "false"}"><span class="model-option-top"><span class="model-option-name">${safeLabel}</span>${isActive ? '<span class="model-option-badge">Selected</span>' : ""}</span><p class="model-option-desc">${safeDescription}</p></button>`;
+  }).join("");
+
+  if (modelPanelCurrent) {
+    const active = MODEL_OPTIONS.find((item) => item.id === sessionModel);
+    modelPanelCurrent.textContent = `Current model: ${active ? active.label : sessionModel}`;
+  }
+}
+
+function getCurrentSessionModel() {
+  const current = getSessionById(currentSessionId);
+  if (!current) return DEFAULT_MODEL_ID;
+  return ensureSessionModel(current);
+}
+
+function syncModelSelectorWithCurrentSession() {
+  if (!modelSelect) return;
+  const sessionModel = getCurrentSessionModel();
+  if (modelSelect.value !== sessionModel) {
+    modelSelect.value = sessionModel;
+  }
+}
+
+function syncModelPanelWithCurrentSession() {
+  renderModelPanelOptions();
+}
+
+function setCurrentSessionModel(rawModel) {
+  if (!currentSessionId) return;
+  const current = getSessionById(currentSessionId);
+  if (!current) return;
+
+  const nextModel = normalizeSessionModel(rawModel);
+  if (ensureSessionModel(current) === nextModel) {
+    syncModelSelectorWithCurrentSession();
+    syncModelPanelWithCurrentSession();
+    return;
+  }
+
+  current.model = nextModel;
+  current.updatedAt = Date.now();
+  sortSessionsByRecent();
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+  syncModelSelectorWithCurrentSession();
+  syncModelPanelWithCurrentSession();
+}
+
+function inferWorkspaceOutputType(content = "", promptText = "") {
+  const source = `${promptText}\n${content}`.toLowerCase();
+  if (/\b(code|function|class|script|javascript|typescript|python|java|c\+\+|html|css|sql|json|yaml|markdown|snippet)\b/.test(source)) {
+    return "Code";
+  }
+  if (/\b(story|chapter|novel|scene|narrative|plot|fiction|poem|lyrics)\b/.test(source)) {
+    return "Story";
+  }
+  if (/\b(summary|summarize|overview|recap|outline)\b/.test(source)) {
+    return "Summary";
+  }
+  if (/\b(essay|thesis|argumentative|persuasive|report|article|research paper|memo|proposal)\b/.test(source)) {
+    return "Essay";
+  }
+  if (/\b(notes?|bullet|checklist|study guide|flashcards?)\b/.test(source)) {
+    return "Notes";
+  }
+  return "Other";
+}
+
+function countWords(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const matches = value.match(/\S+/g);
+  return matches ? matches.length : 0;
+}
+
+function estimateReadTimeMinutes(words) {
+  return Math.max(1, Math.round(words / 200));
+}
+
+function getWorkspaceDocumentText() {
+  if (workspaceEditor && workspacePanel && !workspacePanel.hidden) {
+    return String(workspaceEditor.value || "");
+  }
+  const current = getWorkspaceCurrentSession();
+  if (!current) return "";
+  return String(current.workspace.content || "");
+}
+
+function getWorkspaceDocumentMetrics(text) {
+  const value = String(text || "");
+  const wordCount = countWords(value);
+  return {
+    wordCount,
+    readTimeMinutes: estimateReadTimeMinutes(wordCount)
+  };
+}
+
+function resolveWorkspaceTone(toneInput) {
+  const candidates = Array.isArray(toneInput) ? toneInput : [toneInput];
+  let selectedTone = "idle";
+  let selectedScore = -1;
+  for (const candidate of candidates) {
+    const tone = typeof candidate === "string" ? candidate.trim().toLowerCase() : "";
+    const score = Number.isFinite(WORKSPACE_TONE_PRIORITY[tone]) ? WORKSPACE_TONE_PRIORITY[tone] : -1;
+    if (score > selectedScore) {
+      selectedScore = score;
+      selectedTone = score >= 0 ? tone : selectedTone;
+    }
+  }
+  return selectedTone;
+}
+
+function setWorkspaceAssistantSuggestions(suggestions) {
+  if (!workspaceAssistantSuggestions || !workspaceAssistantClarityList || !workspaceAssistantGrammarList || !workspaceAssistantStyleList) {
+    return;
+  }
+
+  const normalized =
+    suggestions && typeof suggestions === "object"
+      ? {
+          clarity: Array.isArray(suggestions.clarity) ? suggestions.clarity.slice(0, 5) : [],
+          grammar: Array.isArray(suggestions.grammar) ? suggestions.grammar.slice(0, 5) : [],
+          style: Array.isArray(suggestions.style) ? suggestions.style.slice(0, 5) : []
+        }
+      : null;
+
+  if (!normalized) {
+    workspaceAssistantSuggestions.hidden = true;
+    workspaceAssistantClarityList.innerHTML = "";
+    workspaceAssistantGrammarList.innerHTML = "";
+    workspaceAssistantStyleList.innerHTML = "";
+    return;
+  }
+
+  const renderList = (el, items) => {
+    el.innerHTML = "";
+    const listItems = items.length ? items : ["No issues detected."];
+    for (const item of listItems) {
+      const li = document.createElement("li");
+      li.textContent = String(item || "").trim() || "No issues detected.";
+      el.appendChild(li);
+    }
+  };
+
+  renderList(workspaceAssistantClarityList, normalized.clarity);
+  renderList(workspaceAssistantGrammarList, normalized.grammar);
+  renderList(workspaceAssistantStyleList, normalized.style);
+  workspaceAssistantSuggestions.hidden = false;
+}
+
+function triggerWorkspaceAssistantFadeIn() {
+  if (!workspaceAssistantPanel) return;
+  if (workspaceAssistantFadeTimer) {
+    clearTimeout(workspaceAssistantFadeTimer);
+    workspaceAssistantFadeTimer = null;
+  }
+  workspaceAssistantPanel.classList.remove("is-fade-in");
+  void workspaceAssistantPanel.offsetWidth;
+  workspaceAssistantPanel.classList.add("is-fade-in");
+  workspaceAssistantFadeTimer = setTimeout(() => {
+    workspaceAssistantPanel.classList.remove("is-fade-in");
+    workspaceAssistantFadeTimer = null;
+  }, 190);
+}
+
+function setWorkspaceAssistantSuggestButtonLoading(isLoading) {
+  if (!workspaceAssistantSuggestBtn) return;
+  workspaceAssistantSuggestBtn.disabled = Boolean(isLoading);
+  workspaceAssistantSuggestBtn.textContent = isLoading ? "Analyzing..." : "Suggest Improvements";
+}
+
+function buildWorkspaceStructuredSummary(intent, outputType, action, changeScope) {
+  return `Intent: ${intent}\nOutput Type: ${outputType}\nAction: ${action}\nChange Scope: ${changeScope}`;
+}
+
+function determineWorkspaceChangeScope(cleanText, baseText) {
+  const insertedWords = countWords(cleanText);
+  const baseWords = countWords(baseText);
+  if (insertedWords <= 0) return "Short";
+
+  if (baseWords === 0) {
+    if (insertedWords >= 220) return "Full rewrite";
+    if (insertedWords >= 90) return "Medium";
+    return "Short";
+  }
+
+  const ratio = insertedWords / Math.max(1, baseWords);
+  if (ratio >= 0.9 || insertedWords >= 400) return "Full rewrite";
+  if (ratio >= 0.3 || insertedWords >= 130) return "Medium";
+  return "Short";
+}
+
+function hasWorkspaceDocumentContext() {
+  return Boolean(getWorkspaceDocumentText().trim());
+}
+
+function getCurrentWorkspaceAssistantMemory() {
+  const current = getWorkspaceCurrentSession();
+  if (!current) return createDefaultWorkspaceAssistantMemory();
+  current.workspace.assistantMemory = normalizeWorkspaceAssistantMemory(current.workspace.assistantMemory);
+  return current.workspace.assistantMemory;
+}
+
+function setCurrentWorkspaceAssistantMemory(memoryPatch = {}) {
+  const current = getWorkspaceCurrentSession();
+  if (!current) return;
+  const merged = {
+    ...getCurrentWorkspaceAssistantMemory(),
+    ...memoryPatch
+  };
+  current.workspace.assistantMemory = normalizeWorkspaceAssistantMemory(merged);
+  syncCurrentSessionFromHistory();
+}
+
+function setWorkspaceAssistantExpanded(expanded) {
+  workspaceAssistantExpanded = Boolean(expanded);
+  if (!workspaceAssistantPanel || !workspaceAssistantToggle || !workspaceAssistantBody) return;
+
+  workspaceAssistantPanel.classList.toggle("is-collapsed", !workspaceAssistantExpanded);
+  workspaceAssistantToggle.setAttribute("aria-expanded", workspaceAssistantExpanded ? "true" : "false");
+  workspaceAssistantBody.hidden = false;
+  workspaceAssistantBody.setAttribute("aria-hidden", workspaceAssistantExpanded ? "false" : "true");
+  if (workspaceAssistantChevron) {
+    workspaceAssistantChevron.textContent = ">";
+  }
+}
+
+function updateWorkspaceAssistantPanelState(data = {}) {
+  const {
+    tone = "idle",
+    statusText = "Idle",
+    intentText = "No document context yet",
+    outputTypeText = "Other",
+    wordCountText = "0",
+    readTimeText = "1 min",
+    actionText = "Not Applied",
+    changeScopeText = "Short",
+    lastActionText = "None yet",
+    summaryText = buildWorkspaceStructuredSummary("No document context yet", "Other", "Not Applied", "Short"),
+    suggestions = null,
+    triggerFadeIn = false
+  } = data;
+
+  if (triggerFadeIn) {
+    triggerWorkspaceAssistantFadeIn();
+  }
+
+  const resolvedTone = resolveWorkspaceTone(tone);
+  if (workspaceAssistantStatusDot) {
+    workspaceAssistantStatusDot.className = `workspace-assistant-dot ${resolvedTone}`;
+  }
+  if (workspaceAssistantStatusText) {
+    workspaceAssistantStatusText.textContent = statusText;
+  }
+  if (workspaceAssistantIntent) {
+    workspaceAssistantIntent.textContent = intentText;
+  }
+  if (workspaceAssistantOutput) {
+    workspaceAssistantOutput.textContent = outputTypeText;
+  }
+  if (workspaceAssistantWordCount) {
+    workspaceAssistantWordCount.textContent = wordCountText;
+  }
+  if (workspaceAssistantReadTime) {
+    workspaceAssistantReadTime.textContent = readTimeText;
+  }
+  if (workspaceAssistantAction) {
+    workspaceAssistantAction.textContent = actionText;
+  }
+  if (workspaceAssistantChangeScope) {
+    workspaceAssistantChangeScope.textContent = changeScopeText;
+  }
+  if (workspaceAssistantLastAction) {
+    workspaceAssistantLastAction.textContent = lastActionText;
+  }
+  if (workspaceAssistantSummary) {
+    workspaceAssistantSummary.textContent = summaryText;
+  }
+  setWorkspaceAssistantSuggestions(suggestions);
+}
+
+function setWorkspaceAssistantNoContextState() {
+  const fallbackSummary = buildWorkspaceStructuredSummary("No document context yet", "Other", "Not Applied", "Short");
+  updateWorkspaceAssistantPanelState({
+    tone: "idle",
+    statusText: "Idle",
+    intentText: "No document context yet",
+    outputTypeText: "Other",
+    wordCountText: "0",
+    readTimeText: "1 min",
+    actionText: "Not Applied",
+    changeScopeText: "Short",
+    lastActionText: "None yet",
+    summaryText: fallbackSummary,
+    suggestions: null
+  });
+}
+
+function setWorkspaceAssistantIdleIntelligenceState() {
+  const content = getWorkspaceDocumentText();
+  if (!content.trim()) {
+    setWorkspaceAssistantNoContextState();
+    return;
+  }
+
+  const metrics = getWorkspaceDocumentMetrics(content);
+  const memory = getCurrentWorkspaceAssistantMemory();
+  const detectedType = inferWorkspaceOutputType(content, "");
+  const summary = memory.summary || buildWorkspaceStructuredSummary(
+    "Workspace-aware assistance is ready.",
+    detectedType,
+    memory.action || "Not Applied",
+    memory.changeScope || "Short"
+  );
+
+  updateWorkspaceAssistantPanelState({
+    tone: memory.tone || "idle",
+    statusText: memory.statusText || "Idle",
+    intentText: memory.intent || "Workspace-aware assistance is ready.",
+    outputTypeText: detectedType,
+    wordCountText: `${metrics.wordCount}`,
+    readTimeText: `${metrics.readTimeMinutes} min`,
+    actionText: memory.action || "Not Applied",
+    changeScopeText: memory.changeScope || "Short",
+    lastActionText: memory.lastAction || "None yet",
+    summaryText: summary,
+    suggestions: memory.suggestions || null
+  });
+}
+
+function syncWorkspaceAssistantContextState() {
+  if (!isWorkspaceSessionActive()) return;
+  if (isSending || isWorkspaceSuggestionLoading) return;
+  setWorkspaceAssistantIdleIntelligenceState();
+}
+
+function setWorkspaceAssistantGenerationPhase(phaseText, options = {}) {
+  if (!isWorkspaceSessionActive()) return;
+  const {
+    intentText = "Preparing workspace-aligned output.",
+    outputTypeText = "Other",
+    sourceText = getWorkspaceDocumentText(),
+    summaryText = phaseText,
+    triggerFadeIn = false
+  } = options;
+  const metrics = getWorkspaceDocumentMetrics(sourceText);
+  const memory = getCurrentWorkspaceAssistantMemory();
+  updateWorkspaceAssistantPanelState({
+    tone: "generating",
+    statusText: "Generating",
+    intentText,
+    outputTypeText,
+    wordCountText: `${metrics.wordCount}`,
+    readTimeText: `${metrics.readTimeMinutes} min`,
+    actionText: "In Progress",
+    changeScopeText: "Pending",
+    lastActionText: memory.lastAction || "None yet",
+    summaryText,
+    suggestions: null,
+    triggerFadeIn
+  });
+}
+
+function finalizeWorkspaceAssistantGeneration(result, options = {}) {
+  if (!isWorkspaceSessionActive()) return;
+  const { stopped = false } = options;
+  const contentNow = getWorkspaceDocumentText();
+  const metrics = getWorkspaceDocumentMetrics(contentNow);
+  const outputType = result && result.outputType ? result.outputType : inferWorkspaceOutputType(contentNow, "");
+
+  let intent = "Generated workspace output from the current context.";
+  let action = "Not Applied";
+  let tone = "pending";
+  let statusText = "Pending";
+  let changeScope = result && result.changeScope ? result.changeScope : "Short";
+  let lastAction = `Generated ${outputType.toLowerCase()} output but did not apply changes.`;
+
+  if (!result || result.reason === "empty") {
+    intent = "Generated no insertable content from the current workspace request.";
+    action = "Not Applied";
+    tone = "pending";
+    statusText = "Pending";
+    changeScope = "Short";
+    lastAction = "Generated output but no document-ready insertion was available.";
+  } else if (result.applied) {
+    intent = stopped
+      ? "Generated partial content and applied clean output to the workspace."
+      : "Generated clean content and applied it to the workspace.";
+    action = "Applied";
+    tone = "applied";
+    statusText = "Applied";
+    lastAction = `Generated ${outputType.toLowerCase()} content and cleaned formatting.`;
+  } else if (result.reason === "declined") {
+    intent = "Generated clean content and waited for insertion approval.";
+    action = "Not Applied";
+    tone = "pending";
+    statusText = "Pending";
+    lastAction = `Generated ${outputType.toLowerCase()} content but insertion was skipped.`;
+  }
+
+  const summary = buildWorkspaceStructuredSummary(intent, outputType, action, changeScope);
+  updateWorkspaceAssistantPanelState({
+    tone,
+    statusText,
+    intentText: intent,
+    outputTypeText: outputType,
+    wordCountText: `${metrics.wordCount}`,
+    readTimeText: `${metrics.readTimeMinutes} min`,
+    actionText: action,
+    changeScopeText: changeScope,
+    lastActionText: lastAction,
+    summaryText: summary,
+    suggestions: null
+  });
+
+  setCurrentWorkspaceAssistantMemory({
+    lastAction,
+    intent,
+    outputType,
+    action,
+    changeScope,
+    summary,
+    tone: action === "Applied" ? "applied" : "pending",
+    statusText,
+    suggestions: null
+  });
+}
+
+function buildWorkspaceSuggestionPrompt(workspaceText, outputType) {
+  const content = String(workspaceText || "").trim();
+  return [
+    "Analyze this workspace document and return only JSON.",
+    "Schema: {\"clarity\":[\"...\"],\"grammar\":[\"...\"],\"style\":[\"...\"]}",
+    "Each array must contain 1-3 concise suggestions. No markdown, no extra text.",
+    `Detected output type: ${outputType}.`,
+    "",
+    "Document:",
+    content
+  ].join("\n");
+}
+
+function parseWorkspaceSuggestions(rawText) {
+  const raw = String(rawText || "").trim();
+  if (!raw) return null;
+
+  const jsonBlock = raw.match(/\{[\s\S]*\}/);
+  const payload = jsonBlock ? jsonBlock[0] : raw;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const normalizeList = (value) => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  };
+
+  return {
+    clarity: normalizeList(parsed.clarity),
+    grammar: normalizeList(parsed.grammar),
+    style: normalizeList(parsed.style)
+  };
+}
+
+async function requestWorkspaceSuggestions() {
+  if (!isWorkspaceSessionActive()) return;
+  const workspaceText = getWorkspaceDocumentText();
+  if (!workspaceText.trim()) {
+    setWorkspaceAssistantNoContextState();
+    return;
+  }
+  if (isSending || isWorkspaceSuggestionLoading) {
+    return;
+  }
+
+  isWorkspaceSuggestionLoading = true;
+  setWorkspaceAssistantSuggestButtonLoading(true);
+  setWorkspaceAssistantExpanded(true);
+
+  const outputType = inferWorkspaceOutputType(workspaceText, "");
+  const metrics = getWorkspaceDocumentMetrics(workspaceText);
+  const sessionModel = getCurrentSessionModel();
+
+  try {
+    setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
+      intentText: "Reviewing workspace content to prepare targeted improvements.",
+      outputTypeText: outputType,
+      sourceText: workspaceText,
+      summaryText: WORKSPACE_GENERATION_PHASES.reviewing,
+      triggerFadeIn: true
+    });
+
+    const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({ message: prompt, history: [], model: sessionModel })
+    });
+    if (!res.ok) {
+      throw new Error("Failed to generate suggestions.");
+    }
+
+    setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.drafting, {
+      intentText: "Drafting structured suggestions for clarity, grammar, and style.",
+      outputTypeText: outputType,
+      sourceText: workspaceText,
+      summaryText: WORKSPACE_GENERATION_PHASES.drafting
+    });
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    let reply = "";
+    if (contentType.includes("application/json")) {
+      const parsed = await res.json();
+      reply = JSON.stringify(parsed);
+    } else {
+      reply = await res.text();
+    }
+
+    setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
+      intentText: "Preparing final suggestion output.",
+      outputTypeText: outputType,
+      sourceText: workspaceText,
+      summaryText: WORKSPACE_GENERATION_PHASES.preparing
+    });
+
+    const suggestions = parseWorkspaceSuggestions(reply) || {
+      clarity: ["Clarify the main point in the opening section."],
+      grammar: ["Review sentence punctuation consistency."],
+      style: ["Unify tone across the document."]
+    };
+    const intent = "Generated structured improvement suggestions for the workspace document.";
+    const action = "Not Applied";
+    const changeScope = "Short";
+    const summary = buildWorkspaceStructuredSummary(intent, outputType, action, changeScope);
+    const lastAction = "Generated improvement suggestions for clarity, grammar, and style.";
+
+    updateWorkspaceAssistantPanelState({
+      tone: "pending",
+      statusText: "Pending",
+      intentText: intent,
+      outputTypeText: outputType,
+      wordCountText: `${metrics.wordCount}`,
+      readTimeText: `${metrics.readTimeMinutes} min`,
+      actionText: action,
+      changeScopeText: changeScope,
+      lastActionText: lastAction,
+      summaryText: summary,
+      suggestions
+    });
+
+    setCurrentWorkspaceAssistantMemory({
+      lastAction,
+      intent,
+      outputType,
+      action,
+      changeScope,
+      summary,
+      tone: "pending",
+      statusText: "Pending",
+      suggestions
+    });
+  } catch {
+    const summary = buildWorkspaceStructuredSummary(
+      "Could not complete suggestion analysis for the workspace document.",
+      outputType,
+      "Not Applied",
+      "Short"
+    );
+    updateWorkspaceAssistantPanelState({
+      tone: "pending",
+      statusText: "Pending",
+      intentText: "Could not complete suggestion analysis for the workspace document.",
+      outputTypeText: outputType,
+      wordCountText: `${metrics.wordCount}`,
+      readTimeText: `${metrics.readTimeMinutes} min`,
+      actionText: "Not Applied",
+      changeScopeText: "Short",
+      lastActionText: "Suggestion analysis failed.",
+      summaryText: summary,
+      suggestions: null
+    });
+    setCurrentWorkspaceAssistantMemory({
+      lastAction: "Suggestion analysis failed.",
+      intent: "Could not complete suggestion analysis for the workspace document.",
+      outputType,
+      action: "Not Applied",
+      changeScope: "Short",
+      summary,
+      tone: "pending",
+      statusText: "Pending",
+      suggestions: null
+    });
+  } finally {
+    isWorkspaceSuggestionLoading = false;
+    setWorkspaceAssistantSuggestButtonLoading(false);
+  }
+}
+
+function renderWorkspaceUI(options = {}) {
+  const { focus = false } = options;
+  if (!workspaceTabs || !workspacePanel || !chat || !composerWrap) return;
+
+  const current = getWorkspaceCurrentSession();
+  if (!current) return;
+  syncModelSelectorWithCurrentSession();
+  syncModelPanelWithCurrentSession();
+  const workspace = current.workspace;
+  const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
+  const isWorkspaceTab = activeTab === "workspace";
+  const isModelTab = activeTab === "model";
+
+  if (mainPanel) {
+    mainPanel.classList.toggle("workspace-mode", activeTab !== "chat");
+  }
+
+  workspaceTabs.hidden = false;
+  chat.hidden = activeTab !== "chat";
+  composerWrap.hidden = isModelTab;
+  workspacePanel.hidden = !isWorkspaceTab;
+  if (modelPanel) {
+    modelPanel.hidden = !isModelTab;
+  }
+  workspacePanel.dataset.tab = activeTab || "chat";
+  if (workspaceAssistantPanel) {
+    workspaceAssistantPanel.hidden = !isWorkspaceTab;
+  }
+
+  updateWorkspaceTabButtons(activeTab);
+
+  if (isWorkspaceTab) {
+    if (!wasWorkspaceTabActive) {
+      setWorkspaceAssistantExpanded(false);
+      syncWorkspaceAssistantContextState();
+    } else {
+      syncWorkspaceAssistantContextState();
+    }
+    if (workspacePanelTitle) {
+      workspacePanelTitle.textContent = "ROK Workspace";
+    }
+    if (workspaceEditor && document.activeElement !== workspaceEditor) {
+      workspaceEditor.value = workspace.content || "";
+    }
+    if (focus && workspaceEditor) {
+      workspaceEditor.focus();
+    }
+  } else if (isModelTab) {
+    if (focus && modelOptionList) {
+      const activeOption = modelOptionList.querySelector(".model-option-btn.is-active");
+      const fallbackOption = modelOptionList.querySelector(".model-option-btn");
+      const target = activeOption instanceof HTMLElement ? activeOption : fallbackOption;
+      if (target instanceof HTMLElement) {
+        target.focus();
+      }
+    }
+  } else if (focus && input) {
+    input.focus();
+  }
+  wasWorkspaceTabActive = isWorkspaceTab;
+}
+
+function setActiveWorkspaceTab(tab, options = {}) {
+  const { focus = true } = options;
+  if (!WORKSPACE_TAB_KEYS.includes(tab) || !currentSessionId) return;
+
+  storeWorkspaceDraftsFromWindows();
+  const current = getWorkspaceCurrentSession();
+  if (!current) return;
+  const workspace = current.workspace;
+  workspace.activeTab = tab;
+  syncCurrentSessionFromHistory();
+  renderWorkspaceUI({ focus });
+}
+
+function clearActiveWorkspaceTab() {
+  if (!currentSessionId) return false;
+  const current = getWorkspaceCurrentSession();
+  if (!current) return false;
+  const workspace = current.workspace;
+  if (workspace.activeTab !== "workspace") return false;
+
+  workspace.content = "";
+  workspace.assistantMemory = createDefaultWorkspaceAssistantMemory();
+  if (workspaceEditor && workspacePanel && !workspacePanel.hidden) {
+    workspaceEditor.value = "";
+    workspaceEditor.focus();
+  }
+  syncCurrentSessionFromHistory();
+  renderWorkspaceUI({ focus: true });
+  return true;
+}
+
+function getWorkspaceContextForPrompt() {
+  if (!isWorkspaceSessionActive()) return "";
+  const current = getWorkspaceCurrentSession();
+  if (!current) return "";
+  const content = String(current.workspace.content || "").trim();
+  if (!content) return "";
+  return content.slice(0, 18000);
+}
+
+function isWorkspaceChattyLeadLine(line) {
+  if (!line) return false;
+  const normalized = line
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^[-*]\s+/, "")
+    .trim();
+  if (!normalized || normalized.length > 160) return false;
+
+  if (
+    /^(?:here(?:'s| is)|below is|this is)\b/i.test(normalized) &&
+    (/:$/.test(normalized) || /\b(?:version|draft|rewrite|updated|improved|cleaned|document|copy|text|output|result)\b/i.test(normalized))
+  ) {
+    return true;
+  }
+  if (/^i(?:'ve| have)\s+(?:rewritten|updated|improved|cleaned|polished|revised)\b/i.test(normalized)) return true;
+  if (/^(?:revised|updated|improved|cleaned|final)\s+(?:version|draft|document|copy|text)\s*:?$/i.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeWorkspaceWriteBackText(replyText) {
+  let value = String(replyText || "").trim();
+  if (!value) return "";
+
+  const fencedMatch = value.match(/^\s*```(?:[a-z0-9_-]+)?\s*\r?\n([\s\S]*?)\r?\n```\s*$/i);
+  if (fencedMatch) {
+    value = fencedMatch[1].trim();
+  }
+
+  value = value.replace(/^(?:assistant|rok|ai)\s*[:\-]\s*/i, "").trimStart();
+
+  for (let i = 0; i < 4; i += 1) {
+    const before = value;
+    value = value
+      .replace(WORKSPACE_CHAT_LEADIN_PATTERN, "")
+      .replace(/^(?:here(?:'s| is)|below is|this is)\b[^:\n]{0,120}:\s*/i, "")
+      .trimStart();
+
+    const firstBreak = value.indexOf("\n");
+    const firstLine = (firstBreak === -1 ? value : value.slice(0, firstBreak)).trim();
+    if (isWorkspaceChattyLeadLine(firstLine)) {
+      value = firstBreak === -1 ? "" : value.slice(firstBreak + 1).trimStart();
+    }
+
+    if (value === before) break;
+  }
+
+  const lines = value.split(/\r?\n/);
+  while (lines.length) {
+    const lastLine = lines[lines.length - 1].trim();
+    if (!lastLine) {
+      lines.pop();
+      continue;
+    }
+    if (lastLine.length <= 160 && WORKSPACE_CHAT_OUTRO_PATTERN.test(lastLine)) {
+      lines.pop();
+      continue;
+    }
+    break;
+  }
+
+  return lines.join("\n").trim();
+}
+
+function isWorkspaceApplyModalOpen() {
+  return Boolean(workspaceApplyModal && !workspaceApplyModal.hidden && workspaceApplyResolver);
+}
+
+function closeWorkspaceApplyModal(approved) {
+  if (!workspaceApplyModal) return;
+
+  const resolve = workspaceApplyResolver;
+  workspaceApplyResolver = null;
+  workspaceApplyModal.hidden = true;
+  workspaceApplyModal.setAttribute("aria-hidden", "true");
+
+  if (
+    workspaceApplyLastFocusedElement instanceof HTMLElement &&
+    workspaceApplyLastFocusedElement.isConnected &&
+    typeof workspaceApplyLastFocusedElement.focus === "function"
+  ) {
+    workspaceApplyLastFocusedElement.focus();
+  }
+  workspaceApplyLastFocusedElement = null;
+
+  if (typeof resolve === "function") {
+    resolve(Boolean(approved));
+  }
+}
+
+function getWorkspaceApplyFocusableButtons() {
+  if (!workspaceApplyModal) return [];
+  const buttons = workspaceApplyModal.querySelectorAll("button");
+  return Array.from(buttons).filter((btn) => !btn.disabled && btn.offsetParent !== null);
+}
+
+function openWorkspaceApplyModal(replyText, options = {}) {
+  if (
+    !workspaceApplyModal ||
+    !workspaceApplyModalIntro ||
+    !workspaceApplyModalPreview ||
+    !workspaceApplyConfirmBtn ||
+    !workspaceApplyCancelBtn
+  ) {
+    return Promise.resolve(false);
+  }
+
+  const { stopped = false } = options;
+  const text = String(replyText || "").trim();
+  if (!text) return Promise.resolve(false);
+
+  if (workspaceApplyResolver) {
+    closeWorkspaceApplyModal(false);
+  }
+
+  const preview =
+    text.length > WORKSPACE_APPLY_PREVIEW_CHARS
+      ? `${text.slice(0, WORKSPACE_APPLY_PREVIEW_CHARS)}...`
+      : text;
+  workspaceApplyModalIntro.textContent = stopped
+    ? "ROK generated a partial response for the workspace."
+    : "ROK generated a response for the workspace.";
+  workspaceApplyModalPreview.textContent = preview;
+
+  workspaceApplyLastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  workspaceApplyModal.hidden = false;
+  workspaceApplyModal.setAttribute("aria-hidden", "false");
+
+  return new Promise((resolve) => {
+    workspaceApplyResolver = resolve;
+    requestAnimationFrame(() => {
+      if (workspaceApplyConfirmBtn && !workspaceApplyModal.hidden) {
+        workspaceApplyConfirmBtn.focus();
+      }
+    });
+  });
+}
+
+function handleWorkspaceApplyModalKeydown(e) {
+  if (!isWorkspaceApplyModalOpen()) return;
+
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeWorkspaceApplyModal(false);
+    return;
+  }
+
+  if (e.key !== "Tab") return;
+  const focusable = getWorkspaceApplyFocusableButtons();
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (e.shiftKey && active === first) {
+    e.preventDefault();
+    last.focus();
+    return;
+  }
+
+  if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+async function confirmWorkspaceWriteBack(replyText, options = {}) {
+  return openWorkspaceApplyModal(replyText, options);
+}
+
+async function appendAssistantReplyToWorkspace(replyText, options = {}) {
+  const { stopped = false, sourcePrompt = "" } = options;
+  if (!isWorkspaceSessionActive()) {
+    return { applied: false, reason: "inactive", outputType: "Other", cleanText: "", changeScope: "Short" };
+  }
+
+  const current = getWorkspaceCurrentSession();
+  if (!current) {
+    return { applied: false, reason: "missing-session", outputType: "Other", cleanText: "", changeScope: "Short" };
+  }
+
+  if (workspaceEditor && workspacePanel && !workspacePanel.hidden) {
+    current.workspace.content = workspaceEditor.value || current.workspace.content || "";
+  }
+  const base = String(current.workspace.content || "");
+
+  const text = String(replyText || "").trim();
+  if (!text) {
+    return {
+      applied: false,
+      reason: "empty",
+      outputType: inferWorkspaceOutputType("", sourcePrompt),
+      cleanText: "",
+      changeScope: "Short"
+    };
+  }
+  const cleanText = normalizeWorkspaceWriteBackText(text);
+  const outputType = inferWorkspaceOutputType(cleanText || text, sourcePrompt);
+  const changeScope = determineWorkspaceChangeScope(cleanText, base);
+  if (!cleanText) {
+    return { applied: false, reason: "empty", outputType, cleanText: "", changeScope };
+  }
+  const approved = await confirmWorkspaceWriteBack(cleanText, { stopped });
+  if (!approved) {
+    return { applied: false, reason: "declined", outputType, cleanText, changeScope };
+  }
+  const trimmedBase = base.trimEnd();
+  current.workspace.content = trimmedBase ? `${trimmedBase}\n\n${cleanText}` : cleanText;
+
+  if (workspaceEditor && workspacePanel && !workspacePanel.hidden) {
+    workspaceEditor.value = current.workspace.content;
+    workspaceEditor.scrollTop = workspaceEditor.scrollHeight;
+  }
+
+  syncCurrentSessionFromHistory();
+  return {
+    applied: true,
+    reason: stopped ? "applied-stopped" : "applied",
+    outputType,
+    cleanText,
+    changeScope
+  };
+}
+
+function shouldUseStoryCanvasForPrompt(promptText) {
+  const text = String(promptText || "").trim();
+  if (!text) return false;
+  if (!STORY_PROMPT_PATTERN.test(text)) return false;
+  return true;
+}
+
+function looksLikeStoryText(text) {
+  const value = String(text || "").trim();
+  if (!value || value.length < STORY_MIN_CANVAS_CHARS) return false;
+  if (value.includes("```")) return false;
+
+  const paragraphCount = value.split(/\n\s*\n/).filter((part) => part.trim()).length;
+  const dialogueCount = (value.match(/"/g) || []).length;
+  const narrativeHint =
+    /\b(once|chapter|suddenly|whispered|replied|asked|looked|walked|night|morning|forest|city|door|character|story)\b/i.test(
+      value
+    );
+
+  return narrativeHint && (paragraphCount >= 2 || dialogueCount >= 2);
+}
+
+function createStoryCanvas() {
+  const shell = document.createElement("section");
+  shell.className = "story-canvas";
+
+  const header = document.createElement("div");
+  header.className = "story-canvas-header";
+
+  const meta = document.createElement("div");
+  meta.className = "story-canvas-meta";
+
+  const title = document.createElement("span");
+  title.className = "story-canvas-title";
+  title.textContent = "Story Canvas";
+
+  const status = document.createElement("span");
+  status.className = "story-canvas-status";
+  status.textContent = "Writing...";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "story-canvas-toggle";
+  toggle.textContent = "Expand";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.addEventListener("click", () => {
+    const expanded = shell.classList.toggle("expanded");
+    toggle.textContent = expanded ? "Collapse" : "Expand";
+    toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    scrollToBottom();
+  });
+
+  const body = document.createElement("pre");
+  body.className = "story-canvas-body";
+
+  meta.appendChild(title);
+  meta.appendChild(status);
+  header.appendChild(meta);
+  header.appendChild(toggle);
+  shell.appendChild(header);
+  shell.appendChild(body);
+
+  const setStatus = (value) => {
+    status.textContent = value;
+  };
+
+  return { shell, body, toggle, setStatus };
+}
+
+function updateStoryCanvasOutput(storyCanvas, text) {
+  if (!storyCanvas) return;
+  storyCanvas.body.textContent = text || "";
+  storyCanvas.body.scrollTop = storyCanvas.body.scrollHeight;
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function truncateText(text, maxChars) {
+  if (!text || text.length <= maxChars) return text || "";
+  return text.slice(0, maxChars) + "\n...[truncated]";
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function makeSessionId() {
+  return `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeMessages(messages) {
+  if (!Array.isArray(messages)) return [];
+  const cleaned = [];
+  for (const item of messages) {
+    if (!item || typeof item !== "object") continue;
+    const role = item.role === "assistant" ? "assistant" : item.role === "user" ? "user" : null;
+    if (!role || typeof item.content !== "string") continue;
+    const content = item.content.trim();
+    if (!content) continue;
+    cleaned.push({ role, content: item.content });
+  }
+  return cleaned;
+}
+
+function buildSessionTitle(messages) {
+  const firstUser = (messages || []).find((m) => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
+  if (!firstUser) return "New Chat";
+  const compact = firstUser.content.replace(/\s+/g, " ").trim();
+  if (compact.length <= 40) return compact;
+  return compact.slice(0, 40) + "...";
+}
+
+function createSession(messages = []) {
+  const now = Date.now();
+  const safeMessages = sanitizeMessages(messages);
+  return {
+    id: makeSessionId(),
+    title: buildSessionTitle(safeMessages),
+    createdAt: now,
+    updatedAt: now,
+    messages: safeMessages,
+    model: DEFAULT_MODEL_ID,
+    workspace: createDefaultWorkspace()
+  };
+}
+
+function formatSessionTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function sortSessionsByRecent() {
+  sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function getSessionById(id) {
+  return sessions.find((session) => session.id === id) || null;
+}
+
+function loadSessionsFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    const seen = new Set();
+    const loaded = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const id = typeof item.id === "string" && item.id ? item.id : makeSessionId();
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      const safeMessages = sanitizeMessages(item.messages);
+      const createdAt = Number.isFinite(Number(item.createdAt)) ? Number(item.createdAt) : Date.now();
+      const updatedAt = Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : createdAt;
+      const title = typeof item.title === "string" && item.title.trim() ? item.title.trim() : buildSessionTitle(safeMessages);
+      const workspace = normalizeWorkspace(item.workspace);
+      const model = normalizeSessionModel(item.model);
+
+      loaded.push({
+        id,
+        title: title || "New Chat",
+        createdAt,
+        updatedAt,
+        messages: safeMessages,
+        model,
+        workspace
+      });
+    }
+
+    return loaded;
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionsToStorage() {
+  try {
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function loadCurrentSessionIdFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_CURRENT_SESSION_KEY);
+    return typeof raw === "string" && raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCurrentSessionIdToStorage() {
+  try {
+    if (currentSessionId) {
+      localStorage.setItem(LOCAL_CURRENT_SESSION_KEY, currentSessionId);
+    } else {
+      localStorage.removeItem(LOCAL_CURRENT_SESSION_KEY);
+    }
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function updateCurrentSessionButton() {
+  if (!currentSessionBtn) return;
+  const current = getSessionById(currentSessionId);
+  const label = current && current.title ? current.title : "Current Session";
+  currentSessionBtn.textContent = `Current: ${label}`;
+  currentSessionBtn.title = label;
+}
+
+function renderSavedSessions() {
+  if (!savedChatsList) return;
+
+  if (!sessions.length) {
+    savedChatsList.innerHTML = '<div class="side-empty">No saved chats yet.</div>';
+    return;
+  }
+
+  savedChatsList.innerHTML = sessions
+    .map((session) => {
+      const isActive = session.id === currentSessionId ? " active" : "";
+      const safeId = escapeHtml(session.id);
+      const safeTitle = escapeHtml(session.title || "Untitled Chat");
+      const safeTime = escapeHtml(formatSessionTime(session.updatedAt));
+      return `<div class="side-session-row${isActive}" data-session-row-id="${safeId}"><button class="side-item side-session-btn${isActive}" type="button" data-session-id="${safeId}" title="${safeTitle}"><span class="side-session-title">${safeTitle}</span><span class="side-session-time">${safeTime}</span></button><button class="session-delete-btn" type="button" data-delete-session-id="${safeId}" aria-label="Delete chat" title="Delete chat"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 9h2v9H7V9Z"/></svg></button></div>`;
+    })
+    .join("");
+}
+
+function syncCurrentSessionFromHistory() {
+  const current = getSessionById(currentSessionId);
+  if (!current) return;
+
+  ensureSessionWorkspace(current);
+  current.messages = history.map((item) => ({ role: item.role, content: item.content }));
+  current.title = buildSessionTitle(current.messages);
+  current.updatedAt = Date.now();
+  sortSessionsByRecent();
+  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+}
+
+function resetChatRuntimeState() {
+  clearAttachments();
+  nextAllowedAt = 0;
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+  if (cooldownEl) {
+    cooldownEl.textContent = "";
+  }
+  refreshSendState();
+}
+
+function renderConversation(messages) {
+  chat.innerHTML = "";
+  history.length = 0;
+
+  const safeMessages = sanitizeMessages(messages);
+  for (const item of safeMessages) {
+    history.push({ role: item.role, content: item.content });
+    const displayRole = item.role === "assistant" ? "bot" : "user";
+    const renderStoryCanvas = item.role === "assistant" && looksLikeStoryText(item.content);
+    const rendered = addMessage(displayRole, item.content, {
+      markdown: item.role === "assistant" && !renderStoryCanvas,
+      storyCanvas: renderStoryCanvas
+    });
+    if (renderStoryCanvas && rendered.storyCanvas) {
+      updateStoryCanvasOutput(rendered.storyCanvas, item.content);
+      rendered.storyCanvas.setStatus("Complete");
+      rendered.bubble.textContent = "Story ready. Use Expand to read.";
+    }
+  }
+
+  hasShownReadyMessage = safeMessages.length > 0;
+}
+
+function openSession(sessionId, options = {}) {
+  const { skipWorkspaceFlush = false } = options;
+  if (isSending) {
+    addMessage("system", "Stop generation before switching chats.");
+    return;
+  }
+
+  if (!skipWorkspaceFlush) {
+    flushPendingWorkspaceSave();
+  }
+  const target = getSessionById(sessionId);
+  if (!target) return;
+  ensureSessionWorkspace(target);
+
+  currentSessionId = target.id;
+  target.updatedAt = Date.now();
+  sortSessionsByRecent();
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+
+  hideHomeScreen();
+  wasWorkspaceTabActive = false;
+  resetChatRuntimeState();
+  renderConversation(target.messages);
+  updateCurrentSessionButton();
+  renderSavedSessions();
+  renderWorkspaceUI({ focus: true });
+}
+
+function deleteSession(sessionId) {
+  if (isSending) {
+    addMessage("system", "Stop generation before deleting chats.");
+    return;
+  }
+
+  const index = sessions.findIndex((session) => session.id === sessionId);
+  if (index < 0) return;
+
+  const wasCurrent = sessionId === currentSessionId;
+  sessions.splice(index, 1);
+
+  if (!sessions.length) {
+    const next = createSession([]);
+    sessions.push(next);
+  }
+
+  let fallbackSessionId = null;
+  if (wasCurrent) {
+    const fallbackIndex = Math.min(index, sessions.length - 1);
+    const fallback = sessions[fallbackIndex];
+    fallbackSessionId = fallback ? fallback.id : sessions[0].id;
+    currentSessionId = fallbackSessionId;
+  }
+
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+
+  if (wasCurrent && fallbackSessionId) {
+    openSession(fallbackSessionId, { skipWorkspaceFlush: true });
+  }
+}
+
+function startNewSession(showNotice) {
+  if (isSending) {
+    addMessage("system", "Stop generation before starting a new chat.");
+    return;
+  }
+
+  flushPendingWorkspaceSave();
+  const next = createSession([]);
+  sessions.unshift(next);
+  sortSessionsByRecent();
+  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+  currentSessionId = next.id;
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+
+  hideHomeScreen();
+  wasWorkspaceTabActive = false;
+  clearChat(showNotice);
+  updateCurrentSessionButton();
+  renderSavedSessions();
+  renderWorkspaceUI({ focus: true });
+}
+
+function initializeSessions() {
+  sessions = loadSessionsFromStorage();
+  sortSessionsByRecent();
+  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+
+  if (!sessions.length) {
+    sessions = [createSession([])];
+  }
+
+  const storedCurrent = loadCurrentSessionIdFromStorage();
+  currentSessionId = storedCurrent && getSessionById(storedCurrent) ? storedCurrent : sessions[0].id;
+
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+
+  const current = getSessionById(currentSessionId);
+  if (current) {
+    ensureSessionWorkspace(current);
+    renderConversation(current.messages);
+    renderWorkspaceUI({ focus: false });
+  }
+}
+
+function chooseNextHomeDemoIndex() {
+  const count = HOME_DEMO_SCENARIOS.length;
+  if (count <= 1) return 0;
+
+  let nextIndex = Math.floor(Math.random() * count);
+  while (nextIndex === homeDemoLastIndex) {
+    nextIndex = Math.floor(Math.random() * count);
+  }
+  return nextIndex;
+}
+
+function renderHomeDemoCards(cards) {
+  if (!homeDemoCards) return;
+  const items = Array.isArray(cards) ? cards.slice(0, 5) : [];
+  homeDemoCards.innerHTML = items
+    .map((card, index) => `<div class="home-bg-card"><strong>${index + 1}.</strong> ${escapeHtml(card)}</div>`)
+    .join("");
+}
+
+function restartHomeDemoAnimation() {
+  if (!homeDemoChat) return;
+  homeDemoChat.classList.remove("is-animating");
+  void homeDemoChat.offsetWidth;
+  homeDemoChat.classList.add("is-animating");
+}
+
+function rotateHomeDemoScenario() {
+  if (!homeDemoChat || !homeDemoPrompt || !homeDemoReply || !homeDemoCards || !HOME_DEMO_SCENARIOS.length) {
+    return;
+  }
+
+  const nextIndex = chooseNextHomeDemoIndex();
+  const scenario = HOME_DEMO_SCENARIOS[nextIndex];
+  if (!scenario) return;
+
+  homeDemoPrompt.textContent = scenario.prompt;
+  homeDemoReply.textContent = scenario.reply;
+  renderHomeDemoCards(scenario.cards);
+  homeDemoLastIndex = nextIndex;
+  restartHomeDemoAnimation();
+}
+
+function startHomeDemoRotation() {
+  if (!homeDemoChat) return;
+  rotateHomeDemoScenario();
+  if (homeDemoTimer) {
+    clearInterval(homeDemoTimer);
+  }
+  homeDemoTimer = setInterval(rotateHomeDemoScenario, HOME_DEMO_LOOP_MS);
+}
+
+function stopHomeDemoRotation() {
+  if (homeDemoTimer) {
+    clearInterval(homeDemoTimer);
+    homeDemoTimer = null;
+  }
+  if (homeDemoChat) {
+    homeDemoChat.classList.remove("is-animating");
+  }
+}
+
+function isTextLikeFile(file) {
+  const type = (file.type || "").toLowerCase();
+  if (type.startsWith("text/")) return true;
+
+  const name = (file.name || "").toLowerCase();
+  return (
+    name.endsWith(".txt") ||
+    name.endsWith(".md") ||
+    name.endsWith(".csv") ||
+    name.endsWith(".json") ||
+    name.endsWith(".js") ||
+    name.endsWith(".ts") ||
+    name.endsWith(".py") ||
+    name.endsWith(".html") ||
+    name.endsWith(".css") ||
+    name.endsWith(".java") ||
+    name.endsWith(".c") ||
+    name.endsWith(".cpp") ||
+    name.endsWith(".h") ||
+    name.endsWith(".hpp")
+  );
+}
+
+function renderAttachments() {
+  if (!attachmentList) return;
+
+  if (!attachments.length) {
+    attachmentList.innerHTML = "";
+    return;
+  }
+
+  attachmentList.innerHTML = attachments
+    .map((item) => {
+      const safeName = escapeHtml(item.name);
+      return `<div class="attachment-pill"><span class="attachment-name" title="${safeName}">${safeName} (${formatFileSize(item.size)})</span><button class="attachment-remove" type="button" data-id="${item.id}" aria-label="Remove file">x</button></div>`;
+    })
+    .join("");
+}
+
+function clearAttachments() {
+  attachments.length = 0;
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  renderAttachments();
+}
+
+function removeAttachmentById(id) {
+  if (isSending) return;
+
+  const index = attachments.findIndex((item) => item.id === id);
+  if (index >= 0) {
+    attachments.splice(index, 1);
+    renderAttachments();
+  }
+}
+
+function buildMessageWithAttachments(text, workspaceContext = "") {
+  const promptText = text || (workspaceContext ? "Please review and improve the workspace content." : "(No text prompt provided)");
+  const sections = [promptText];
+
+  if (workspaceContext) {
+    sections.push(`ROK Workspace content:\n${workspaceContext}`);
+  }
+
+  if (attachments.length) {
+    const blocks = attachments
+      .map((item) => `File: ${item.name}\n${item.content}`)
+      .join("\n\n");
+    sections.push(`Attached file contents:\n\n${blocks}`);
+  }
+
+  return sections.join("\n\n");
+}
+
+async function addSelectedFiles(fileList) {
+  if (isSending) return;
+
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+
+  for (const file of files) {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      addMessage("system", `Attachment limit reached (${MAX_ATTACHMENTS} files).`);
+      break;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      addMessage("system", `${file.name} is too large. Max ${formatFileSize(MAX_FILE_SIZE_BYTES)} per file.`);
+      continue;
+    }
+    if (!isTextLikeFile(file)) {
+      addMessage("system", `${file.name} is not a supported text file.`);
+      continue;
+    }
+
+    try {
+      const content = await file.text();
+      attachments.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        size: file.size,
+        content: truncateText(content, MAX_FILE_CHARS)
+      });
+    } catch {
+      addMessage("system", `Could not read ${file.name}.`);
+    }
+  }
+
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  renderAttachments();
+}
+
+function autoResizeInput() {
+  if (!input) return;
+  input.style.height = "auto";
+  const next = Math.min(input.scrollHeight, 180);
+  input.style.height = next + "px";
+}
+
+function setBubbleContent(bubble, text, markdown) {
+  if (markdown && hasMarked) {
+    bubble.classList.remove("plain");
+    bubble.classList.add("markdown");
+    bubble.innerHTML = marked.parse(text);
+  } else {
+    bubble.classList.remove("markdown");
+    bubble.classList.add("plain");
+    bubble.textContent = text;
+  }
+}
+
+function addMessage(role, text, options = {}) {
+  const { markdown = false, storyCanvas = false } = options;
+
+  const row = document.createElement("div");
+  row.className = "msg " + role;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+
+  if (role === "system") {
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    chat.appendChild(row);
+    scrollToBottom();
+    return { row, bubble, storyCanvas: null };
+  }
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "user" ? "Y" : "R";
+
+  if (role === "bot" && storyCanvas) {
+    bubble.classList.add("story-status");
+    bubble.textContent = text || "Writing story in canvas...";
+
+    const stack = document.createElement("div");
+    stack.className = "bot-stack";
+
+    const canvas = createStoryCanvas();
+    stack.appendChild(bubble);
+    stack.appendChild(canvas.shell);
+
+    row.appendChild(avatar);
+    row.appendChild(stack);
+    chat.appendChild(row);
+    scrollToBottom();
+    return { row, bubble, storyCanvas: canvas };
+  }
+
+  setBubbleContent(bubble, text, markdown);
+
+  if (role === "user") {
+    row.appendChild(bubble);
+    row.appendChild(avatar);
+  } else {
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+  }
+
+  chat.appendChild(row);
+  scrollToBottom();
+  return { row, bubble, storyCanvas: null };
+}
+
+function updateSendButtonUI(cooldownActive) {
+  if (!sendBtn) return;
+
+  if (isSending) {
+    sendBtn.disabled = false;
+    sendBtn.classList.add("stop-mode");
+    sendBtn.textContent = "";
+    sendBtn.setAttribute("aria-label", "Stop generation");
+    sendBtn.setAttribute("title", "Stop generation");
+    return;
+  }
+
+  sendBtn.classList.remove("stop-mode");
+  sendBtn.textContent = "Send";
+  sendBtn.removeAttribute("aria-label");
+  sendBtn.removeAttribute("title");
+  sendBtn.disabled = cooldownActive;
+}
+
+function stopGeneration() {
+  if (!isSending) return;
+  stopRequested = true;
+  if (activeRequestController) {
+    activeRequestController.abort();
+  }
+}
+
+function updateCooldownUI() {
+  if (!cooldownEl) return false;
+  const remaining = Math.max(0, nextAllowedAt - Date.now());
+  if (remaining <= 0) {
+    cooldownEl.textContent = "";
+    return false;
+  }
+  const seconds = Math.ceil(remaining / 1000);
+  cooldownEl.textContent = `Wait ${seconds}s before sending again.`;
+  return true;
+}
+
+function refreshSendState() {
+  const cooldownActive = Date.now() < nextAllowedAt;
+  updateSendButtonUI(cooldownActive);
+
+  if (attachBtn) {
+    attachBtn.disabled = isSending;
+  }
+  if (fileInput) {
+    fileInput.disabled = isSending;
+  }
+  if (modelSelect) {
+    modelSelect.disabled = isSending;
+  }
+
+  if (cooldownActive) {
+    updateCooldownUI();
+  } else if (cooldownEl) {
+    cooldownEl.textContent = "";
+  }
+}
+
+function startCooldownTimer() {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+  }
+  updateCooldownUI();
+  cooldownTimer = setInterval(() => {
+    if (!updateCooldownUI()) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 500);
+}
+
+function clearChat(showNotice) {
+  chat.innerHTML = "";
+  history.length = 0;
+  clearAttachments();
+  nextAllowedAt = 0;
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+  if (cooldownEl) {
+    cooldownEl.textContent = "";
+  }
+  refreshSendState();
+  if (showNotice) {
+    addMessage("system", "New chat started.");
+  }
+  syncCurrentSessionFromHistory();
+}
+
+function typeIn(bubble, fullText) {
+  bubble.classList.remove("markdown");
+  bubble.classList.add("plain");
+  bubble.textContent = "";
+
+  const length = fullText.length;
+  const chunk = length > 1200 ? 6 : length > 400 ? 3 : 1;
+
+  return new Promise((resolve) => {
+    let i = 0;
+    const step = () => {
+      if (stopRequested) {
+        const partial = fullText.slice(0, i);
+        if (partial) {
+          setBubbleContent(bubble, partial, true);
+        } else {
+          bubble.textContent = "(Stopped)";
+        }
+        scrollToBottom();
+        resolve();
+        return;
+      }
+
+      if (i >= length) {
+        setBubbleContent(bubble, fullText, true);
+        scrollToBottom();
+        resolve();
+        return;
+      }
+
+      bubble.textContent = fullText.slice(0, i);
+      i += chunk;
+      scrollToBottom();
+      setTimeout(step, TYPING_SPEED_MS);
+    };
+    step();
+  });
+}
+
+function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
+  updateStoryCanvasOutput(storyCanvas, "");
+  if (statusBubble) {
+    statusBubble.textContent = "Writing story in canvas...";
+  }
+  storyCanvas.setStatus("Writing...");
+
+  const length = fullText.length;
+  const chunk = length > 2200 ? 14 : length > 1200 ? 8 : length > 500 ? 4 : 2;
+
+  return new Promise((resolve) => {
+    let i = 0;
+    const step = () => {
+      if (stopRequested) {
+        const partial = fullText.slice(0, i);
+        updateStoryCanvasOutput(storyCanvas, partial);
+        if (statusBubble) {
+          statusBubble.textContent = partial
+            ? `Story stopped at ${partial.length.toLocaleString()} chars.`
+            : "(Stopped)";
+        }
+        storyCanvas.setStatus("Stopped");
+        scrollToBottom();
+        resolve();
+        return;
+      }
+
+      if (i >= length) {
+        updateStoryCanvasOutput(storyCanvas, fullText);
+        if (statusBubble) {
+          statusBubble.textContent = "Story ready. Use Expand to read.";
+        }
+        storyCanvas.setStatus("Complete");
+        scrollToBottom();
+        resolve();
+        return;
+      }
+
+      const partial = fullText.slice(0, i);
+      updateStoryCanvasOutput(storyCanvas, partial);
+      if (statusBubble) {
+        statusBubble.textContent = `Writing story... ${partial.length.toLocaleString()} chars`;
+      }
+      i += chunk;
+      scrollToBottom();
+      setTimeout(step, TYPING_SPEED_MS);
+    };
+    step();
+  });
+}
+
+async function send() {
+  hideHomeScreen();
+  const text = input.value.trim();
+  const sessionModel = getCurrentSessionModel();
+  const useStoryCanvas = shouldUseStoryCanvasForPrompt(text);
+  const workspaceContext = getWorkspaceContextForPrompt();
+  const hasWorkspaceContext = Boolean(workspaceContext);
+  const requestedOutputType = inferWorkspaceOutputType("", text);
+  const writeBackToWorkspace = isWorkspaceSessionActive();
+  if (!text && attachments.length === 0 && !workspaceContext) return;
+  if (isSending) return;
+  if (isWorkspaceSuggestionLoading) return;
+
+  if (Date.now() < nextAllowedAt) {
+    startCooldownTimer();
+    refreshSendState();
+    return;
+  }
+
+  const recentHistory = history.slice(-HISTORY_LIMIT);
+
+  let displayText = text;
+  if (!displayText) {
+    if (workspaceContext && attachments.length) {
+      displayText = `Review my workspace and ${attachments.length} file(s).`;
+    } else if (workspaceContext) {
+      displayText = "Review my workspace content.";
+    } else {
+      displayText = `Uploaded ${attachments.length} file(s).`;
+    }
+  }
+  const messageForApi = buildMessageWithAttachments(text, workspaceContext);
+
+  addMessage("user", displayText);
+  history.push({ role: "user", content: displayText });
+  if (history.length > 200) {
+    history.splice(0, history.length - 200);
+  }
+  syncCurrentSessionFromHistory();
+
+  input.value = "";
+  autoResizeInput();
+  input.focus();
+
+  stopRequested = false;
+  activeRequestController = new AbortController();
+  isSending = true;
+  nextAllowedAt = Date.now() + COOLDOWN_MS;
+  startCooldownTimer();
+  refreshSendState();
+  if (writeBackToWorkspace) {
+    setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
+      intentText: hasWorkspaceContext
+        ? "Reviewing workspace document context to prepare a clean insertion draft."
+        : "Preparing document-ready content from your prompt.",
+      outputTypeText: requestedOutputType,
+      summaryText: WORKSPACE_GENERATION_PHASES.reviewing,
+      triggerFadeIn: true
+    });
+  }
+
+  const typing = addMessage("system", "ROK is thinking...");
+  let bubble = null;
+  let storyCanvas = null;
+  let partialText = "";
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      signal: activeRequestController.signal,
+      body: JSON.stringify({ message: messageForApi, history: recentHistory, model: sessionModel })
+    });
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+
+    if (!res.ok || contentType.includes("text/html")) {
+      let errorMessage = "Request failed.";
+      let errorBody = "";
+      try {
+        const data = await res.json();
+        errorMessage = data.reply || data.error || errorMessage;
+      } catch {
+        errorBody = await res.text();
+        if (errorBody) errorMessage = errorBody;
+      }
+
+      if (isLikelyTunnelDownResponse(res.status, contentType, errorBody)) {
+        showServerDownScreen();
+        throw new Error("Server is currently down. Check back later.");
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    hideServerDownScreen();
+    typing.row.remove();
+    if (writeBackToWorkspace) {
+      setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.drafting, {
+        intentText: hasWorkspaceContext
+          ? "Generating a workspace-aware draft aligned to your document."
+          : "Generating a document-ready draft from your request.",
+        outputTypeText: requestedOutputType,
+        summaryText: WORKSPACE_GENERATION_PHASES.drafting
+      });
+    }
+
+    const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
+      storyCanvas: useStoryCanvas
+    });
+    bubble = botMsg.bubble;
+    storyCanvas = botMsg.storyCanvas;
+    if (!storyCanvas) {
+      bubble.classList.remove("markdown");
+      bubble.classList.add("plain");
+      bubble.textContent = "";
+    }
+
+    const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+
+    if (!reader) {
+      const reply = (await res.text()) || "(No response)";
+      partialText = reply;
+      if (storyCanvas) {
+        await typeInStoryCanvas(storyCanvas, bubble, reply);
+      } else {
+        await typeIn(bubble, reply);
+      }
+      if (stopRequested) {
+        return;
+      }
+      if (storyCanvas) {
+        bubble.textContent = "Story ready. Use Expand to read.";
+        storyCanvas.setStatus("Complete");
+      }
+      history.push({ role: "assistant", content: reply });
+      if (history.length > 200) {
+        history.splice(0, history.length - 200);
+      }
+      syncCurrentSessionFromHistory();
+      if (writeBackToWorkspace) {
+        const resolvedOutputType = inferWorkspaceOutputType(reply, text);
+        setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
+          intentText: hasWorkspaceContext
+            ? "Finalizing clean workspace-ready output from document context."
+            : "Finalizing clean workspace-ready output from prompt context.",
+          outputTypeText: resolvedOutputType,
+          summaryText: WORKSPACE_GENERATION_PHASES.preparing
+        });
+        const writeBackResult = await appendAssistantReplyToWorkspace(reply, { sourcePrompt: text });
+        finalizeWorkspaceAssistantGeneration(writeBackResult, {
+          stopped: false,
+          hasWorkspaceContext
+        });
+      }
+      clearAttachments();
+      return;
+    }
+
+    const decoder = new TextDecoder("utf-8");
+    let lastFlush = 0;
+    const flush = () => {
+      if (storyCanvas) {
+        updateStoryCanvasOutput(storyCanvas, partialText);
+        storyCanvas.setStatus("Writing...");
+        bubble.textContent = partialText
+          ? `Writing story... ${partialText.length.toLocaleString()} chars`
+          : "Writing story in canvas...";
+      } else {
+        bubble.textContent = partialText;
+      }
+      scrollToBottom();
+    };
+
+    const isEventStream = contentType.includes("text/event-stream");
+    let buffer = "";
+    let streamEnded = false;
+
+    const handleToken = (token) => {
+      partialText += token;
+      const now = performance.now();
+      if (now - lastFlush > 40) {
+        flush();
+        lastFlush = now;
+      }
+    };
+
+    const processBuffer = () => {
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        let line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.endsWith("\r")) {
+          line = line.slice(0, -1);
+        }
+        if (!line || line.startsWith(":")) {
+          continue;
+        }
+        if (line.startsWith("data:")) {
+          const data = line.slice(5);
+          if (data === "[DONE]") {
+            streamEnded = true;
+            return;
+          }
+          if (!data) {
+            continue;
+          }
+          let token = data;
+          if (data[0] === "{") {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed && typeof parsed.token === "string") {
+                token = parsed.token;
+              }
+            } catch {
+              // Fallback to raw data if JSON parsing fails.
+            }
+          }
+          if (token) {
+            handleToken(token);
+          }
+        }
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (stopRequested) {
+        throw new DOMException("Generation stopped by user.", "AbortError");
+      }
+      const chunk = decoder.decode(value, { stream: true });
+      if (!chunk) continue;
+      if (isEventStream) {
+        buffer += chunk;
+        processBuffer();
+        if (streamEnded) break;
+      } else {
+        handleToken(chunk);
+      }
+    }
+
+    const tail = decoder.decode();
+    if (tail) {
+      if (isEventStream) {
+        buffer += tail;
+        processBuffer();
+      } else {
+        partialText += tail;
+      }
+    }
+
+    if (!partialText) {
+      partialText = "(No response)";
+    }
+
+    flush();
+    if (storyCanvas) {
+      storyCanvas.setStatus("Complete");
+      bubble.textContent = "Story ready. Use Expand to read.";
+    } else {
+      setBubbleContent(bubble, partialText, true);
+    }
+    history.push({ role: "assistant", content: partialText });
+    if (history.length > 200) {
+      history.splice(0, history.length - 200);
+    }
+    syncCurrentSessionFromHistory();
+    if (writeBackToWorkspace) {
+      const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
+      setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
+        intentText: hasWorkspaceContext
+          ? "Finalizing clean workspace-ready output from document context."
+          : "Finalizing clean workspace-ready output from prompt context.",
+        outputTypeText: resolvedOutputType,
+        summaryText: WORKSPACE_GENERATION_PHASES.preparing
+      });
+      const writeBackResult = await appendAssistantReplyToWorkspace(partialText, { sourcePrompt: text });
+      finalizeWorkspaceAssistantGeneration(writeBackResult, {
+        stopped: false,
+        hasWorkspaceContext
+      });
+    }
+    clearAttachments();
+  } catch (err) {
+    if (typing.row.isConnected) {
+      typing.row.remove();
+    }
+
+    const errName = err && err.name ? err.name : "";
+    if (stopRequested || errName === "AbortError") {
+      if (bubble) {
+        if (partialText) {
+          if (storyCanvas) {
+            updateStoryCanvasOutput(storyCanvas, partialText);
+            storyCanvas.setStatus("Stopped");
+            bubble.textContent = `Story stopped at ${partialText.length.toLocaleString()} chars.`;
+          } else {
+            setBubbleContent(bubble, partialText, true);
+          }
+          history.push({ role: "assistant", content: partialText });
+          if (history.length > 200) {
+            history.splice(0, history.length - 200);
+          }
+          syncCurrentSessionFromHistory();
+          if (writeBackToWorkspace) {
+            const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
+            setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
+              intentText: "Finalizing partial output after stop request.",
+              outputTypeText: resolvedOutputType,
+              summaryText: WORKSPACE_GENERATION_PHASES.preparing
+            });
+            const writeBackResult = await appendAssistantReplyToWorkspace(partialText, {
+              stopped: true,
+              sourcePrompt: text
+            });
+            finalizeWorkspaceAssistantGeneration(writeBackResult, {
+              stopped: true,
+              hasWorkspaceContext
+            });
+          }
+        } else {
+          if (storyCanvas) {
+            storyCanvas.setStatus("Stopped");
+          }
+          bubble.textContent = "(Stopped)";
+          if (writeBackToWorkspace) {
+            const stoppedSummary = buildWorkspaceStructuredSummary(
+              "Generation was stopped before workspace output was produced.",
+              requestedOutputType,
+              "Not Applied",
+              "Short"
+            );
+            const stoppedMetrics = getWorkspaceDocumentMetrics(getWorkspaceDocumentText());
+            updateWorkspaceAssistantPanelState({
+              tone: "pending",
+              statusText: "Pending",
+              intentText: "Generation was stopped before workspace output was produced.",
+              outputTypeText: requestedOutputType,
+              wordCountText: `${stoppedMetrics.wordCount}`,
+              readTimeText: `${stoppedMetrics.readTimeMinutes} min`,
+              actionText: "Not Applied",
+              changeScopeText: "Short",
+              lastActionText: "Generation stopped before document-ready content was available.",
+              summaryText: stoppedSummary,
+              suggestions: null
+            });
+            setCurrentWorkspaceAssistantMemory({
+              lastAction: "Generation stopped before document-ready content was available.",
+              intent: "Generation was stopped before workspace output was produced.",
+              outputType: requestedOutputType,
+              action: "Not Applied",
+              changeScope: "Short",
+              summary: stoppedSummary,
+              tone: "pending",
+              statusText: "Pending",
+              suggestions: null
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    if (isLikelyTunnelDownError(err)) {
+      if (writeBackToWorkspace) {
+        const unavailableSummary = buildWorkspaceStructuredSummary(
+          "Could not complete workspace generation due to connectivity issues.",
+          requestedOutputType,
+          "Not Applied",
+          "Short"
+        );
+        const unavailableMetrics = getWorkspaceDocumentMetrics(getWorkspaceDocumentText());
+        updateWorkspaceAssistantPanelState({
+          tone: "pending",
+          statusText: "Pending",
+          intentText: "Could not complete workspace generation due to connectivity issues.",
+          outputTypeText: requestedOutputType,
+          wordCountText: `${unavailableMetrics.wordCount}`,
+          readTimeText: `${unavailableMetrics.readTimeMinutes} min`,
+          actionText: "Not Applied",
+          changeScopeText: "Short",
+          lastActionText: "Generation failed due to connectivity issues.",
+          summaryText: unavailableSummary,
+          suggestions: null
+        });
+        setCurrentWorkspaceAssistantMemory({
+          lastAction: "Generation failed due to connectivity issues.",
+          intent: "Could not complete workspace generation due to connectivity issues.",
+          outputType: requestedOutputType,
+          action: "Not Applied",
+          changeScope: "Short",
+          summary: unavailableSummary,
+          tone: "pending",
+          statusText: "Pending",
+          suggestions: null
+        });
+      }
+      showServerDownScreen();
+      return;
+    }
+
+    if (writeBackToWorkspace) {
+      const errorSummary = buildWorkspaceStructuredSummary(
+        "Workspace generation ended with an error.",
+        requestedOutputType,
+        "Not Applied",
+        "Short"
+      );
+      const errorMetrics = getWorkspaceDocumentMetrics(getWorkspaceDocumentText());
+      updateWorkspaceAssistantPanelState({
+        tone: "pending",
+        statusText: "Pending",
+        intentText: "Workspace generation ended with an error.",
+        outputTypeText: requestedOutputType,
+        wordCountText: `${errorMetrics.wordCount}`,
+        readTimeText: `${errorMetrics.readTimeMinutes} min`,
+        actionText: "Not Applied",
+        changeScopeText: "Short",
+        lastActionText: "Generation failed before insertion.",
+        summaryText: errorSummary,
+        suggestions: null
+      });
+      setCurrentWorkspaceAssistantMemory({
+        lastAction: "Generation failed before insertion.",
+        intent: "Workspace generation ended with an error.",
+        outputType: requestedOutputType,
+        action: "Not Applied",
+        changeScope: "Short",
+        summary: errorSummary,
+        tone: "pending",
+        statusText: "Pending",
+        suggestions: null
+      });
+    }
+
+    addMessage("system", "Error: " + err.message);
+  } finally {
+    activeRequestController = null;
+    stopRequested = false;
+    isSending = false;
+    refreshSendState();
+  }
+}
+
+sendBtn.addEventListener("click", () => {
+  if (isSending) {
+    stopGeneration();
+    return;
+  }
+  send();
+});
+
+if (attachBtn && fileInput) {
+  attachBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
+}
+
+if (attachmentList) {
+  attachmentList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    const id = target.getAttribute("data-id");
+    if (!id) return;
+    removeAttachmentById(id);
+  });
+}
+
+input.addEventListener("input", autoResizeInput);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+if (workspaceAssistantToggle) {
+  workspaceAssistantToggle.addEventListener("click", () => {
+    setWorkspaceAssistantExpanded(!workspaceAssistantExpanded);
+  });
+}
+
+if (workspaceAssistantSuggestBtn) {
+  workspaceAssistantSuggestBtn.addEventListener("click", async () => {
+    await requestWorkspaceSuggestions();
+  });
+}
+
+if (workspaceApplyModal) {
+  workspaceApplyModal.addEventListener("click", (e) => {
+    if (e.target === workspaceApplyModal) {
+      closeWorkspaceApplyModal(false);
+    }
+  });
+}
+
+if (workspaceApplyConfirmBtn) {
+  workspaceApplyConfirmBtn.addEventListener("click", () => {
+    closeWorkspaceApplyModal(true);
+  });
+}
+
+if (workspaceApplyCancelBtn) {
+  workspaceApplyCancelBtn.addEventListener("click", () => {
+    closeWorkspaceApplyModal(false);
+  });
+}
+
+if (workspaceApplyCloseBtn) {
+  workspaceApplyCloseBtn.addEventListener("click", () => {
+    closeWorkspaceApplyModal(false);
+  });
+}
+
+document.addEventListener("keydown", handleWorkspaceApplyModalKeydown);
+
+if (workspaceEditor) {
+  workspaceEditor.addEventListener("input", () => {
+    const current = getWorkspaceCurrentSession();
+    if (!current) return;
+    current.workspace.content = workspaceEditor.value || "";
+    queueWorkspaceSave();
+    syncWorkspaceAssistantContextState();
+  });
+}
+
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    if (clearActiveWorkspaceTab()) return;
+    clearChat(true);
+  });
+}
+
+if (newChatBtn) {
+  newChatBtn.addEventListener("click", () => startNewSession(true));
+}
+
+if (currentSessionBtn) {
+  currentSessionBtn.addEventListener("click", () => {
+    if (!currentSessionId) return;
+    openSession(currentSessionId);
+  });
+}
+
+if (savedChatsList) {
+  savedChatsList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const deleteBtn = target.closest("[data-delete-session-id]");
+    if (deleteBtn instanceof Element) {
+      const deleteId = deleteBtn.getAttribute("data-delete-session-id");
+      if (!deleteId) return;
+      deleteSession(deleteId);
+      return;
+    }
+    const sessionBtn = target.closest("[data-session-id]");
+    if (!(sessionBtn instanceof Element)) return;
+    const sessionId = sessionBtn.getAttribute("data-session-id");
+    if (!sessionId) return;
+    openSession(sessionId);
+  });
+}
+
+if (modelSelect) {
+  modelSelect.addEventListener("change", () => {
+    setCurrentSessionModel(modelSelect.value);
+  });
+}
+
+if (modelOptionList) {
+  modelOptionList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const optionBtn = target.closest("[data-model-option]");
+    if (!(optionBtn instanceof Element)) return;
+    const modelId = optionBtn.getAttribute("data-model-option");
+    if (!modelId) return;
+    setCurrentSessionModel(modelId);
+  });
+}
+
+if (workspaceTabs) {
+  workspaceTabs.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const tabBtn = target.closest("[data-workspace-tab]");
+    if (!(tabBtn instanceof Element)) return;
+    const tab = tabBtn.getAttribute("data-workspace-tab");
+    if (!tab) return;
+    setActiveWorkspaceTab(tab, { focus: true });
+  });
+}
+
+if (serverDownRetryBtn) {
+  serverDownRetryBtn.addEventListener("click", () => {
+    retryServerConnection();
+  });
+}
+
+if (serverDownHomeBtn) {
+  serverDownHomeBtn.addEventListener("click", () => {
+    hideServerDownScreen();
+    showHomeScreen();
+  });
+}
+
+if (serverDownWhyBtn) {
+  serverDownWhyBtn.addEventListener("click", () => {
+    toggleServerDownWhyPanel();
+  });
+}
+
+if (brandHomeBtn) {
+  brandHomeBtn.addEventListener("click", () => showHomeScreen());
+}
+
+if (homeStartBtn) {
+  homeStartBtn.addEventListener("click", () => {
+    hideHomeScreen();
+    checkServerOnBoot();
+    renderWorkspaceUI({ focus: true });
+  });
+}
+
+autoResizeInput();
+refreshSendState();
+setWorkspaceAssistantSuggestButtonLoading(false);
+renderModelSelectOptions();
+renderModelPanelOptions();
+initializeSessions();
+refreshModelCatalogFromServer();
+showHomeScreen();
