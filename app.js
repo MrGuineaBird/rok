@@ -4,6 +4,12 @@ const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
 const workspacePanelTitle = document.getElementById("workspacePanelTitle");
 const workspaceEditor = document.getElementById("workspaceEditor");
+const workspaceDocWordCount = document.getElementById("workspaceDocWordCount");
+const workspaceDocReadTime = document.getElementById("workspaceDocReadTime");
+const workspaceDocSaveState = document.getElementById("workspaceDocSaveState");
+const workspaceCopyBtn = document.getElementById("workspaceCopyBtn");
+const workspaceDownloadBtn = document.getElementById("workspaceDownloadBtn");
+const workspaceImproveBtn = document.getElementById("workspaceImproveBtn");
 const modelPanelCurrent = document.getElementById("modelPanelCurrent");
 const modelOptionList = document.getElementById("modelOptionList");
 const workspaceAssistantPanel = document.getElementById("workspaceAssistantPanel");
@@ -72,7 +78,7 @@ const TYPING_SPEED_MS = 12;
 const COOLDOWN_MS = 1000;
 const HISTORY_LIMIT = 10;
 const MAX_ATTACHMENTS = 5;
-const MAX_FILE_SIZE_BYTES = 512 * 1024;
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 209715200
 const MAX_FILE_CHARS = 12000;
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
@@ -112,6 +118,10 @@ const HOME_DEMO_LOOP_MS = 12000;
 const STORY_MIN_CANVAS_CHARS = 260;
 const STORY_PROMPT_PATTERN =
   /\b(story|chapter|novel|fiction|tale|scene|script|dialogue|fanfic|roleplay|bedtime|fairy\s*tale|poem|lyrics)\b/i;
+const LONGFORM_PROMPT_PATTERN =
+  /\b(story|chapter|novel|fiction|narrative|screenplay|essay|report|article|blog|memo|proposal|speech|letter|outline|study guide|notes?|summary|summarize|script|draft|rewrite|revise|continue)\b/i;
+const CODE_PROMPT_PATTERN =
+  /\b(code|debug|bug|stack trace|exception|compile|function|class|algorithm|javascript|typescript|python|java|c\+\+|c#|go|rust|html|css|sql|json|yaml|api|endpoint|regex|refactor|optimize)\b|```/i;
 const HOME_DEMO_SCENARIOS = [
   {
     prompt: "Help me study for tomorrow's history quiz and make 5 flashcards.",
@@ -205,6 +215,7 @@ let workspaceAssistantExpanded = false;
 let wasWorkspaceTabActive = false;
 let isWorkspaceSuggestionLoading = false;
 let workspaceAssistantFadeTimer = null;
+let workspaceDocSaveStateTimer = null;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -731,6 +742,8 @@ function flushPendingWorkspaceSave() {
   }
   storeWorkspaceDraftsFromWindows();
   syncCurrentSessionFromHistory();
+  refreshWorkspaceDocumentToolbarState();
+  setWorkspaceDocumentSaveState(getWorkspaceDocumentText().trim() ? "Saved" : "Empty", "idle");
 }
 
 function queueWorkspaceSave() {
@@ -741,6 +754,8 @@ function queueWorkspaceSave() {
     workspaceSaveTimer = null;
     storeWorkspaceDraftsFromWindows();
     syncCurrentSessionFromHistory();
+    refreshWorkspaceDocumentToolbarState();
+    setWorkspaceDocumentSaveState(getWorkspaceDocumentText().trim() ? "Saved" : "Empty", "idle");
   }, 220);
 }
 
@@ -749,6 +764,7 @@ function storeWorkspaceDraftsFromWindows() {
   const current = getWorkspaceCurrentSession();
   if (!current) return;
   current.workspace.content = workspaceEditor.value || "";
+  refreshWorkspaceDocumentToolbarState();
 }
 
 function updateWorkspaceTabButtons(activeTab) {
@@ -787,6 +803,12 @@ function renderModelPanelOptions() {
     const active = MODEL_OPTIONS.find((item) => item.id === sessionModel);
     modelPanelCurrent.textContent = `Current model: ${active ? active.label : sessionModel}`;
   }
+}
+
+function getModelLabelById(modelId) {
+  const normalizedId = normalizeSessionModel(modelId);
+  const matched = MODEL_OPTIONS.find((item) => item.id === normalizedId);
+  return matched ? matched.label : KNOWN_MODEL_LABELS[normalizedId] || normalizedId;
 }
 
 function getCurrentSessionModel() {
@@ -850,6 +872,76 @@ function inferWorkspaceOutputType(content = "", promptText = "") {
   return "Other";
 }
 
+function getWorkspaceContextFromSession(limitChars = 18000) {
+  const current = getWorkspaceCurrentSession();
+  if (!current) return "";
+  const content = String(current.workspace.content || "").trim();
+  if (!content) return "";
+  return content.slice(0, Math.max(200, limitChars));
+}
+
+function classifyPromptIntent(promptText = "", workspaceText = "", attachedFiles = []) {
+  const prompt = String(promptText || "").trim();
+  const source = prompt.toLowerCase();
+  const workspaceValue = String(workspaceText || "").trim();
+  const hasAttachments = Array.isArray(attachedFiles) && attachedFiles.length > 0;
+  const hasCodeAttachments =
+    hasAttachments &&
+    attachedFiles.some((item) => /\.(?:js|ts|py|java|c|cpp|cs|go|rs|html|css|sql|json|yaml|yml)$/i.test(String(item && item.name || "")));
+
+  if (!prompt && workspaceValue) {
+    return {
+      type: "document",
+      label: "Document",
+      routeToWorkspace: true,
+      outputType: inferWorkspaceOutputType(workspaceValue, "")
+    };
+  }
+
+  const storyHint =
+    STORY_PROMPT_PATTERN.test(source) ||
+    /\b(screenplay|scene|dialogue|plot|character arc|worldbuilding|narrative)\b/.test(source);
+  const documentHint =
+    LONGFORM_PROMPT_PATTERN.test(source) ||
+    /\b(write|draft|compose|revise|rewrite|continue|expand)\b/.test(source);
+  const codeHint = CODE_PROMPT_PATTERN.test(source) || hasCodeAttachments;
+
+  if (storyHint && !codeHint) {
+    return {
+      type: "story",
+      label: "Story",
+      routeToWorkspace: true,
+      outputType: "Story"
+    };
+  }
+
+  if (documentHint && !codeHint) {
+    const inferred = inferWorkspaceOutputType("", prompt);
+    return {
+      type: "document",
+      label: "Document",
+      routeToWorkspace: true,
+      outputType: inferred === "Code" ? "Essay" : inferred
+    };
+  }
+
+  if (codeHint) {
+    return {
+      type: "code",
+      label: "Code",
+      routeToWorkspace: false,
+      outputType: "Code"
+    };
+  }
+
+  return {
+    type: "general_chat",
+    label: "General chat",
+    routeToWorkspace: false,
+    outputType: inferWorkspaceOutputType("", prompt)
+  };
+}
+
 function countWords(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
@@ -877,6 +969,99 @@ function getWorkspaceDocumentMetrics(text) {
     wordCount,
     readTimeMinutes: estimateReadTimeMinutes(wordCount)
   };
+}
+
+function setWorkspaceDocumentSaveState(label, tone = "idle") {
+  if (!workspaceDocSaveState) return;
+  workspaceDocSaveState.textContent = String(label || "Saved");
+  workspaceDocSaveState.dataset.tone = String(tone || "idle");
+}
+
+function queueWorkspaceDocumentSavePulse(label, tone = "saved", durationMs = 1400) {
+  if (workspaceDocSaveStateTimer) {
+    clearTimeout(workspaceDocSaveStateTimer);
+    workspaceDocSaveStateTimer = null;
+  }
+  setWorkspaceDocumentSaveState(label, tone);
+  workspaceDocSaveStateTimer = setTimeout(() => {
+    workspaceDocSaveStateTimer = null;
+    const text = getWorkspaceDocumentText();
+    setWorkspaceDocumentSaveState(text.trim() ? "Saved" : "Empty", "idle");
+  }, Math.max(500, durationMs));
+}
+
+function refreshWorkspaceDocumentToolbarState() {
+  const documentText = getWorkspaceDocumentText();
+  const metrics = getWorkspaceDocumentMetrics(documentText);
+  const hasContent = Boolean(documentText.trim());
+
+  if (workspaceDocWordCount) {
+    workspaceDocWordCount.textContent = `${metrics.wordCount.toLocaleString()} words`;
+  }
+  if (workspaceDocReadTime) {
+    workspaceDocReadTime.textContent = `${metrics.readTimeMinutes} min read`;
+  }
+  if (!workspaceDocSaveStateTimer) {
+    setWorkspaceDocumentSaveState(hasContent ? "Saved" : "Empty", "idle");
+  }
+  if (workspaceCopyBtn) {
+    workspaceCopyBtn.disabled = !hasContent;
+  }
+  if (workspaceDownloadBtn) {
+    workspaceDownloadBtn.disabled = !hasContent;
+  }
+  if (workspaceImproveBtn) {
+    workspaceImproveBtn.disabled = !hasContent || isSending || isWorkspaceSuggestionLoading;
+  }
+}
+
+async function copyWorkspaceDocumentToClipboard() {
+  const text = getWorkspaceDocumentText();
+  if (!text.trim()) return;
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const helper = document.createElement("textarea");
+      helper.value = text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      helper.style.pointerEvents = "none";
+      document.body.appendChild(helper);
+      helper.select();
+      document.execCommand("copy");
+      helper.remove();
+    }
+    queueWorkspaceDocumentSavePulse("Copied", "saved", 1100);
+  } catch {
+    queueWorkspaceDocumentSavePulse("Copy failed", "error", 1400);
+  }
+}
+
+function downloadWorkspaceDocument() {
+  const text = getWorkspaceDocumentText();
+  if (!text.trim()) return;
+
+  const current = getWorkspaceCurrentSession();
+  const base = String((current && current.title) || "rok-workspace")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  const dateTag = new Date().toISOString().slice(0, 10);
+  const filename = `${base || "rok-workspace"}-${dateTag}.txt`;
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  queueWorkspaceDocumentSavePulse("Downloaded", "saved", 1200);
 }
 
 function resolveWorkspaceTone(toneInput) {
@@ -948,9 +1133,14 @@ function triggerWorkspaceAssistantFadeIn() {
 }
 
 function setWorkspaceAssistantSuggestButtonLoading(isLoading) {
-  if (!workspaceAssistantSuggestBtn) return;
-  workspaceAssistantSuggestBtn.disabled = Boolean(isLoading);
-  workspaceAssistantSuggestBtn.textContent = isLoading ? "Analyzing..." : "Suggest Improvements";
+  if (workspaceAssistantSuggestBtn) {
+    workspaceAssistantSuggestBtn.disabled = Boolean(isLoading);
+    workspaceAssistantSuggestBtn.textContent = isLoading ? "Analyzing..." : "Suggest Improvements";
+  }
+  if (workspaceImproveBtn) {
+    workspaceImproveBtn.textContent = isLoading ? "Improving..." : "Improve";
+  }
+  refreshWorkspaceDocumentToolbarState();
 }
 
 function buildWorkspaceStructuredSummary(intent, outputType, action, changeScope) {
@@ -1433,6 +1623,7 @@ function renderWorkspaceUI(options = {}) {
     if (focus && workspaceEditor) {
       workspaceEditor.focus();
     }
+    refreshWorkspaceDocumentToolbarState();
   } else if (isModelTab) {
     if (focus && modelOptionList) {
       const activeOption = modelOptionList.querySelector(".model-option-btn.is-active");
@@ -1466,6 +1657,20 @@ function clearActiveWorkspaceTab() {
   const current = getWorkspaceCurrentSession();
   if (!current) return false;
   const workspace = current.workspace;
+
+  if (workspace.activeTab === "model") {
+    const nextModel = normalizeSessionModel(DEFAULT_MODEL_ID);
+    current.model = nextModel;
+    current.updatedAt = Date.now();
+    syncCurrentSessionFromHistory();
+    if (modelPanelCurrent) {
+      modelPanelCurrent.textContent = `Current model: ${getModelLabelById(nextModel)}`;
+    }
+    renderWorkspaceUI({ focus: true });
+    refreshWorkspaceDocumentToolbarState();
+    return true;
+  }
+
   if (workspace.activeTab !== "workspace") return false;
 
   workspace.content = "";
@@ -1476,6 +1681,7 @@ function clearActiveWorkspaceTab() {
   }
   syncCurrentSessionFromHistory();
   renderWorkspaceUI({ focus: true });
+  refreshWorkspaceDocumentToolbarState();
   return true;
 }
 
@@ -1705,6 +1911,8 @@ async function appendAssistantReplyToWorkspace(replyText, options = {}) {
   }
 
   syncCurrentSessionFromHistory();
+  refreshWorkspaceDocumentToolbarState();
+  queueWorkspaceDocumentSavePulse("Applied", "saved", 1200);
   return {
     applied: true,
     reason: stopped ? "applied-stopped" : "applied",
@@ -2430,6 +2638,8 @@ function refreshSendState() {
   } else if (cooldownEl) {
     cooldownEl.textContent = "";
   }
+
+  refreshWorkspaceDocumentToolbarState();
 }
 
 function startCooldownTimer() {
@@ -2558,11 +2768,14 @@ async function send() {
   hideHomeScreen();
   const text = input.value.trim();
   const sessionModel = getCurrentSessionModel();
-  const useStoryCanvas = shouldUseStoryCanvasForPrompt(text);
-  const workspaceContext = getWorkspaceContextForPrompt();
+  const wasWorkspaceActive = isWorkspaceSessionActive();
+  const sessionWorkspaceContext = getWorkspaceContextFromSession();
+  const intent = classifyPromptIntent(text, sessionWorkspaceContext, attachments);
+  const writeBackToWorkspace = Boolean(intent.routeToWorkspace);
+  const useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
+  const workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
   const hasWorkspaceContext = Boolean(workspaceContext);
-  const requestedOutputType = inferWorkspaceOutputType("", text);
-  const writeBackToWorkspace = isWorkspaceSessionActive();
+  const requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
   if (!text && attachments.length === 0 && !workspaceContext) return;
   if (isSending) return;
   if (isWorkspaceSuggestionLoading) return;
@@ -2571,6 +2784,12 @@ async function send() {
     startCooldownTimer();
     refreshSendState();
     return;
+  }
+
+  if (writeBackToWorkspace && !isWorkspaceSessionActive()) {
+    setActiveWorkspaceTab("workspace", { focus: false });
+  } else if (!writeBackToWorkspace && isWorkspaceSessionActive()) {
+    setActiveWorkspaceTab("chat", { focus: false });
   }
 
   const recentHistory = history.slice(-HISTORY_LIMIT);
@@ -2615,7 +2834,12 @@ async function send() {
     });
   }
 
-  const typing = addMessage("system", "ROK is thinking...");
+  const typing = addMessage(
+    "system",
+    writeBackToWorkspace
+      ? `ROK classified this as ${intent.label.toLowerCase()} and is drafting in Workspace.`
+      : "ROK is thinking..."
+  );
   let bubble = null;
   let storyCanvas = null;
   let partialText = "";
@@ -2661,15 +2885,17 @@ async function send() {
       });
     }
 
-    const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
-      storyCanvas: useStoryCanvas
-    });
-    bubble = botMsg.bubble;
-    storyCanvas = botMsg.storyCanvas;
-    if (!storyCanvas) {
-      bubble.classList.remove("markdown");
-      bubble.classList.add("plain");
-      bubble.textContent = "";
+    if (!writeBackToWorkspace) {
+      const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
+        storyCanvas: useStoryCanvas
+      });
+      bubble = botMsg.bubble;
+      storyCanvas = botMsg.storyCanvas;
+      if (!storyCanvas) {
+        bubble.classList.remove("markdown");
+        bubble.classList.add("plain");
+        bubble.textContent = "";
+      }
     }
 
     const reader = res.body && res.body.getReader ? res.body.getReader() : null;
@@ -2677,23 +2903,26 @@ async function send() {
     if (!reader) {
       const reply = (await res.text()) || "(No response)";
       partialText = reply;
-      if (storyCanvas) {
-        await typeInStoryCanvas(storyCanvas, bubble, reply);
-      } else {
-        await typeIn(bubble, reply);
+      if (!writeBackToWorkspace) {
+        if (storyCanvas) {
+          await typeInStoryCanvas(storyCanvas, bubble, reply);
+        } else {
+          await typeIn(bubble, reply);
+        }
+        if (stopRequested) {
+          return;
+        }
+        if (storyCanvas) {
+          bubble.textContent = "Story ready. Use Expand to read.";
+          storyCanvas.setStatus("Complete");
+        }
+        history.push({ role: "assistant", content: reply });
+        if (history.length > 200) {
+          history.splice(0, history.length - 200);
+        }
+        syncCurrentSessionFromHistory();
       }
-      if (stopRequested) {
-        return;
-      }
-      if (storyCanvas) {
-        bubble.textContent = "Story ready. Use Expand to read.";
-        storyCanvas.setStatus("Complete");
-      }
-      history.push({ role: "assistant", content: reply });
-      if (history.length > 200) {
-        history.splice(0, history.length - 200);
-      }
-      syncCurrentSessionFromHistory();
+
       if (writeBackToWorkspace) {
         const resolvedOutputType = inferWorkspaceOutputType(reply, text);
         setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
@@ -2716,6 +2945,9 @@ async function send() {
     const decoder = new TextDecoder("utf-8");
     let lastFlush = 0;
     const flush = () => {
+      if (writeBackToWorkspace) {
+        return;
+      }
       if (storyCanvas) {
         updateStoryCanvasOutput(storyCanvas, partialText);
         storyCanvas.setStatus("Writing...");
@@ -2810,18 +3042,21 @@ async function send() {
       partialText = "(No response)";
     }
 
-    flush();
-    if (storyCanvas) {
-      storyCanvas.setStatus("Complete");
-      bubble.textContent = "Story ready. Use Expand to read.";
-    } else {
-      setBubbleContent(bubble, partialText, true);
+    if (!writeBackToWorkspace) {
+      flush();
+      if (storyCanvas) {
+        storyCanvas.setStatus("Complete");
+        bubble.textContent = "Story ready. Use Expand to read.";
+      } else {
+        setBubbleContent(bubble, partialText, true);
+      }
+      history.push({ role: "assistant", content: partialText });
+      if (history.length > 200) {
+        history.splice(0, history.length - 200);
+      }
+      syncCurrentSessionFromHistory();
     }
-    history.push({ role: "assistant", content: partialText });
-    if (history.length > 200) {
-      history.splice(0, history.length - 200);
-    }
-    syncCurrentSessionFromHistory();
+
     if (writeBackToWorkspace) {
       const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
       setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
@@ -2845,8 +3080,8 @@ async function send() {
 
     const errName = err && err.name ? err.name : "";
     if (stopRequested || errName === "AbortError") {
-      if (bubble) {
-        if (partialText) {
+      if (partialText) {
+        if (!writeBackToWorkspace && bubble) {
           if (storyCanvas) {
             updateStoryCanvasOutput(storyCanvas, partialText);
             storyCanvas.setStatus("Stopped");
@@ -2859,60 +3094,64 @@ async function send() {
             history.splice(0, history.length - 200);
           }
           syncCurrentSessionFromHistory();
-          if (writeBackToWorkspace) {
-            const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
-            setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
-              intentText: "Finalizing partial output after stop request.",
-              outputTypeText: resolvedOutputType,
-              summaryText: WORKSPACE_GENERATION_PHASES.preparing
-            });
-            const writeBackResult = await appendAssistantReplyToWorkspace(partialText, {
-              stopped: true,
-              sourcePrompt: text
-            });
-            finalizeWorkspaceAssistantGeneration(writeBackResult, {
-              stopped: true,
-              hasWorkspaceContext
-            });
-          }
-        } else {
+        }
+
+        if (writeBackToWorkspace) {
+          const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
+          setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
+            intentText: "Finalizing partial output after stop request.",
+            outputTypeText: resolvedOutputType,
+            summaryText: WORKSPACE_GENERATION_PHASES.preparing
+          });
+          const writeBackResult = await appendAssistantReplyToWorkspace(partialText, {
+            stopped: true,
+            sourcePrompt: text
+          });
+          finalizeWorkspaceAssistantGeneration(writeBackResult, {
+            stopped: true,
+            hasWorkspaceContext
+          });
+        }
+      } else {
+        if (!writeBackToWorkspace && bubble) {
           if (storyCanvas) {
             storyCanvas.setStatus("Stopped");
           }
           bubble.textContent = "(Stopped)";
-          if (writeBackToWorkspace) {
-            const stoppedSummary = buildWorkspaceStructuredSummary(
-              "Generation was stopped before workspace output was produced.",
-              requestedOutputType,
-              "Not Applied",
-              "Short"
-            );
-            const stoppedMetrics = getWorkspaceDocumentMetrics(getWorkspaceDocumentText());
-            updateWorkspaceAssistantPanelState({
-              tone: "pending",
-              statusText: "Pending",
-              intentText: "Generation was stopped before workspace output was produced.",
-              outputTypeText: requestedOutputType,
-              wordCountText: `${stoppedMetrics.wordCount}`,
-              readTimeText: `${stoppedMetrics.readTimeMinutes} min`,
-              actionText: "Not Applied",
-              changeScopeText: "Short",
-              lastActionText: "Generation stopped before document-ready content was available.",
-              summaryText: stoppedSummary,
-              suggestions: null
-            });
-            setCurrentWorkspaceAssistantMemory({
-              lastAction: "Generation stopped before document-ready content was available.",
-              intent: "Generation was stopped before workspace output was produced.",
-              outputType: requestedOutputType,
-              action: "Not Applied",
-              changeScope: "Short",
-              summary: stoppedSummary,
-              tone: "pending",
-              statusText: "Pending",
-              suggestions: null
-            });
-          }
+        }
+
+        if (writeBackToWorkspace) {
+          const stoppedSummary = buildWorkspaceStructuredSummary(
+            "Generation was stopped before workspace output was produced.",
+            requestedOutputType,
+            "Not Applied",
+            "Short"
+          );
+          const stoppedMetrics = getWorkspaceDocumentMetrics(getWorkspaceDocumentText());
+          updateWorkspaceAssistantPanelState({
+            tone: "pending",
+            statusText: "Pending",
+            intentText: "Generation was stopped before workspace output was produced.",
+            outputTypeText: requestedOutputType,
+            wordCountText: `${stoppedMetrics.wordCount}`,
+            readTimeText: `${stoppedMetrics.readTimeMinutes} min`,
+            actionText: "Not Applied",
+            changeScopeText: "Short",
+            lastActionText: "Generation stopped before document-ready content was available.",
+            summaryText: stoppedSummary,
+            suggestions: null
+          });
+          setCurrentWorkspaceAssistantMemory({
+            lastAction: "Generation stopped before document-ready content was available.",
+            intent: "Generation was stopped before workspace output was produced.",
+            outputType: requestedOutputType,
+            action: "Not Applied",
+            changeScope: "Short",
+            summary: stoppedSummary,
+            tone: "pending",
+            statusText: "Pending",
+            suggestions: null
+          });
         }
       }
       return;
@@ -3071,12 +3310,41 @@ if (workspaceApplyCloseBtn) {
 document.addEventListener("keydown", handleWorkspaceApplyModalKeydown);
 
 if (workspaceEditor) {
+  workspaceEditor.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      flushPendingWorkspaceSave();
+      queueWorkspaceDocumentSavePulse("Saved", "saved", 900);
+    }
+  });
+
   workspaceEditor.addEventListener("input", () => {
     const current = getWorkspaceCurrentSession();
     if (!current) return;
     current.workspace.content = workspaceEditor.value || "";
     queueWorkspaceSave();
+    refreshWorkspaceDocumentToolbarState();
+    setWorkspaceDocumentSaveState("Typing...", "idle");
     syncWorkspaceAssistantContextState();
+  });
+}
+
+if (workspaceCopyBtn) {
+  workspaceCopyBtn.addEventListener("click", async () => {
+    await copyWorkspaceDocumentToClipboard();
+  });
+}
+
+if (workspaceDownloadBtn) {
+  workspaceDownloadBtn.addEventListener("click", () => {
+    downloadWorkspaceDocument();
+  });
+}
+
+if (workspaceImproveBtn) {
+  workspaceImproveBtn.addEventListener("click", async () => {
+    if (!isWorkspaceSessionActive()) return;
+    await requestWorkspaceSuggestions();
   });
 }
 
@@ -3184,5 +3452,6 @@ setWorkspaceAssistantSuggestButtonLoading(false);
 renderModelSelectOptions();
 renderModelPanelOptions();
 initializeSessions();
+refreshWorkspaceDocumentToolbarState();
 refreshModelCatalogFromServer();
 showHomeScreen();
