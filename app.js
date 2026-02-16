@@ -83,13 +83,13 @@ const MODELS_URL = `${API_BASE_URL}/api/models`;
 const NGROK_SKIP_WARNING_HEADER = { "ngrok-skip-browser-warning": "true" };
 const TYPING_SPEED_MS = 12;
 const COOLDOWN_MS = 1000;
-const HISTORY_LIMIT = 10;
-const MAX_ATTACHMENTS = 5;
+const HISTORY_LIMIT = 100;
+const MAX_ATTACHMENTS = 3;
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 209715200
-const MAX_FILE_CHARS = 12000;
+const MAX_FILE_CHARS = 1200000;
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
-const MAX_LOCAL_SESSIONS = 30;
+const MAX_LOCAL_SESSIONS = 100;
 const DEFAULT_CHAT_MODEL = "mistral:latest";
 const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest"]);
 const DEFAULT_MODEL_OPTIONS = [
@@ -3590,3 +3590,4 @@ initializeSessions();
 refreshWorkspaceDocumentToolbarState();
 refreshModelCatalogFromServer();
 showHomeScreen();
+
