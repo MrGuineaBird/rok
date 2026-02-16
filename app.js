@@ -60,6 +60,13 @@ const workspaceApplyModalPreview = document.getElementById("workspaceApplyModalP
 const workspaceApplyConfirmBtn = document.getElementById("workspaceApplyConfirmBtn");
 const workspaceApplyCancelBtn = document.getElementById("workspaceApplyCancelBtn");
 const workspaceApplyCloseBtn = document.getElementById("workspaceApplyCloseBtn");
+const legalModal = document.getElementById("legalModal");
+const legalCloseBtn = document.getElementById("legalCloseBtn");
+const legalTermsTab = document.getElementById("legalTermsTab");
+const legalPrivacyTab = document.getElementById("legalPrivacyTab");
+const legalTermsPanel = document.getElementById("legalTermsPanel");
+const legalPrivacyPanel = document.getElementById("legalPrivacyPanel");
+const legalLinkButtons = document.querySelectorAll("[data-legal]");
 const composerWrap = document.querySelector(".composer-wrap");
 const sidebar = document.querySelector(".sidebar");
 const homeDemoChat = document.querySelector(".home-bg-chat");
@@ -1896,6 +1903,30 @@ function openWorkspaceApplyModal(replyText, options = {}) {
   });
 }
 
+function setActiveLegalTab(tab) {
+  if (!legalTermsTab || !legalPrivacyTab || !legalTermsPanel || !legalPrivacyPanel) return;
+  const isTerms = tab !== "privacy";
+  legalTermsTab.classList.toggle("active", isTerms);
+  legalTermsTab.setAttribute("aria-selected", isTerms ? "true" : "false");
+  legalPrivacyTab.classList.toggle("active", !isTerms);
+  legalPrivacyTab.setAttribute("aria-selected", !isTerms ? "true" : "false");
+  legalTermsPanel.hidden = !isTerms;
+  legalPrivacyPanel.hidden = isTerms;
+}
+
+function openLegalModal(tab) {
+  if (!legalModal) return;
+  setActiveLegalTab(tab);
+  legalModal.hidden = false;
+  legalModal.setAttribute("aria-hidden", "false");
+}
+
+function closeLegalModal() {
+  if (!legalModal) return;
+  legalModal.hidden = true;
+  legalModal.setAttribute("aria-hidden", "true");
+}
+
 function handleWorkspaceApplyModalKeydown(e) {
   if (!isWorkspaceApplyModalOpen()) return;
 
@@ -3371,6 +3402,47 @@ if (workspaceApplyCloseBtn) {
 }
 
 document.addEventListener("keydown", handleWorkspaceApplyModalKeydown);
+
+if (legalModal) {
+  legalModal.addEventListener("click", (e) => {
+    if (e.target === legalModal) {
+      closeLegalModal();
+    }
+  });
+}
+
+if (legalCloseBtn) {
+  legalCloseBtn.addEventListener("click", () => {
+    closeLegalModal();
+  });
+}
+
+if (legalTermsTab) {
+  legalTermsTab.addEventListener("click", () => {
+    setActiveLegalTab("terms");
+  });
+}
+
+if (legalPrivacyTab) {
+  legalPrivacyTab.addEventListener("click", () => {
+    setActiveLegalTab("privacy");
+  });
+}
+
+if (legalLinkButtons && legalLinkButtons.length) {
+  legalLinkButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-legal");
+      openLegalModal(target === "privacy" ? "privacy" : "terms");
+    });
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && legalModal && !legalModal.hidden) {
+    closeLegalModal();
+  }
+});
 
 if (workspaceEditor) {
   workspaceEditor.addEventListener("keydown", (e) => {
