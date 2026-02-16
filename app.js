@@ -86,16 +86,16 @@ const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "mistral:latest";
 const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest"]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "qwen2.5:latest", label: "ROK Fast (Qwen 2.5)" },
-  { id: "mistral:latest", label: "ROK Balanced (Mistral)" }
+  { id: "qwen2.5:latest", label: "ROK Geek" },
+  { id: "mistral:latest", label: "ROK Quaility" }
 ];
 const KNOWN_MODEL_LABELS = {
-  "qwen2.5:latest": "ROK Fast (Qwen 2.5)",
-  "mistral:latest": "ROK Balanced (Mistral)"
+  "qwen2.5:latest": "ROK Geek",
+  "mistral:latest": "ROK Quaility"
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen2.5:latest": "Fast responses with strong everyday writing and coding performance.",
-  "mistral:latest": "Balanced quality for cleaner long-form drafting and refinement."
+  "qwen2.5:latest": "Fast responses for quick questions, experiments, and everyday drafting.",
+  "mistral:latest": "More thorough responses for longer writing and refinement."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
@@ -308,16 +308,17 @@ function normalizeModelOptions(rawOptions) {
     }
     if (!id || seen.has(id) || !SUPPORTED_MODEL_IDS.has(id)) continue;
     seen.add(id);
+    const displayLabel = KNOWN_MODEL_LABELS[id] || label || id;
     normalized.push({
       id,
-      label: label || KNOWN_MODEL_LABELS[id] || id
+      label: displayLabel
     });
   }
 
   if (!normalized.length) {
     normalized.push({
       id: DEFAULT_CHAT_MODEL,
-      label: "ROK Balanced (Mistral)"
+      label: "ROK Quaility"
     });
   }
   return normalized;
