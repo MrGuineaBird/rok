@@ -335,18 +335,22 @@ body {
 }
 
 .rok-logo-img {
-  height: 26px;
+  height: 40px;
   width: auto;
   display: inline-block;
   vertical-align: middle;
 }
 
 .home-logo .rok-logo-img {
-  height: 34px;
+  height: 56px;
 }
 
 .topbar .rok-logo-img {
-  height: 22px;
+  height: 44px;
+}
+
+.rok-logo-topbar {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
 }
 
 .brand-btn {
@@ -529,6 +533,11 @@ body {
 .title {
   font-size: 16px;
   font-weight: 600;
+}
+
+.title-text-logo {
+  color: #8b0f0f;
+  letter-spacing: 0.6px;
 }
 
 .title-beta {
@@ -1559,15 +1568,15 @@ body {
   background: linear-gradient(135deg, #B51717 0%, #8F1111 100%);
   color: #260505;
   box-shadow:
-    0 10px 22px rgba(17, 143, 114, 0.35),
-    inset 0 1px 0 rgba(214, 255, 244, 0.35);
+    0 10px 22px rgba(181, 23, 23, 0.45),
+    inset 0 1px 0 rgba(255, 196, 196, 0.35);
 }
 
 .home-cta:hover {
   transform: translateY(-1px);
   box-shadow:
-    0 12px 24px rgba(17, 143, 114, 0.4),
-    inset 0 1px 0 rgba(214, 255, 244, 0.38);
+    0 12px 24px rgba(181, 23, 23, 0.55),
+    inset 0 1px 0 rgba(255, 196, 196, 0.4);
 }
 
 .home-prompt-row {
@@ -2709,3 +2718,10 @@ textarea::-webkit-scrollbar {
   height: 0;
 }
 
+  .home-logo .rok-logo-img {
+    height: 44px;
+  }
+
+  .topbar .rok-logo-img {
+    height: 36px;
+  }
