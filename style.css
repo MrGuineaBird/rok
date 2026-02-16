@@ -342,7 +342,7 @@ body {
 }
 
 .home-logo .rok-logo-img {
-  height: 56px;
+  height: 80px;
 }
 
 .topbar .rok-logo-img {
@@ -2623,6 +2623,14 @@ button.stop-mode:hover {
     padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px;
   }
 
+  .home-logo .rok-logo-img {
+    height: 60px;
+  }
+
+  .topbar .rok-logo-img {
+    height: 36px;
+  }
+
   .workspace-tabs {
     padding: 8px 10px 7px;
     gap: 6px;
@@ -2717,12 +2725,4 @@ textarea::-webkit-scrollbar {
   width: 0;
   height: 0;
 }
-
-  .home-logo .rok-logo-img {
-    height: 44px;
-  }
-
-  .topbar .rok-logo-img {
-    height: 36px;
-  }
 
