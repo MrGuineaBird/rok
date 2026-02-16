@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=home42" />
+  <link rel="stylesheet" href="style.css?v=home52" />
 </head>
 <body>
   <div class="app">
@@ -131,7 +131,14 @@
                 </div>
               </div>
             </div>
-            <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
+            <div class="home-copyright-row">
+              <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
+              <div class="home-legal-links">
+                <button class="home-legal-link" type="button" data-legal="terms">Terms of Service</button>
+                <span class="home-legal-sep">•</span>
+                <button class="home-legal-link" type="button" data-legal="privacy">Privacy Policy</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -324,12 +331,52 @@ Change Scope: Short</p>
     </div>
   </section>
 
+  <section id="legalModal" class="legal-modal" hidden aria-hidden="true">
+    <div class="legal-card" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+      <div class="legal-head">
+        <div>
+          <div id="legalTitle" class="legal-title">ROK Legal</div>
+          <div class="legal-subtitle">Last updated February 16, 2026</div>
+        </div>
+        <button id="legalCloseBtn" class="legal-close" type="button" aria-label="Close legal dialog">x</button>
+      </div>
+      <div class="legal-tabs" role="tablist" aria-label="Legal documents">
+        <button id="legalTermsTab" class="legal-tab active" type="button" role="tab" aria-selected="true" data-legal-tab="terms">Terms of Service</button>
+        <button id="legalPrivacyTab" class="legal-tab" type="button" role="tab" aria-selected="false" data-legal-tab="privacy">Privacy Policy</button>
+      </div>
+      <div class="legal-body">
+        <div id="legalTermsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalTermsTab">
+          <h3>Terms of Service</h3>
+          <p>ROK is provided as-is for personal use. By using the app, you agree you are responsible for how you use the outputs.</p>
+          <ul>
+            <li>ROK may send your prompts and workspace text to the configured AI endpoint to generate responses.</li>
+            <li>Do not submit sensitive or personal data you do not want processed by that endpoint.</li>
+            <li>We do not guarantee uptime, accuracy, or fitness for a particular purpose.</li>
+            <li>We may update these terms over time; continuing to use ROK means you accept the latest version.</li>
+          </ul>
+          <p>Questions? Contact the app owner before relying on ROK for critical decisions.</p>
+        </div>
+        <div id="legalPrivacyPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalPrivacyTab" hidden>
+          <h3>Privacy Policy</h3>
+          <p>ROK is local-first and stores chat sessions in your browser storage.</p>
+          <ul>
+            <li>We store chat sessions locally in your browser only, unless you delete them.</li>
+            <li>Requests are sent to the configured AI endpoint to generate responses.</li>
+            <li>We do not collect analytics or sell your data from this client.</li>
+            <li>You can clear local data at any time using the Clear button.</li>
+          </ul>
+          <p>If you run your own backend, your data handling depends on that server configuration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     window.ROK_CONFIG = {
       apiBaseUrl: "https://christ-volleyball-invalid-mil.trycloudflare.com"
     };
   </script>
-  <script src="app.js?v=home48"></script>
+  <script src="app.js?v=home52"></script>
 </body>
 </html>
