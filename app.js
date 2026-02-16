@@ -169,6 +169,7 @@ const HOME_DEMO_SCENARIOS = [
   }
 ];
 const SERVER_DOWN_MESSAGES = [
+  // --- Original & General ---
   "Server is currently down. Check back later.",
   "Uh oh, our servers seem to be down!",
   "Looks like ROK is on break. Check back later.",
@@ -194,7 +195,67 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is restarting quietly in the background.",
   "ROK is on pause for a moment.",
   "ROK will be right back.",
-  ""ROK" - Carl 2026"
+  "ROK went on a quick quest. Back soon!",
+  "ROK is exploring the digital wilderness.",
+  "ROK is currently out of office.",
+  "Looks like ROK took a wrong turn at the last router.",
+  "ROK is currently off the grid.",
+  "We’re giving ROK a quick tune-up.",
+  "ROK is undergoing a little spring cleaning.",
+  "ROK’s gears are jammed, but we’re fixing them now.",
+  "ROK is installing some fresh batteries.",
+  "Just polishing the ROK. Back online momentarily.",
+  "ROK is playing hide and seek. (It’s winning).",
+  "ROK is currently in ‘Do Not Disturb’ mode.",
+  "Waiting for ROK to wake up...",
+  "ROK: Gone fishing. Back shortly.",
+  "ROK is taking a breather.",
+  "ROK hit a snag! We’re working on it.",
+  "Something tripped ROK up. Hang tight.",
+  "ROK is currently speechless.",
+  "ROK ran into a bit of a hiccup.",
+  "ROK is currently counting sheep.",
+  "It’s not you, it’s ROK. We need a moment.",
+  "ROK is playing hard to get. Try again!",
+  "ROK is out for a jog. Back soon.",
+  "ROK is currently meditating. Namaste.",
+  "Even ROK needs a coffee break sometimes.",
+  "ROK is chasing its own tail right now.",
+  "ROK just stepped out for some fresh air.",
+  "ROK is in a meeting that could have been an email.",
+  "Looks like ROK hit the snooze button.",
+  "ROK is recalibrating its internal compass.",
+  "We're giving ROK a quick software hug.",
+  "ROK is currently detangling its wires.",
+  "ROK is blowing the dust off its circuits.",
+  "A quick system refresh is in progress for ROK.",
+  "ROK is checking its blind spots.",
+  "ROK is tightening a few loose bolts.",
+  "ROK is currently unreachable.",
+  "Waiting for ROK to check back in.",
+  "ROK is temporarily off-duty.",
+  "ROK is having a moment of silence.",
+  "ROK is currently out of range.",
+  "ROK's signal is a bit weak. Retrying...",
+  "ROK is standing by. Please wait.",
+
+  // --- Space Theme ---
+  "ROK has entered low earth orbit. Stand by.",
+  "ROK is floating in a tin can, far above the world.",
+  "Houston, we have a problem. ROK is offline.",
+  "ROK is currently navigating an asteroid belt.",
+  "ROK is refueling at a nearby space station.",
+  "Lost contact with ROK. Re-establishing uplink.",
+  "ROK is currently witnessing a supernova. Back soon.",
+
+  // --- Construction Theme ---
+  "ROK is wearing a hard hat right now. Safety first!",
+  "Under construction. ROK is laying new foundations.",
+  "ROK is currently being remodeled.",
+  "Pardon the dust. ROK is rebuilding.",
+  "ROK is currently waiting for the cement to dry.",
+  "A few loose bricks. ROK is patching things up.",
+  "ROK is currently redirecting traffic. Hold on."
 ];
 
 const history = [];
@@ -3456,4 +3517,3 @@ initializeSessions();
 refreshWorkspaceDocumentToolbarState();
 refreshModelCatalogFromServer();
 showHomeScreen();
-
