@@ -193,7 +193,8 @@ const SERVER_DOWN_MESSAGES = [
   "ROK isn't ready yet. Give it a second.",
   "ROK is restarting quietly in the background.",
   "ROK is on pause for a moment.",
-  "ROK will be right back."
+  "ROK will be right back.",
+  ""ROK" - Carl 2026"
 ];
 
 const history = [];
@@ -3455,3 +3456,4 @@ initializeSessions();
 refreshWorkspaceDocumentToolbarState();
 refreshModelCatalogFromServer();
 showHomeScreen();
+
