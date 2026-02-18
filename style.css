@@ -10,11 +10,41 @@
   --muted: #BD9C9C;
   --accent: #D14B4B;
   --accent-2: #FF9B9B;
+  --scrollbar-track: #120808;
+  --scrollbar-thumb: #7A2A2A;
+  --scrollbar-thumb-2: #B53C3C;
+  --scrollbar-thumb-hover: #D14B4B;
   --chat-width: 760px;
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--scrollbar-thumb), var(--scrollbar-thumb-2));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--scrollbar-thumb-hover), var(--scrollbar-thumb));
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 [hidden] {
@@ -2148,8 +2178,6 @@ textarea {
   resize: none;
   outline: none;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 textarea:focus {
@@ -2905,8 +2933,4 @@ button.stop-mode:hover {
   }
 }
 
-textarea::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
 
