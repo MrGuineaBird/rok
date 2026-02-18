@@ -245,6 +245,11 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently out of range.",
   "ROK's signal is a bit weak. Retrying...",
   "ROK is standing by. Please wait.",
+  "ROK is currently on a coffee run.",
+  "ROK is taking a quick power nap.",
+  "ROK is currently on a lunch break.",
+  "ROK is out exploring the world. Back soon!",
+  "ROK is currently on a secret mission. Stay tuned!",
 
   // --- Space Theme ---
   "ROK has entered low earth orbit. Stand by.",
@@ -254,6 +259,15 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is refueling at a nearby space station.",
   "Lost contact with ROK. Re-establishing uplink.",
   "ROK is currently witnessing a supernova. Back soon.",
+  "ROK is on a spacewalk, fixing some cosmic dust in its circuits.",
+  "ROK is currently exploring a new galaxy. Please wait for its return.",
+  "ROK is currently in hypersleep mode, dreaming of stars.",
+  "ROK is currently avoiding a meteor shower. Safety first in space!",
+  "ROK is currently communicating with alien lifeforms. Back soon.",
+  "ROK is currently caught in a time warp. Please hold on.",
+  "ROK is currently experiencing a solar flare. Please wait for it to pass.",
+  "ROK is currently orbiting a black hole. It’s a bit slow right now.",
+  "ROK is currently on a mission to Mars. Communication delay expected.",
 
   // --- Construction Theme ---
   "ROK is wearing a hard hat right now. Safety first!",
@@ -262,7 +276,8 @@ const SERVER_DOWN_MESSAGES = [
   "Pardon the dust. ROK is rebuilding.",
   "ROK is currently waiting for the cement to dry.",
   "A few loose bricks. ROK is patching things up.",
-  "ROK is currently redirecting traffic. Hold on."
+  "ROK is currently redirecting traffic. Hold on.",
+
 ];
 
 const history = [];
