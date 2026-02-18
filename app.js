@@ -64,8 +64,10 @@ const legalModal = document.getElementById("legalModal");
 const legalCloseBtn = document.getElementById("legalCloseBtn");
 const legalTermsTab = document.getElementById("legalTermsTab");
 const legalPrivacyTab = document.getElementById("legalPrivacyTab");
+const legalCreditsTab = document.getElementById("legalCreditsTab");
 const legalTermsPanel = document.getElementById("legalTermsPanel");
 const legalPrivacyPanel = document.getElementById("legalPrivacyPanel");
+const legalCreditsPanel = document.getElementById("legalCreditsPanel");
 const legalLinkButtons = document.querySelectorAll("[data-legal]");
 const composerWrap = document.querySelector(".composer-wrap");
 const sidebar = document.querySelector(".sidebar");
@@ -1919,14 +1921,32 @@ function openWorkspaceApplyModal(replyText, options = {}) {
 }
 
 function setActiveLegalTab(tab) {
-  if (!legalTermsTab || !legalPrivacyTab || !legalTermsPanel || !legalPrivacyPanel) return;
-  const isTerms = tab !== "privacy";
+  if (
+    !legalTermsTab ||
+    !legalPrivacyTab ||
+    !legalCreditsTab ||
+    !legalTermsPanel ||
+    !legalPrivacyPanel ||
+    !legalCreditsPanel
+  ) {
+    return;
+  }
+
+  const activeTab = tab === "privacy" || tab === "credits" ? tab : "terms";
+  const isTerms = activeTab === "terms";
+  const isPrivacy = activeTab === "privacy";
+  const isCredits = activeTab === "credits";
+
   legalTermsTab.classList.toggle("active", isTerms);
   legalTermsTab.setAttribute("aria-selected", isTerms ? "true" : "false");
-  legalPrivacyTab.classList.toggle("active", !isTerms);
-  legalPrivacyTab.setAttribute("aria-selected", !isTerms ? "true" : "false");
+  legalPrivacyTab.classList.toggle("active", isPrivacy);
+  legalPrivacyTab.setAttribute("aria-selected", isPrivacy ? "true" : "false");
+  legalCreditsTab.classList.toggle("active", isCredits);
+  legalCreditsTab.setAttribute("aria-selected", isCredits ? "true" : "false");
+
   legalTermsPanel.hidden = !isTerms;
-  legalPrivacyPanel.hidden = isTerms;
+  legalPrivacyPanel.hidden = !isPrivacy;
+  legalCreditsPanel.hidden = !isCredits;
 }
 
 function openLegalModal(tab) {
@@ -3444,11 +3464,17 @@ if (legalPrivacyTab) {
   });
 }
 
+if (legalCreditsTab) {
+  legalCreditsTab.addEventListener("click", () => {
+    setActiveLegalTab("credits");
+  });
+}
+
 if (legalLinkButtons && legalLinkButtons.length) {
   legalLinkButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = btn.getAttribute("data-legal");
-      openLegalModal(target === "privacy" ? "privacy" : "terms");
+      openLegalModal(target === "privacy" || target === "credits" ? target : "terms");
     });
   });
 }
