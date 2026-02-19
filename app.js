@@ -1921,32 +1921,36 @@ function openWorkspaceApplyModal(replyText, options = {}) {
 }
 
 function setActiveLegalTab(tab) {
-  if (
-    !legalTermsTab ||
-    !legalPrivacyTab ||
-    !legalCreditsTab ||
-    !legalTermsPanel ||
-    !legalPrivacyPanel ||
-    !legalCreditsPanel
-  ) {
-    return;
+  if (!legalModal) return;
+
+  const tabButtons = Array.from(legalModal.querySelectorAll("[data-legal-tab]"));
+  const panels = Array.from(legalModal.querySelectorAll(".legal-panel[role='tabpanel']"));
+  if (!tabButtons.length || !panels.length) return;
+
+  const availableTabs = tabButtons
+    .map((btn) => String(btn.getAttribute("data-legal-tab") || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (!availableTabs.length) return;
+
+  const requestedTab = String(tab || "").trim().toLowerCase();
+  const fallbackTab = availableTabs.includes("terms") ? "terms" : availableTabs[0];
+  const activeTab = availableTabs.includes(requestedTab) ? requestedTab : fallbackTab;
+
+  for (const btn of tabButtons) {
+    const key = String(btn.getAttribute("data-legal-tab") || "").trim().toLowerCase();
+    const isActive = key === activeTab;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
   }
 
-  const activeTab = tab === "privacy" || tab === "credits" ? tab : "terms";
-  const isTerms = activeTab === "terms";
-  const isPrivacy = activeTab === "privacy";
-  const isCredits = activeTab === "credits";
-
-  legalTermsTab.classList.toggle("active", isTerms);
-  legalTermsTab.setAttribute("aria-selected", isTerms ? "true" : "false");
-  legalPrivacyTab.classList.toggle("active", isPrivacy);
-  legalPrivacyTab.setAttribute("aria-selected", isPrivacy ? "true" : "false");
-  legalCreditsTab.classList.toggle("active", isCredits);
-  legalCreditsTab.setAttribute("aria-selected", isCredits ? "true" : "false");
-
-  legalTermsPanel.hidden = !isTerms;
-  legalPrivacyPanel.hidden = !isPrivacy;
-  legalCreditsPanel.hidden = !isCredits;
+  for (const panel of panels) {
+    const labelledBy = String(panel.getAttribute("aria-labelledby") || "").trim();
+    const relatedBtn = tabButtons.find((btn) => btn.id === labelledBy);
+    const panelTab = relatedBtn
+      ? String(relatedBtn.getAttribute("data-legal-tab") || "").trim().toLowerCase()
+      : "";
+    panel.hidden = panelTab !== activeTab;
+  }
 }
 
 function openLegalModal(tab) {
