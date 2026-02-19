@@ -1856,8 +1856,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .home-legal-link {
