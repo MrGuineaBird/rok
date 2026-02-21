@@ -79,13 +79,14 @@ const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
-const DEFAULT_API_BASE_URL = "https://noncorrectively-warded-casimira.ngrok-free.dev";
-const API_BASE_URL = String(runtimeConfig.apiBaseUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, "");
-const API_URL = `${API_BASE_URL}/api/chat`;
-const HEALTH_URL = `${API_BASE_URL}/api/health`;
-const MODELS_URL = `${API_BASE_URL}/api/models`;
-const CLIENT_CONFIG_URL = `${API_BASE_URL}/api/client-config`;
-const NGROK_SKIP_WARNING_HEADER = { "ngrok-skip-browser-warning": "true" };
+const runtimeApiBase =
+  (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
+const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
+const buildApiUrl = (path) => `${ROK_API_BASE}${path}`;
+const API_URL = buildApiUrl("/api/chat");
+const STATUS_URL = buildApiUrl("/api/status");
+const MODELS_URL = buildApiUrl("/api/models");
+const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
@@ -454,7 +455,7 @@ async function refreshModelCatalogFromServer() {
 }
 
 function buildApiHeaders(includeJson) {
-  const headers = { ...NGROK_SKIP_WARNING_HEADER };
+  const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
   }
@@ -667,7 +668,7 @@ function hideHomeScreen() {
   ensureReadyMessage();
 }
 
-function isLikelyTunnelDownResponse(status, contentType, bodyText) {
+function isLikelyServerDownResponse(status, contentType, bodyText) {
   if ([502, 503, 504, 521, 522, 523, 524].includes(status)) {
     return true;
   }
@@ -678,15 +679,14 @@ function isLikelyTunnelDownResponse(status, contentType, bodyText) {
 
   const lowerBody = (bodyText || "").toLowerCase();
   return (
-    lowerBody.includes("ngrok") ||
-    lowerBody.includes("cloud endpoint") ||
-    lowerBody.includes("default endpoint") ||
-    lowerBody.includes("trycloudflare") ||
-    lowerBody.includes("tunnel")
+    lowerBody.includes("bad gateway") ||
+    lowerBody.includes("service unavailable") ||
+    lowerBody.includes("gateway timeout") ||
+    lowerBody.includes("server error")
   );
 }
 
-function isLikelyTunnelDownError(err) {
+function isLikelyServerDownError(err) {
   const message = ((err && err.message) || "").toLowerCase();
   return (
     message.includes("server is currently down") ||
@@ -699,7 +699,7 @@ function isLikelyTunnelDownError(err) {
 
 async function checkServerOnBoot() {
   try {
-    const res = await fetch(HEALTH_URL, {
+    const res = await fetch(STATUS_URL, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -716,7 +716,7 @@ async function checkServerOnBoot() {
       return false;
     }
 
-    if (isLikelyTunnelDownResponse(res.status, contentType, bodyText)) {
+    if (isLikelyServerDownResponse(res.status, contentType, bodyText)) {
       showServerDownScreen();
       return false;
     }
@@ -739,7 +739,7 @@ async function checkServerOnBoot() {
     await refreshClientConfigFromServer();
     return true;
   } catch (err) {
-    if (isLikelyTunnelDownError(err)) {
+    if (isLikelyServerDownError(err)) {
       showServerDownScreen();
     }
     return false;
@@ -3201,7 +3201,7 @@ async function send() {
         if (errorBody) errorMessage = errorBody;
       }
 
-      if (isLikelyTunnelDownResponse(res.status, contentType, errorBody)) {
+      if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
         showServerDownScreen();
         throw new Error("Server is currently down. Check back later.");
       }
@@ -3487,7 +3487,7 @@ async function send() {
       return;
     }
 
-    if (isLikelyTunnelDownError(err)) {
+    if (isLikelyServerDownError(err)) {
       if (writeBackToWorkspace) {
         const unavailableSummary = buildWorkspaceStructuredSummary(
           "Could not complete workspace generation due to connectivity issues.",
