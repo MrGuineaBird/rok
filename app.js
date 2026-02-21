@@ -47,6 +47,7 @@ const currentSessionBtn = document.getElementById("currentSessionBtn");
 const savedChatsList = document.getElementById("savedChatsList");
 const cooldownEl = document.getElementById("cooldown");
 const appRoot = document.querySelector(".app");
+const banOverlay = document.getElementById("banOverlay");
 const serverDownScreen = document.getElementById("serverDownScreen");
 const serverDownMessage = document.getElementById("serverDownMessage");
 const serverDownMeta = document.getElementById("serverDownMeta");
@@ -87,6 +88,7 @@ const API_URL = buildApiUrl("/api/chat");
 const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
+const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
@@ -314,6 +316,7 @@ let wasWorkspaceTabActive = false;
 let isWorkspaceSuggestionLoading = false;
 let workspaceAssistantFadeTimer = null;
 let workspaceDocSaveStateTimer = null;
+let isBanOverlayActive = false;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -419,7 +422,7 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
 
 async function refreshModelCatalogFromServer() {
   try {
-    const res = await fetch(MODELS_URL, {
+    const res = await fetchWithBanGuard(MODELS_URL, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -427,6 +430,7 @@ async function refreshModelCatalogFromServer() {
         Accept: "application/json"
       }
     });
+    if (isBanOverlayActive) return false;
     if (!res.ok) {
       return false;
     }
@@ -460,6 +464,47 @@ function buildApiHeaders(includeJson) {
     headers["Content-Type"] = "application/json";
   }
   return headers;
+}
+
+function getApiPathFromUrl(url) {
+  try {
+    const parsed = new URL(String(url || ""), window.location.href);
+    return parsed.pathname || "";
+  } catch {
+    const raw = String(url || "");
+    const idx = raw.indexOf("/api/");
+    if (idx === -1) return "";
+    return raw.slice(idx).split("?")[0];
+  }
+}
+
+function isBanGuardPath(url) {
+  const path = getApiPathFromUrl(url);
+  return BAN_GUARD_PATHS.has(path);
+}
+
+function showBanOverlay() {
+  if (isBanOverlayActive) return;
+  isBanOverlayActive = true;
+  if (banOverlay) {
+    banOverlay.hidden = false;
+  }
+  if (appRoot) {
+    appRoot.classList.add("is-ban-locked");
+  }
+  if (serverDownScreen) {
+    serverDownScreen.hidden = true;
+  }
+  stopHomeDemoRotation();
+  stopHomeWorkspacePreview();
+}
+
+async function fetchWithBanGuard(url, options) {
+  const response = await fetch(url, options);
+  if (response && response.status === 403 && isBanGuardPath(url)) {
+    showBanOverlay();
+  }
+  return response;
 }
 
 function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
@@ -529,7 +574,7 @@ function applyClientLimitsFromServer(rawLimits) {
 
 async function refreshClientConfigFromServer() {
   try {
-    const res = await fetch(CLIENT_CONFIG_URL, {
+    const res = await fetchWithBanGuard(CLIENT_CONFIG_URL, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -537,6 +582,7 @@ async function refreshClientConfigFromServer() {
         Accept: "application/json"
       }
     });
+    if (isBanOverlayActive) return false;
     if (!res.ok) return false;
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -699,7 +745,7 @@ function isLikelyServerDownError(err) {
 
 async function checkServerOnBoot() {
   try {
-    const res = await fetch(STATUS_URL, {
+    const res = await fetchWithBanGuard(STATUS_URL, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -707,6 +753,10 @@ async function checkServerOnBoot() {
         Accept: "application/json"
       }
     });
+
+    if (isBanOverlayActive) {
+      return false;
+    }
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
     const bodyText = await res.text();
@@ -747,6 +797,9 @@ async function checkServerOnBoot() {
 }
 
 async function retryServerConnection() {
+  if (isBanOverlayActive) {
+    return;
+  }
   if (!serverDownRetryBtn) {
     await checkServerOnBoot();
     return;
@@ -1639,6 +1692,7 @@ function parseWorkspaceSuggestions(rawText) {
 }
 
 async function requestWorkspaceSuggestions() {
+  if (isBanOverlayActive) return;
   if (!isWorkspaceSessionActive()) return;
   const workspaceText = getWorkspaceDocumentText();
   if (!workspaceText.trim()) {
@@ -1667,7 +1721,7 @@ async function requestWorkspaceSuggestions() {
     });
 
     const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
-    const res = await fetch(API_URL, {
+    const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
       body: JSON.stringify({ message: prompt, history: [], model: sessionModel })
@@ -3096,6 +3150,7 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 }
 
 async function send() {
+  if (isBanOverlayActive) return;
   hideHomeScreen();
   const text = input.value.trim();
   const sessionModel = getCurrentSessionModel();
@@ -3175,7 +3230,7 @@ async function send() {
   let partialText = "";
 
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: activeRequestController.signal,
@@ -3408,6 +3463,10 @@ async function send() {
   } catch (err) {
     if (typing.row.isConnected) {
       typing.row.remove();
+    }
+
+    if (isBanOverlayActive) {
+      return;
     }
 
     const errName = err && err.name ? err.name : "";
@@ -3685,6 +3744,16 @@ document.addEventListener("keydown", (e) => {
     closeLegalModal();
   }
 });
+
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (!isBanOverlayActive) return;
+    e.preventDefault();
+    e.stopPropagation();
+  },
+  true
+);
 
 if (workspaceEditor) {
   workspaceEditor.addEventListener("keydown", (e) => {
