@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=home75" />
+  <link rel="stylesheet" href="style.css?v=home71" />
 </head>
 <body>
   <div class="app">
@@ -45,15 +45,6 @@
       </header>
 
       <section id="homeScreen" class="home-screen" hidden>
-        <header class="home-nav" aria-label="Home navigation">
-          <button class="home-nav-brand" type="button" aria-label="ROK">
-            <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
-          </button>
-          <div class="home-nav-links">
-            <a class="home-nav-link" href="docs.html">Docs</a>
-            <a class="home-nav-link" href="about.html">About</a>
-          </div>
-        </header>
         <div class="home-bg-demo" aria-hidden="true">
           <div class="home-bg-chat">
             <div class="home-bg-line user">
@@ -84,42 +75,21 @@
           </div>
         </div>
         <div class="home-card">
+          <div class="home-top">
+            <div class="home-logo">
+              <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+            </div>
+          </div>
           <div class="home-middle">
-            <div class="home-hero-badge">Local AI Workspace</div>
             <h1>Build, learn, and ship faster</h1>
             <p>ROK is your private local AI workspace, running on your own machine.</p>
-            <button id="homeStartBtn" class="home-cta" type="button">Open Workspace</button>
+            <button id="homeStartBtn" class="home-cta" type="button">Start chatting</button>
             <div class="home-prompt-row">
               <span class="home-prompt-pill">Summarize this error log</span>
               <span class="home-prompt-pill">Explain this code snippet</span>
               <span class="home-prompt-pill">Turn this into flashcards</span>
             </div>
           </div>
-          <section id="homeWorkspacePreview" class="home-preview is-hidden-preview" aria-label="Workspace preview">
-            <div class="home-preview-title">Workspace preview</div>
-            <div class="home-preview-shell">
-              <div class="home-preview-side">
-                <span class="home-preview-side-item">chat.md</span>
-                <span class="home-preview-side-item">workspace.md</span>
-                <span class="home-preview-side-item">summary.txt</span>
-              </div>
-              <div class="home-preview-main">
-                <div class="home-preview-toolbar">
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-toolbar-title">workspace.md</span>
-                </div>
-                <div class="home-preview-example" aria-live="polite">
-                  <div class="home-preview-example-line" data-preview-line="Intent: turn rough notes into a clean release update."></div>
-                  <div class="home-preview-example-line" data-preview-line="Output: polished status summary with action steps."></div>
-                  <div class="home-preview-example-line" data-preview-line="1) Improved workspace suggestions and drafting flow."></div>
-                  <div class="home-preview-example-line" data-preview-line="2) Added stronger legal modal handling and tab switching."></div>
-                  <div class="home-preview-example-line" data-preview-line="Next: run smoke test and publish home refresh changes."></div>
-                </div>
-              </div>
-            </div>
-          </section>
           <div class="home-bottom">
             <div class="home-copyright-row">
               <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
@@ -364,14 +334,9 @@ Change Scope: Short</p>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     window.ROK_CONFIG = {
-      // Example:
-      // apiBaseUrl: "https://your-backend.ngrok-free.app",
-      // apiGateToken: "abc123",
-      // apiGateHeader: "X-ROK-App-Token"
-      // Optional chat auth header override:
-      // authHeader: "X-ROK-Auth-Token"
+      apiBaseUrl: "https://noncorrectively-warded-casimira.ngrok-free.dev"
     };
   </script>
-  <script src="app.js?v=home75"></script>
+  <script src="app.js?v=home72"></script>
 </body>
 </html>
