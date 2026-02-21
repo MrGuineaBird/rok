@@ -96,6 +96,48 @@ body {
   display: none;
 }
 
+.app.is-ban-locked {
+  pointer-events: none;
+  user-select: none;
+}
+
+.ban-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(1100px 600px at 10% -10%, rgba(96, 32, 32, 0.3) 0%, transparent 60%),
+    radial-gradient(900px 600px at 90% 0%, rgba(82, 22, 22, 0.26) 0%, transparent 60%),
+    rgba(8, 12, 18, 0.94);
+}
+
+.ban-overlay[hidden] {
+  display: none;
+}
+
+.ban-overlay-card {
+  width: min(620px, 100%);
+  padding: 28px 24px;
+  border-radius: 16px;
+  border: 1px solid #4F2A2A;
+  background: linear-gradient(180deg, rgba(14, 21, 30, 0.98) 0%, rgba(10, 16, 24, 0.96) 100%);
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(226, 173, 173, 0.07);
+  text-align: center;
+}
+
+.ban-overlay-card h2 {
+  margin: 0;
+  color: #F4DADA;
+  font-size: clamp(22px, 3.2vw, 30px);
+  line-height: 1.35;
+  letter-spacing: 0.2px;
+}
+
 .server-down {
   position: fixed;
   inset: 0;
