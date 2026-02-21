@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=home71" />
+  <link rel="stylesheet" href="style.css?v=home73" />
 </head>
 <body>
   <div class="app">
@@ -74,11 +74,18 @@
             </div>
           </div>
         </div>
+        <div class="home-nav" aria-label="Home navigation">
+          <button class="home-nav-brand" type="button" aria-label="ROK Home">
+            <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+          </button>
+          <div class="home-nav-links">
+            <button class="home-nav-link" type="button" data-legal="terms">Docs</button>
+            <button class="home-nav-link" type="button" data-legal="credits">About</button>
+          </div>
+        </div>
         <div class="home-card">
           <div class="home-top">
-            <div class="home-logo">
-              <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
-            </div>
+            <div class="home-subtitle">Private local AI workspace</div>
           </div>
           <div class="home-middle">
             <h1>Build, learn, and ship faster</h1>
@@ -90,6 +97,29 @@
               <span class="home-prompt-pill">Turn this into flashcards</span>
             </div>
           </div>
+          <section id="homeWorkspacePreview" class="home-preview is-hidden-preview" aria-live="polite">
+            <h2 class="home-preview-title">Workspace Preview</h2>
+            <div class="home-preview-shell">
+              <div class="home-preview-side" aria-hidden="true">
+                <div class="home-preview-side-item">ROK Workspace</div>
+                <div class="home-preview-side-item">Assistant Notes</div>
+                <div class="home-preview-side-item">Model: Mistral</div>
+              </div>
+              <div class="home-preview-main">
+                <div class="home-preview-toolbar" aria-hidden="true">
+                  <span class="home-preview-dot"></span>
+                  <span class="home-preview-dot"></span>
+                  <span class="home-preview-dot"></span>
+                  <span class="home-preview-toolbar-title">Live draft</span>
+                </div>
+                <div class="home-preview-example">
+                  <div class="home-preview-example-line" data-preview-line="Prompt: Summarize this error log in five bullets."></div>
+                  <div class="home-preview-example-line" data-preview-line="ROK: Found 3 root causes and 2 quick fixes."></div>
+                  <div class="home-preview-example-line" data-preview-line="Action: Added a cleaner workspace-ready draft below."></div>
+                </div>
+              </div>
+            </div>
+          </section>
           <div class="home-bottom">
             <div class="home-copyright-row">
               <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
@@ -97,6 +127,8 @@
                 <button class="home-legal-link" type="button" data-legal="terms">Terms of Service</button>
                 <span class="home-legal-sep">•</span>
                 <button class="home-legal-link" type="button" data-legal="privacy">Privacy Policy</button>
+                <span class="home-legal-sep">•</span>
+                <button class="home-legal-link" type="button" data-legal="credits">Credits</button>
               </div>
             </div>
           </div>
@@ -303,6 +335,7 @@ Change Scope: Short</p>
       <div class="legal-tabs" role="tablist" aria-label="Legal documents">
         <button id="legalTermsTab" class="legal-tab active" type="button" role="tab" aria-selected="true" data-legal-tab="terms">Terms of Service</button>
         <button id="legalPrivacyTab" class="legal-tab" type="button" role="tab" aria-selected="false" data-legal-tab="privacy">Privacy Policy</button>
+        <button id="legalCreditsTab" class="legal-tab" type="button" role="tab" aria-selected="false" data-legal-tab="credits">Credits / About</button>
       </div>
       <div class="legal-body">
         <div id="legalTermsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalTermsTab">
@@ -327,6 +360,15 @@ Change Scope: Short</p>
           </ul>
           <p>ROK does not store any data on remote servers. ROK is a local-first application.</p>
         </div>
+        <div id="legalCreditsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalCreditsTab" hidden>
+          <h3>Credits / About</h3>
+          <p>ROK is a local-first AI workspace project built for focused drafting, studying, and coding.</p>
+          <ul>
+            <li>Kyklos: guy who broke into ROK and held it hostage.</li>
+            <li>kx1xixit (Kane): made the ROK logo. Go check them out.</li>
+          </ul>
+          <p>Thanks to everyone testing and helping improve ROK.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -337,6 +379,6 @@ Change Scope: Short</p>
       apiBaseUrl: "https://noncorrectively-warded-casimira.ngrok-free.dev"
     };
   </script>
-  <script src="app.js?v=home72"></script>
+  <script src="app.js?v=home73"></script>
 </body>
 </html>
