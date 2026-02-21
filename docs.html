@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>ROK Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="docs.css?v=docs1" />
+</head>
+<body>
+  <div class="docs-wrap">
+    <header class="docs-topbar">
+      <a class="docs-brand" href="index.html">
+        <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+        <span class="docs-brand-text">
+          <span class="docs-brand-title">ROK Documentation</span>
+          <span class="docs-brand-subtitle">Local AI Workspace</span>
+        </span>
+      </a>
+      <nav class="docs-top-links" aria-label="Docs quick links">
+        <a class="docs-top-link" href="index.html">Home</a>
+        <a class="docs-top-link" href="about.html">About Me</a>
+      </nav>
+    </header>
+
+    <div class="docs-shell">
+      <aside class="docs-toc" aria-label="Table of contents">
+        <p class="docs-toc-title">Sections</p>
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#who-for">Who Is This For</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#modes">Commands and Modes</a></li>
+          <li><a href="#philosophy">Philosophy</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#security">Security and Privacy</a></li>
+          <li><a href="#roadmap">Roadmap</a></li>
+          <li><a href="#contributing">Contributing</a></li>
+        </ul>
+      </aside>
+
+      <main class="docs-main">
+        <section id="overview" class="docs-card">
+          <span class="docs-kicker">Overview</span>
+          <h1>ROK is a local AI workspace, not a chatbot clone</h1>
+          <p>
+            ROK is built to help you build, code, study, and think in one workspace. It runs on your machine,
+            uses a local model by default through Ollama, and keeps session history in your browser. The goal is
+            direct workflow support, not generic chatbot small talk.
+          </p>
+          <div class="docs-chip-row">
+            <span class="docs-chip">Local AI workspace</span>
+            <span class="docs-chip">Runs on your machine</span>
+            <span class="docs-chip">Workspace-first UI</span>
+            <span class="docs-chip">Built for building</span>
+          </div>
+        </section>
+
+        <section id="who-for" class="docs-card">
+          <h2>Who Is This For</h2>
+          <div class="docs-grid-2">
+            <div>
+              <h3>Developers</h3>
+              <p>Explain code, inspect errors, iterate on drafts, and keep context in a persistent local session.</p>
+            </div>
+            <div>
+              <h3>Students</h3>
+              <p>Generate flashcards, summarize notes, and study in a focused workspace flow.</p>
+            </div>
+            <div>
+              <h3>Tinkerers</h3>
+              <p>Change models, tune behavior, and run everything in your own environment.</p>
+            </div>
+            <div>
+              <h3>Privacy-focused users</h3>
+              <p>Keep data local by default and expose the backend publicly only when you choose to.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" class="docs-card">
+          <h2>Features</h2>
+          <ul>
+            <li>Local AI responses via Ollama in local mode.</li>
+            <li>Workspace-style interaction with editor panel, improve flow, copy/download actions.</li>
+            <li>Streaming responses with stop control.</li>
+            <li>Privacy-first defaults with local browser session storage.</li>
+            <li>Model selection and per-session model memory.</li>
+            <li>Attachment support for common text and code file types.</li>
+            <li>Optional public access through tunnel endpoints.</li>
+          </ul>
+        </section>
+
+        <section id="modes" class="docs-card">
+          <h2>Commands and Modes</h2>
+          <p>ROK uses intent-driven behavior from prompt content and workspace context.</p>
+          <div class="docs-grid-2">
+            <div>
+              <h3>Normal response mode</h3>
+              <p>Default chat behavior for Q and A, drafting, and general assistance.</p>
+            </div>
+            <div>
+              <h3>Story canvas mode</h3>
+              <p>Long-form story prompts use a specialized canvas-style output flow.</p>
+            </div>
+            <div>
+              <h3>Code explanation mode</h3>
+              <p>Code-heavy prompts trigger technical interpretation and debugging-oriented responses.</p>
+            </div>
+            <div>
+              <h3>Flashcard generation mode</h3>
+              <p>Study prompts can generate concise flashcard-oriented outputs.</p>
+            </div>
+          </div>
+          <p class="docs-note">
+            There is no slash-command requirement. Modes are inferred from prompt text and active workspace context.
+          </p>
+        </section>
+
+        <section id="philosophy" class="docs-card">
+          <h2>Philosophy</h2>
+          <p>
+            ROK exists to make local AI practical for real work, not to copy chat products. Local AI matters because
+            control, privacy, and reliability improve when the core stack runs in your own environment. The long-term
+            vision is a private AI workspace where writing, coding, and thinking happen in one place with transparent
+            behavior and predictable data boundaries.
+          </p>
+        </section>
+
+        <section id="faq" class="docs-card">
+          <h2>FAQ</h2>
+          <h3>Is ROK fully offline?</h3>
+          <p>It can run offline for generation once dependencies and local models are installed.</p>
+          <h3>Does ROK save my chat on a remote database?</h3>
+          <p>By default, sessions are stored in browser local storage. Remote storage is not part of the default local mode.</p>
+          <h3>Can I change models per session?</h3>
+          <p>Yes. Model selection is available and remembered by session.</p>
+        </section>
+
+        <section id="security" class="docs-card">
+          <h2>Security and Privacy</h2>
+          <ul>
+            <li>CORS allowlist is enforced server-side on API routes.</li>
+            <li>Rate limiting and session behavior controls are built into backend request handling.</li>
+            <li>Treat tunnel URLs and auth tokens as sensitive secrets.</li>
+          </ul>
+        </section>
+
+        <section id="roadmap" class="docs-card">
+          <h2>Roadmap</h2>
+          <ul>
+            <li>Better docs automation and versioned release notes.</li>
+            <li>Expanded workspace tooling and mode controls.</li>
+            <li>Cleaner onboarding and one-command local bootstrap.</li>
+            <li>Additional model/provider adapters with consistent behavior.</li>
+          </ul>
+        </section>
+
+        <section id="contributing" class="docs-card">
+          <h2>Contributing</h2>
+          <p>
+            Contributions are welcome. Start with docs improvements, reproducible bug reports, and small focused PRs.
+            If you propose architecture changes, include request flow impact and migration steps.
+          </p>
+          <div class="docs-footer">
+            ROK Docs - updated February 20, 2026
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
