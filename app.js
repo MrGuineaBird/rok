@@ -79,18 +79,23 @@ const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
-const DEFAULT_API_BASE_URL = "https://unevaded-gorbelly-herman.ngrok-free.dev";
+const DEFAULT_API_BASE_URL = "https://noncorrectively-warded-casimira.ngrok-free.dev";
 const API_BASE_URL = String(runtimeConfig.apiBaseUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, "");
 const API_URL = `${API_BASE_URL}/api/chat`;
 const HEALTH_URL = `${API_BASE_URL}/api/health`;
 const MODELS_URL = `${API_BASE_URL}/api/models`;
+const CLIENT_CONFIG_URL = `${API_BASE_URL}/api/client-config`;
 const NGROK_SKIP_WARNING_HEADER = { "ngrok-skip-browser-warning": "true" };
-const TYPING_SPEED_MS = 12;
-const COOLDOWN_MS = 1000;
-const HISTORY_LIMIT = 200;
-const MAX_ATTACHMENTS = 5;
-const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 209715200
-const MAX_FILE_CHARS = 12000;
+const DEFAULT_CLIENT_LIMITS = {
+  typingSpeedMs: 12,
+  cooldownMs: 1000,
+  historyLimit: 200,
+  maxAttachments: 5,
+  maxFileSizeBytes: 200 * 1024 * 1024,
+  maxFileChars: 12000,
+  maxResponseTokens: 600
+};
+const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
 const MAX_LOCAL_SESSIONS = 30;
@@ -456,6 +461,100 @@ function buildApiHeaders(includeJson) {
   return headers;
 }
 
+function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const rounded = Math.round(parsed);
+  return Math.min(max, Math.max(min, rounded));
+}
+
+function getHistoryLimitValue() {
+  return normalizeClientLimit(clientLimits.historyLimit, DEFAULT_CLIENT_LIMITS.historyLimit, 1, 1000);
+}
+
+function trimHistoryToLimit() {
+  const maxItems = getHistoryLimitValue();
+  if (history.length > maxItems) {
+    history.splice(0, history.length - maxItems);
+  }
+}
+
+function applyClientLimitsFromServer(rawLimits) {
+  if (!rawLimits || typeof rawLimits !== "object") return;
+  clientLimits.typingSpeedMs = normalizeClientLimit(
+    rawLimits.typing_speed_ms,
+    clientLimits.typingSpeedMs,
+    1,
+    500
+  );
+  clientLimits.cooldownMs = normalizeClientLimit(
+    rawLimits.cooldown_ms,
+    clientLimits.cooldownMs,
+    0,
+    60000
+  );
+  clientLimits.historyLimit = normalizeClientLimit(
+    rawLimits.history_limit,
+    clientLimits.historyLimit,
+    1,
+    1000
+  );
+  clientLimits.maxAttachments = normalizeClientLimit(
+    rawLimits.max_attachments,
+    clientLimits.maxAttachments,
+    0,
+    50
+  );
+  clientLimits.maxFileSizeBytes = normalizeClientLimit(
+    rawLimits.max_file_size_bytes,
+    clientLimits.maxFileSizeBytes,
+    1,
+    1024 * 1024 * 1024
+  );
+  clientLimits.maxFileChars = normalizeClientLimit(
+    rawLimits.max_file_chars,
+    clientLimits.maxFileChars,
+    1,
+    2_000_000
+  );
+  clientLimits.maxResponseTokens = normalizeClientLimit(
+    rawLimits.max_response_tokens,
+    clientLimits.maxResponseTokens,
+    1,
+    8000
+  );
+  trimHistoryToLimit();
+}
+
+async function refreshClientConfigFromServer() {
+  try {
+    const res = await fetch(CLIENT_CONFIG_URL, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...buildApiHeaders(false),
+        Accept: "application/json"
+      }
+    });
+    if (!res.ok) return false;
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) return false;
+
+    const payload = await res.json();
+    const limits =
+      payload && typeof payload === "object" && payload.limits && typeof payload.limits === "object"
+        ? payload.limits
+        : payload;
+    if (!limits || typeof limits !== "object") return false;
+    applyClientLimitsFromServer(limits);
+    refreshSendState();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function showServerDownScreen() {
   stopHomeDemoRotation();
   stopHomeWorkspacePreview();
@@ -637,6 +736,7 @@ async function checkServerOnBoot() {
     }
 
     hideServerDownScreen();
+    await refreshClientConfigFromServer();
     return true;
   } catch (err) {
     if (isLikelyTunnelDownError(err)) {
@@ -2677,22 +2777,26 @@ function removeAttachmentById(id) {
   }
 }
 
-function buildMessageWithAttachments(text, workspaceContext = "") {
-  const promptText = text || (workspaceContext ? "Please review and improve the workspace content." : "(No text prompt provided)");
-  const sections = [promptText];
-
+function buildMessageForApi(text, workspaceContext = "") {
+  const promptText = String(text || "").trim();
+  if (promptText) {
+    return promptText;
+  }
   if (workspaceContext) {
-    sections.push(`ROK Workspace content:\n${workspaceContext}`);
+    return "Please review and improve the workspace content.";
   }
-
   if (attachments.length) {
-    const blocks = attachments
-      .map((item) => `File: ${item.name}\n${item.content}`)
-      .join("\n\n");
-    sections.push(`Attached file contents:\n\n${blocks}`);
+    return "Please review the attached files.";
   }
+  return "(No text prompt provided)";
+}
 
-  return sections.join("\n\n");
+function buildAttachmentsPayload() {
+  return attachments.map((item) => ({
+    name: item.name,
+    size: item.size,
+    content: item.content
+  }));
 }
 
 async function addSelectedFiles(fileList) {
@@ -2702,12 +2806,12 @@ async function addSelectedFiles(fileList) {
   if (!files.length) return;
 
   for (const file of files) {
-    if (attachments.length >= MAX_ATTACHMENTS) {
-      addMessage("system", `Attachment limit reached (${MAX_ATTACHMENTS} files).`);
+    if (attachments.length >= clientLimits.maxAttachments) {
+      addMessage("system", `Attachment limit reached (${clientLimits.maxAttachments} files).`);
       break;
     }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      addMessage("system", `${file.name} is too large. Max ${formatFileSize(MAX_FILE_SIZE_BYTES)} per file.`);
+    if (file.size > clientLimits.maxFileSizeBytes) {
+      addMessage("system", `${file.name} is too large. Max ${formatFileSize(clientLimits.maxFileSizeBytes)} per file.`);
       continue;
     }
     if (!isTextLikeFile(file)) {
@@ -2721,7 +2825,7 @@ async function addSelectedFiles(fileList) {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
         size: file.size,
-        content: truncateText(content, MAX_FILE_CHARS)
+        content: truncateText(content, clientLimits.maxFileChars)
       });
     } catch {
       addMessage("system", `Could not read ${file.name}.`);
@@ -2934,7 +3038,7 @@ function typeIn(bubble, fullText) {
       bubble.textContent = fullText.slice(0, i);
       i += chunk;
       scrollToBottom();
-      setTimeout(step, TYPING_SPEED_MS);
+      setTimeout(step, clientLimits.typingSpeedMs);
     };
     step();
   });
@@ -2985,7 +3089,7 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
       }
       i += chunk;
       scrollToBottom();
-      setTimeout(step, TYPING_SPEED_MS);
+      setTimeout(step, clientLimits.typingSpeedMs);
     };
     step();
   });
@@ -3019,7 +3123,7 @@ async function send() {
     setActiveWorkspaceTab("chat", { focus: false });
   }
 
-  const recentHistory = history.slice(-HISTORY_LIMIT);
+  const recentHistory = history.slice(-getHistoryLimitValue());
 
   let displayText = text;
   if (!displayText) {
@@ -3031,13 +3135,12 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
-  const messageForApi = buildMessageWithAttachments(text, workspaceContext);
+  const messageForApi = buildMessageForApi(text, workspaceContext);
+  const attachmentsPayload = buildAttachmentsPayload();
 
   addMessage("user", displayText);
   history.push({ role: "user", content: displayText });
-  if (history.length > 200) {
-    history.splice(0, history.length - 200);
-  }
+  trimHistoryToLimit();
   syncCurrentSessionFromHistory();
 
   input.value = "";
@@ -3047,7 +3150,7 @@ async function send() {
   stopRequested = false;
   activeRequestController = new AbortController();
   isSending = true;
-  nextAllowedAt = Date.now() + COOLDOWN_MS;
+  nextAllowedAt = Date.now() + clientLimits.cooldownMs;
   startCooldownTimer();
   refreshSendState();
   if (writeBackToWorkspace) {
@@ -3076,7 +3179,13 @@ async function send() {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: activeRequestController.signal,
-      body: JSON.stringify({ message: messageForApi, history: recentHistory, model: sessionModel })
+      body: JSON.stringify({
+        message: messageForApi,
+        workspace_context: workspaceContext,
+        attachments: attachmentsPayload,
+        history: recentHistory,
+        model: sessionModel
+      })
     });
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -3144,9 +3253,7 @@ async function send() {
           storyCanvas.setStatus("Complete");
         }
         history.push({ role: "assistant", content: reply });
-        if (history.length > 200) {
-          history.splice(0, history.length - 200);
-        }
+        trimHistoryToLimit();
         syncCurrentSessionFromHistory();
       }
 
@@ -3278,9 +3385,7 @@ async function send() {
         setBubbleContent(bubble, partialText, true);
       }
       history.push({ role: "assistant", content: partialText });
-      if (history.length > 200) {
-        history.splice(0, history.length - 200);
-      }
+      trimHistoryToLimit();
       syncCurrentSessionFromHistory();
     }
 
@@ -3317,9 +3422,7 @@ async function send() {
             setBubbleContent(bubble, partialText, true);
           }
           history.push({ role: "assistant", content: partialText });
-          if (history.length > 200) {
-            history.splice(0, history.length - 200);
-          }
+          trimHistoryToLimit();
           syncCurrentSessionFromHistory();
         }
 
@@ -3728,4 +3831,5 @@ renderModelPanelOptions();
 initializeSessions();
 refreshWorkspaceDocumentToolbarState();
 refreshModelCatalogFromServer();
+refreshClientConfigFromServer();
 showHomeScreen();
