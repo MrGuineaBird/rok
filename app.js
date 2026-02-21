@@ -75,6 +75,8 @@ const homeDemoChat = document.querySelector(".home-bg-chat");
 const homeDemoPrompt = document.getElementById("homeDemoPrompt");
 const homeDemoReply = document.getElementById("homeDemoReply");
 const homeDemoCards = document.getElementById("homeDemoCards");
+const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
+const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
 const DEFAULT_API_BASE_URL = "https://unevaded-gorbelly-herman.ngrok-free.dev";
@@ -124,6 +126,9 @@ const WORKSPACE_TONE_PRIORITY = {
   generating: 3
 };
 const HOME_DEMO_LOOP_MS = 12000;
+const HOME_PREVIEW_REVEAL_DELAY_MS = 260;
+const HOME_PREVIEW_LINE_DELAY_MS = 180;
+const HOME_PREVIEW_TYPING_SPEED_MS = 14;
 const STORY_MIN_CANVAS_CHARS = 260;
 const STORY_PROMPT_PATTERN =
   /\b(story|chapter|novel|fiction|tale|scene|script|dialogue|fanfic|roleplay|bedtime|fairy\s*tale|poem|lyrics)\b/i;
@@ -294,6 +299,7 @@ let stopRequested = false;
 let hasShownReadyMessage = false;
 let homeDemoTimer = null;
 let homeDemoLastIndex = -1;
+let homePreviewRunToken = 0;
 let workspaceSaveTimer = null;
 let workspaceApplyResolver = null;
 let workspaceApplyLastFocusedElement = null;
@@ -452,6 +458,7 @@ function buildApiHeaders(includeJson) {
 
 function showServerDownScreen() {
   stopHomeDemoRotation();
+  stopHomeWorkspacePreview();
   if (serverDownMessage) {
     const randomMessage =
       SERVER_DOWN_MESSAGES[Math.floor(Math.random() * SERVER_DOWN_MESSAGES.length)];
@@ -530,10 +537,12 @@ function showHomeScreen() {
   if (composerWrap) {
     composerWrap.hidden = true;
   }
+  void startHomeWorkspacePreview();
 }
 
 function hideHomeScreen() {
   stopHomeDemoRotation();
+  stopHomeWorkspacePreview();
   if (homeScreen) {
     homeScreen.hidden = true;
   }
@@ -2462,6 +2471,91 @@ function initializeSessions() {
     ensureSessionWorkspace(current);
     renderConversation(current.messages);
     renderWorkspaceUI({ focus: false });
+  }
+}
+
+function isHomeScreenVisible() {
+  return Boolean(homeScreen && !homeScreen.hidden);
+}
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function resetHomeWorkspacePreviewContent() {
+  if (homeWorkspacePreview) {
+    homeWorkspacePreview.classList.remove("is-visible");
+    homeWorkspacePreview.classList.add("is-hidden-preview");
+  }
+
+  if (!homePreviewLineElements.length) return;
+  for (const lineEl of homePreviewLineElements) {
+    if (!(lineEl instanceof HTMLElement)) continue;
+    lineEl.classList.remove("is-visible", "is-typing");
+    lineEl.textContent = "";
+  }
+}
+
+function stopHomeWorkspacePreview() {
+  homePreviewRunToken += 1;
+  resetHomeWorkspacePreviewContent();
+}
+
+function revealHomeWorkspacePreviewInstantly() {
+  if (homeWorkspacePreview) {
+    homeWorkspacePreview.classList.remove("is-hidden-preview");
+    homeWorkspacePreview.classList.add("is-visible");
+  }
+
+  if (!homePreviewLineElements.length) return;
+  for (const lineEl of homePreviewLineElements) {
+    if (!(lineEl instanceof HTMLElement)) continue;
+    lineEl.classList.add("is-visible");
+    lineEl.classList.remove("is-typing");
+    lineEl.textContent = lineEl.getAttribute("data-preview-line") || "";
+  }
+}
+
+function waitForHomePreview(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function startHomeWorkspacePreview() {
+  if (!homeWorkspacePreview || !homePreviewLineElements.length) return;
+
+  const runToken = ++homePreviewRunToken;
+  resetHomeWorkspacePreviewContent();
+
+  if (prefersReducedMotion()) {
+    if (runToken !== homePreviewRunToken || !isHomeScreenVisible()) return;
+    revealHomeWorkspacePreviewInstantly();
+    return;
+  }
+
+  await waitForHomePreview(HOME_PREVIEW_REVEAL_DELAY_MS);
+  if (runToken !== homePreviewRunToken || !isHomeScreenVisible()) return;
+
+  homeWorkspacePreview.classList.remove("is-hidden-preview");
+  homeWorkspacePreview.classList.add("is-visible");
+
+  for (const lineEl of homePreviewLineElements) {
+    if (!(lineEl instanceof HTMLElement)) continue;
+    const text = lineEl.getAttribute("data-preview-line") || "";
+    lineEl.classList.add("is-visible", "is-typing");
+    lineEl.textContent = "";
+
+    for (let index = 1; index <= text.length; index += 1) {
+      if (runToken !== homePreviewRunToken || !isHomeScreenVisible()) return;
+      lineEl.textContent = text.slice(0, index);
+      await waitForHomePreview(HOME_PREVIEW_TYPING_SPEED_MS);
+    }
+
+    lineEl.classList.remove("is-typing");
+    await waitForHomePreview(HOME_PREVIEW_LINE_DELAY_MS);
+    if (runToken !== homePreviewRunToken || !isHomeScreenVisible()) return;
   }
 }
 
