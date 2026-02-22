@@ -88,6 +88,7 @@ const API_URL = buildApiUrl("/api/chat");
 const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
+const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
 const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
@@ -500,7 +501,8 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const response = await fetch(url, options);
+  const requestOptions = { ...(options || {}), credentials: "include" };
+  const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
   }
@@ -599,6 +601,21 @@ async function refreshClientConfigFromServer() {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function bootstrapServerSession() {
+  try {
+    await fetchWithBanGuard(AUTH_SESSION_URL, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...buildApiHeaders(false),
+        Accept: "application/json"
+      }
+    });
+  } catch {
+    // Session bootstrap is best-effort.
   }
 }
 
@@ -3899,6 +3916,7 @@ renderModelSelectOptions();
 renderModelPanelOptions();
 initializeSessions();
 refreshWorkspaceDocumentToolbarState();
+bootstrapServerSession();
 refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 showHomeScreen();
