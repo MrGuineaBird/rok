@@ -271,6 +271,37 @@ h3 {
   line-height: 1.55;
 }
 
+.docs-api-example-controls {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.docs-example-label {
+  color: #e4c8c8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.docs-example-select {
+  min-width: 230px;
+  border: 1px solid #4a2f36;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(10, 15, 23, 0.9);
+  color: #f0d6d6;
+  font-size: 12px;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+.docs-example-select:focus {
+  outline: none;
+  border-color: #b64f4f;
+  box-shadow: 0 0 0 1px rgba(209, 75, 75, 0.32);
+}
+
 .docs-block {
   margin-top: 12px;
   border: 1px solid #364153;
@@ -466,5 +497,10 @@ code {
 
   .docs-grid-2 {
     grid-template-columns: 1fr;
+  }
+
+  .docs-example-select {
+    width: 100%;
+    min-width: 0;
   }
 }
