@@ -1,4 +1,4 @@
-﻿const chat = document.getElementById("chat");
+const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
@@ -460,7 +460,9 @@ async function refreshModelCatalogFromServer() {
 }
 
 function buildApiHeaders(includeJson) {
-  const headers = {};
+  const headers = {
+    "ngrok-skip-browser-warning": "true",
+  };
   if (includeJson) {
     headers["Content-Type"] = "application/json";
   }
@@ -501,14 +503,7 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const requestOptions = {
-    ...(options || {}),
-    credentials: "include",
-    headers: {
-      ...((options || {}).headers || {}),
-      "ngrok-skip-browser-warning": "true",
-    },
-  };
+  const requestOptions = { ...(options || {}), credentials: "include" };
   const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
