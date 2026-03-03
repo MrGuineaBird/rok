@@ -83,7 +83,7 @@ const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? win
 const runtimeApiBase =
   (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
 const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
-const buildApiUrl = (path) => `${ROK_API_BASE}${path}`;
+const buildApiUrl = (path) => `${ROK_API_BASE}${path}?ngrok-skip-browser-warning=true`;
 const API_URL = buildApiUrl("/api/chat");
 const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
@@ -460,9 +460,7 @@ async function refreshModelCatalogFromServer() {
 }
 
 function buildApiHeaders(includeJson) {
-  const headers = {
-    "ngrok-skip-browser-warning": "true",
-  };
+  const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
   }
