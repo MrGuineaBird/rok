@@ -3307,7 +3307,8 @@ async function send() {
       }
     }
 
-    const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+   const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+    console.log("reader:", reader, "content-type:", contentType, "res.body:", res.body);
 
     if (!reader) {
       const reply = (await res.text()) || "(No response)";
