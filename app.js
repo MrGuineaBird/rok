@@ -78,6 +78,7 @@ const homeDemoReply = document.getElementById("homeDemoReply");
 const homeDemoCards = document.getElementById("homeDemoCards");
 const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
+document.cookie = "ngrok-skip-browser-warning=true; path=/; SameSite=None; Secure";
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
 const runtimeApiBase =
@@ -501,14 +502,7 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const requestOptions = {
-    ...(options || {}),
-    credentials: "include",
-    headers: {
-      ...((options || {}).headers || {}),
-      "ngrok-skip-browser-warning": "true",
-    },
-  };
+  const requestOptions = { ...(options || {}), credentials: "include" };
   const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
