@@ -7,7 +7,7 @@
   <title>ROK Docs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="docs.css?v=docs2" />
+  <link rel="stylesheet" href="docs.css?v=docs3" />
 </head>
 <body>
   <div class="docs-wrap">
@@ -166,8 +166,44 @@
             <code>X-ROK-API-Key</code> for external requests.
           </p>
           <button id="requestApiKeyBtn" class="docs-primary-btn" type="button">Request API Key</button>
+          <p class="docs-note">
+            API keys now include per-key request limits. Once a key exceeds its assigned limit, <code>/api/chat</code>
+            returns <code>429</code> with <code>{"error":"API key request limit exceeded"}</code>.
+          </p>
 
-          <div class="docs-block">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>401</code></td>
+                <td>Missing API key (<code>X-ROK-API-Key</code> not provided)</td>
+              </tr>
+              <tr>
+                <td><code>403</code></td>
+                <td>Invalid API key</td>
+              </tr>
+              <tr>
+                <td><code>429</code></td>
+                <td>Key is valid, but request limit is exhausted</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="docs-api-example-controls">
+            <label class="docs-example-label" for="apiExampleLanguage">Example Language</label>
+            <select id="apiExampleLanguage" class="docs-example-select">
+              <option value="js">JavaScript (fetch + stream parser)</option>
+              <option value="python">Python (requests + stream parser)</option>
+              <option value="curl">cURL (quick test)</option>
+            </select>
+          </div>
+
+          <div class="docs-block" data-api-example="js">
             <h3 class="docs-block-title">JavaScript Example (with built-in token parser)</h3>
             <pre><code>async function runRokChat() {
   const apiBase = "https://noncorrectively-warded-casimira.ngrok-free.dev";
@@ -242,6 +278,80 @@ runRokChat()
   .then((text) => console.log("Final output:\\n", text))
   .catch((err) => console.error("ROK error:", err.message));</code></pre>
           </div>
+
+          <div class="docs-block" data-api-example="python" hidden>
+            <h3 class="docs-block-title">Python Example (with built-in token parser)</h3>
+            <pre><code>import json
+import requests
+
+API_BASE = "https://noncorrectively-warded-casimira.ngrok-free.dev"
+API_KEY = "YOUR_ISSUED_API_KEY_HERE"
+
+headers = {
+    "Content-Type": "application/json",
+    "Accept": "text/event-stream",
+    "X-ROK-API-Key": API_KEY,
+}
+payload = {
+    "message": "Explain photosynthesis in 3 bullet points.",
+    "history": [],
+}
+
+with requests.post(
+    f"{API_BASE}/api/chat",
+    headers=headers,
+    json=payload,
+    stream=True,
+    timeout=(10, 300),
+) as response:
+    if response.status_code == 401:
+        raise RuntimeError("API key required")
+    if response.status_code == 403:
+        raise RuntimeError("Invalid API key")
+    if response.status_code == 429:
+        raise RuntimeError("API key request limit exceeded")
+    response.raise_for_status()
+
+    full_text = []
+    for raw_line in response.iter_lines(decode_unicode=True):
+        if not raw_line or not raw_line.startswith("data:"):
+            continue
+        data = raw_line[5:].strip()
+        if not data or data == "[DONE]":
+            continue
+
+        token = data
+        try:
+            payload = json.loads(data)
+            token = payload.get("token") or payload.get("response") or payload.get("reply") or ""
+        except json.JSONDecodeError:
+            pass
+
+        if token:
+            print(token, end="", flush=True)
+            full_text.append(token)
+
+    print("\\n\\nFinal output:\\n" + "".join(full_text))</code></pre>
+          </div>
+
+          <div class="docs-block" data-api-example="curl" hidden>
+            <h3 class="docs-block-title">cURL Example (raw stream)</h3>
+            <pre><code>curl -N -X POST "https://noncorrectively-warded-casimira.ngrok-free.dev/api/chat" ^
+  -H "Content-Type: application/json" ^
+  -H "Accept: text/event-stream" ^
+  -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" ^
+  -d "{\"message\":\"Summarize this in 3 bullets.\",\"history\":[]}"
+
+# macOS/Linux line-continuation version:
+curl -N -X POST "https://noncorrectively-warded-casimira.ngrok-free.dev/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" \
+  -d '{"message":"Summarize this in 3 bullets.","history":[]}'
+
+# You will receive streaming SSE chunks in lines that begin with:
+# data: {"token":"..."}</code></pre>
+          </div>
         </section>
 
         <section id="contributing" class="docs-card">
@@ -251,7 +361,7 @@ runRokChat()
             If you propose architecture changes, include request flow impact and migration steps.
           </p>
           <div class="docs-footer">
-            ROK Docs - updated February 22, 2026
+            ROK Docs - updated February 23, 2026
           </div>
         </section>
       </main>
@@ -279,22 +389,41 @@ runRokChat()
       const requestBtn = document.getElementById("requestApiKeyBtn");
       const modal = document.getElementById("apiAccessModal");
       const closeBtn = document.getElementById("apiAccessModalCloseBtn");
-      if (!requestBtn || !modal || !closeBtn) return;
 
-      function openModal() {
-        modal.hidden = false;
-        modal.setAttribute("aria-hidden", "false");
-        document.body.classList.add("docs-modal-open");
+      if (requestBtn && modal && closeBtn) {
+        function openModal() {
+          modal.hidden = false;
+          modal.setAttribute("aria-hidden", "false");
+          document.body.classList.add("docs-modal-open");
+        }
+
+        function closeModal() {
+          modal.hidden = true;
+          modal.setAttribute("aria-hidden", "true");
+          document.body.classList.remove("docs-modal-open");
+        }
+
+        requestBtn.addEventListener("click", openModal);
+        closeBtn.addEventListener("click", closeModal);
       }
 
-      function closeModal() {
-        modal.hidden = true;
-        modal.setAttribute("aria-hidden", "true");
-        document.body.classList.remove("docs-modal-open");
+      const languageSelect = document.getElementById("apiExampleLanguage");
+      const exampleBlocks = Array.from(document.querySelectorAll("[data-api-example]"));
+      if (!languageSelect || !exampleBlocks.length) return;
+
+      function setActiveLanguage(value) {
+        const selected = String(value || "js").toLowerCase();
+        exampleBlocks.forEach((block) => {
+          const lang = String(block.getAttribute("data-api-example") || "").toLowerCase();
+          block.hidden = lang !== selected;
+        });
       }
 
-      requestBtn.addEventListener("click", openModal);
-      closeBtn.addEventListener("click", closeModal);
+      setActiveLanguage(languageSelect.value);
+      languageSelect.addEventListener("change", function onLanguageChange(event) {
+        const target = event.target;
+        setActiveLanguage(target && target.value ? target.value : "js");
+      });
     })();
   </script>
 </body>

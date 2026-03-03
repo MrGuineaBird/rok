@@ -1,4 +1,4 @@
-const chat = document.getElementById("chat");
+﻿const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
@@ -501,7 +501,14 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const requestOptions = { ...(options || {}), credentials: "include" };
+  const requestOptions = {
+    ...(options || {}),
+    credentials: "include",
+    headers: {
+      ...((options || {}).headers || {}),
+      "ngrok-skip-browser-warning": "true",
+    },
+  };
   const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
