@@ -502,14 +502,7 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const requestOptions = {
-    ...(options || {}),
-    credentials: "include",
-    headers: {
-      ...((options || {}).headers || {}),
-      "ngrok-skip-browser-warning": "true",
-    },
-  };
+  const requestOptions = { ...(options || {}) };
   const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
