@@ -1,4 +1,4 @@
-const chat = document.getElementById("chat");
+﻿const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
@@ -3268,11 +3268,17 @@ async function send() {
       let errorMessage = "Request failed.";
       let errorBody = "";
       try {
-        const data = await res.json();
-        errorMessage = data.reply || data.error || errorMessage;
-      } catch {
         errorBody = await res.text();
-        if (errorBody) errorMessage = errorBody;
+      } catch {
+        errorBody = "";
+      }
+      if (errorBody) {
+        try {
+          const data = JSON.parse(errorBody);
+          errorMessage = data.reply || data.error || errorMessage;
+        } catch {
+          errorMessage = errorBody;
+        }
       }
 
       if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
@@ -3312,7 +3318,17 @@ async function send() {
     console.log("reader:", reader, "content-type:", contentType, "res.body:", res.body);
 
     if (!reader) {
-  const reply = partialText || "(No response)";
+  let reply = partialText || "(No response)";
+      if (!partialText && !res.bodyUsed) {
+        try {
+          const bodyText = await res.text();
+          if (bodyText) {
+            reply = bodyText;
+          }
+        } catch {
+          // Keep default fallback reply when body cannot be read.
+        }
+      }
       partialText = reply;
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
