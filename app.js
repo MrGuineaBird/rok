@@ -128,21 +128,21 @@ const DEFAULT_USER_SETTINGS = {
   compactMode: false,
   reduceMotion: false
 };
-const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava:latest"]);
+const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava-llama3"]);
 const DEFAULT_MODEL_OPTIONS = [
   { id: "qwen2.5:latest", label: "ROK Geek" },
   { id: "mistral:latest", label: "ROK Quaility" },
-  { id: "llava:latest", label: "ROK Vision" }
+  { id: "llava-llama3", label: "ROK Vision" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen2.5:latest": "ROK Geek",
   "mistral:latest": "ROK Quaility",
-  "llava:latest": "ROK Vision"
+  "llava-llama3": "ROK Vision"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen2.5:latest": "Fast responses for quick questions, experiments, and everyday drafting.",
   "mistral:latest": "More thorough responses for longer writing and refinement.",
-  "llava:latest": "Vision model for image understanding, screenshots, and visual Q and A."
+  "llava-llama3": "Vision model for image understanding, screenshots, and visual Q and A."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
@@ -356,7 +356,8 @@ if (hasMarked) {
 }
 
 function sanitizeModelId(rawModel) {
-  const value = String(rawModel || "").trim().toLowerCase();
+  let value = String(rawModel || "").trim().toLowerCase();
+  if (value === "llava:latest") value = "llava-llama3";
   if (!value || value.length > 80) return "";
   if (!/^[a-z0-9._:-]+$/.test(value)) return "";
   return value;
@@ -4453,6 +4454,8 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
+
 
 
 

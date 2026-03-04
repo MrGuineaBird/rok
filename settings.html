@@ -649,7 +649,7 @@
             <select class="setting-select" id="defaultModel">
               <option value="mistral:latest">ROK Quality (Mistral)</option>
               <option value="qwen2.5:latest">ROK Geek (Qwen 2.5)</option>
-              <option value="llava:latest">ROK Vision (LLaVA)</option>
+              <option value="llava-llama3">ROK Vision (LLaVA)</option>
             </select>
           </div>
         </div>
@@ -858,6 +858,7 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         currentSettings = { ...DEFAULTS, ...parsed };
+        if (currentSettings.defaultModel === "llava:latest") currentSettings.defaultModel = "llava-llama3";
       }
     } catch { currentSettings = { ...DEFAULTS }; }
     applyToUI(currentSettings);
@@ -1088,4 +1089,6 @@
 </script>
 </body>
 </html>
+
+
 
