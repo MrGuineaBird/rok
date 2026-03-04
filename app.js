@@ -510,6 +510,82 @@ async function fetchWithBanGuard(url, options) {
   return response;
 }
 
+async function safeReadResponseText(response) {
+  if (!response || response.bodyUsed) {
+    return "";
+  }
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+function extractTokenFromStreamPayload(payload) {
+  const raw = String(payload || "").trim();
+  if (!raw) {
+    return { token: "", done: false };
+  }
+  if (raw === "[DONE]") {
+    return { token: "", done: true };
+  }
+  if (raw[0] !== "{") {
+    return { token: raw, done: false };
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { token: raw, done: false };
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return { token: "", done: false };
+  }
+
+  const done = Boolean(parsed.done);
+  for (const key of ["token", "response", "reply", "text", "message", "content"]) {
+    const value = parsed[key];
+    if (typeof value === "string") {
+      return { token: value, done };
+    }
+  }
+
+  if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
+    return { token: parsed.message.content, done };
+  }
+
+  if (Array.isArray(parsed.choices)) {
+    let joined = "";
+    let choiceDone = false;
+    for (const choice of parsed.choices) {
+      if (!choice || typeof choice !== "object") continue;
+      if (choice.finish_reason) {
+        choiceDone = true;
+      }
+      if (typeof choice.text === "string") {
+        joined += choice.text;
+        continue;
+      }
+      if (choice.delta && typeof choice.delta === "object" && typeof choice.delta.content === "string") {
+        joined += choice.delta.content;
+        continue;
+      }
+      if (choice.message && typeof choice.message === "object" && typeof choice.message.content === "string") {
+        joined += choice.message.content;
+      }
+    }
+    if (joined) {
+      return { token: joined, done: done || choiceDone };
+    }
+    if (done || choiceDone) {
+      return { token: "", done: true };
+    }
+  }
+
+  return { token: "", done };
+}
+
 function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -777,7 +853,7 @@ async function checkServerOnBoot() {
     }
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
-    const bodyText = await res.text();
+    const bodyText = await safeReadResponseText(res);
 
     if (!res.ok) {
       showServerDownScreen();
@@ -1761,7 +1837,7 @@ async function requestWorkspaceSuggestions() {
       const parsed = await res.json();
       reply = JSON.stringify(parsed);
     } else {
-      reply = await res.text();
+      reply = await safeReadResponseText(res);
     }
 
     setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
@@ -3266,12 +3342,7 @@ async function send() {
 
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
-      let errorBody = "";
-      try {
-        errorBody = await res.text();
-      } catch {
-        errorBody = "";
-      }
+      let errorBody = await safeReadResponseText(res);
       if (errorBody) {
         try {
           const data = JSON.parse(errorBody);
@@ -3320,13 +3391,9 @@ async function send() {
     if (!reader) {
   let reply = partialText || "(No response)";
       if (!partialText && !res.bodyUsed) {
-        try {
-          const bodyText = await res.text();
-          if (bodyText) {
-            reply = bodyText;
-          }
-        } catch {
-          // Keep default fallback reply when body cannot be read.
+        const bodyText = await safeReadResponseText(res);
+        if (bodyText) {
+          reply = bodyText;
         }
       }
       partialText = reply;
@@ -3386,7 +3453,9 @@ async function send() {
     };
 
     const isEventStream = contentType.includes("text/event-stream");
+    const parseAsJsonLines = !isEventStream && (contentType.includes("json") || contentType.includes("ndjson"));
     let buffer = "";
+    let plainBuffer = "";
     let streamEnded = false;
 
     const handleToken = (token) => {
@@ -3411,28 +3480,53 @@ async function send() {
         }
         if (line.startsWith("data:")) {
           const data = line.slice(5);
-          if (data === "[DONE]") {
+          const parsedPayload = extractTokenFromStreamPayload(data);
+          if (parsedPayload.done) {
             streamEnded = true;
             return;
           }
-          if (!data) {
-            continue;
-          }
-          let token = data;
-          if (data[0] === "{") {
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed && typeof parsed.token === "string") {
-                token = parsed.token;
-              }
-            } catch {
-              // Fallback to raw data if JSON parsing fails.
-            }
-          }
-          if (token) {
-            handleToken(token);
+          if (parsedPayload.token) {
+            handleToken(parsedPayload.token);
           }
         }
+      }
+    };
+
+    const processPlainBuffer = (flushRemainder = false) => {
+      let idx;
+      while ((idx = plainBuffer.indexOf("\n")) >= 0) {
+        let line = plainBuffer.slice(0, idx);
+        plainBuffer = plainBuffer.slice(idx + 1);
+        if (line.endsWith("\r")) {
+          line = line.slice(0, -1);
+        }
+        if (!line.trim()) {
+          continue;
+        }
+        const parsedPayload = extractTokenFromStreamPayload(line);
+        if (parsedPayload.token) {
+          handleToken(parsedPayload.token);
+        }
+        if (parsedPayload.done) {
+          streamEnded = true;
+          return;
+        }
+      }
+
+      if (!flushRemainder) {
+        return;
+      }
+      const remainder = plainBuffer.trim();
+      plainBuffer = "";
+      if (!remainder) {
+        return;
+      }
+      const parsedPayload = extractTokenFromStreamPayload(remainder);
+      if (parsedPayload.token) {
+        handleToken(parsedPayload.token);
+      }
+      if (parsedPayload.done) {
+        streamEnded = true;
       }
     };
 
@@ -3448,6 +3542,10 @@ async function send() {
         buffer += chunk;
         processBuffer();
         if (streamEnded) break;
+      } else if (parseAsJsonLines) {
+        plainBuffer += chunk;
+        processPlainBuffer(false);
+        if (streamEnded) break;
       } else {
         handleToken(chunk);
       }
@@ -3458,9 +3556,14 @@ async function send() {
       if (isEventStream) {
         buffer += tail;
         processBuffer();
+      } else if (parseAsJsonLines) {
+        plainBuffer += tail;
+        processPlainBuffer(true);
       } else {
         partialText += tail;
       }
+    } else if (parseAsJsonLines) {
+      processPlainBuffer(true);
     }
 
     if (!partialText) {
