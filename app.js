@@ -1,4 +1,4 @@
-const chat = document.getElementById("chat");
+ï»¿const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
@@ -250,22 +250,22 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently out of office.",
   "Looks like ROK took a wrong turn at the last router.",
   "ROK is currently off the grid.",
-  "We’re giving ROK a quick tune-up.",
+  "Weâ€™re giving ROK a quick tune-up.",
   "ROK is undergoing a little spring cleaning.",
-  "ROK’s gears are jammed, but we’re fixing them now.",
+  "ROKâ€™s gears are jammed, but weâ€™re fixing them now.",
   "ROK is installing some fresh batteries.",
   "Just polishing the ROK. Back online momentarily.",
-  "ROK is playing hide and seek. (It’s winning).",
-  "ROK is currently in ‘Do Not Disturb’ mode.",
+  "ROK is playing hide and seek. (Itâ€™s winning).",
+  "ROK is currently in â€˜Do Not Disturbâ€™ mode.",
   "Waiting for ROK to wake up...",
   "ROK: Gone fishing. Back shortly.",
   "ROK is taking a breather.",
-  "ROK hit a snag! We’re working on it.",
+  "ROK hit a snag! Weâ€™re working on it.",
   "Something tripped ROK up. Hang tight.",
   "ROK is currently speechless.",
   "ROK ran into a bit of a hiccup.",
   "ROK is currently counting sheep.",
-  "It’s not you, it’s ROK. We need a moment.",
+  "Itâ€™s not you, itâ€™s ROK. We need a moment.",
   "ROK is playing hard to get. Try again!",
   "ROK is out for a jog. Back soon.",
   "ROK is currently meditating. Namaste.",
@@ -309,7 +309,7 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently communicating with alien lifeforms. Back soon.",
   "ROK is currently caught in a time warp. Please hold on.",
   "ROK is currently experiencing a solar flare. Please wait for it to pass.",
-  "ROK is currently orbiting a black hole. It’s a bit slow right now.",
+  "ROK is currently orbiting a black hole. Itâ€™s a bit slow right now.",
   "ROK is currently on a mission to Mars. Communication delay expected.",
 
   // --- Construction Theme ---
@@ -3203,9 +3203,26 @@ function renderAttachments() {
 
   attachmentList.innerHTML = attachments
     .map((item) => {
-      const safeName = escapeHtml(item.name);
-      const kindLabel = item.kind === "image" ? " image" : "";
-      return `<div class="attachment-pill"><span class="attachment-name" title="${safeName}">${safeName}${kindLabel} (${formatFileSize(item.size)})</span><button class="attachment-remove" type="button" data-id="${item.id}" aria-label="Remove file">x</button></div>`;
+      const safeId = escapeHtml(item.id);
+      const safeName = escapeHtml(item.name || "file");
+      const safeSize = escapeHtml(formatFileSize(item.size || 0));
+      const removeButton = `<button class="attachment-remove" type="button" data-id="${safeId}" aria-label="Remove file">&times;</button>`;
+
+      if (item.kind === "image" && item.contentBase64) {
+        const mimeType = escapeHtml((item.mimeType || "image/png").toLowerCase());
+        const imageSrc = escapeHtml(`data:${mimeType};base64,${item.contentBase64}`);
+        return `<div class="attachment-card image-card">${removeButton}<img class="attachment-thumb" src="${imageSrc}" alt="${safeName}" /></div>`;
+      }
+
+      if (item.kind === "text" && item.name === "Pasted content") {
+        const compactPreview = String(item.content || "").replace(/\s+/g, " ").trim();
+        const previewText =
+          compactPreview.length > 80 ? `${compactPreview.slice(0, 80)}...` : compactPreview || "Pasted content";
+        const safePreview = escapeHtml(previewText);
+        return `<div class="attachment-card pasted-card">${removeButton}<span class="attachment-badge">PASTED</span><p class="attachment-preview-text" title="${safePreview}">${safePreview}</p></div>`;
+      }
+
+      return `<div class="attachment-card file-card">${removeButton}<div class="attachment-file-icon" aria-hidden="true">&#128196;</div><div class="attachment-file-name" title="${safeName}">${safeName}</div><div class="attachment-file-size">${safeSize}</div></div>`;
     })
     .join("");
 }
@@ -4160,6 +4177,29 @@ if (attachmentList) {
 }
 
 input.addEventListener("input", autoResizeInput);
+input.addEventListener("paste", (e) => {
+  const pastedText = e.clipboardData?.getData("text") || "";
+  if (pastedText.length <= 300) {
+    return;
+  }
+
+  e.preventDefault();
+  if (attachments.length >= clientLimits.maxAttachments) {
+    addMessage("system", `Attachment limit reached (${clientLimits.maxAttachments} files).`);
+    return;
+  }
+
+  const content = truncateText(pastedText, clientLimits.maxFileChars);
+  const size = new Blob([content]).size;
+  attachments.push({
+    id: `paste-${Date.now()}`,
+    kind: "text",
+    name: "Pasted content",
+    size,
+    content
+  });
+  renderAttachments();
+});
 input.addEventListener("keydown", (e) => {
   if (!userSettings.enterToSend) {
     return;
@@ -4454,6 +4494,9 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
+
+
 
 
 
