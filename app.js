@@ -3248,6 +3248,7 @@ async function send() {
   let partialText = "";
 
   try {
+    console.log("sending chat request...");
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -3480,6 +3481,7 @@ async function send() {
     }
     clearAttachments();
   } catch (err) {
+    console.log("chat error:", err);
     if (typing.row.isConnected) {
       typing.row.remove();
     }
