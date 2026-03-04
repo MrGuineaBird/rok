@@ -3312,7 +3312,7 @@ async function send() {
     console.log("reader:", reader, "content-type:", contentType, "res.body:", res.body);
 
     if (!reader) {
-      const reply = (await res.text()) || "(No response)";
+  const reply = partialText || "(No response)";
       partialText = reply;
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
