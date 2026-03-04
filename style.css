@@ -65,6 +65,31 @@ body {
     var(--bg);
 }
 
+body.settings-reduce-motion *,
+body.settings-reduce-motion *::before,
+body.settings-reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+body.settings-compact .chat {
+  gap: 12px;
+}
+
+body.settings-compact .workspace-panel {
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+body.settings-compact .msg,
+body.settings-compact .composer,
+body.settings-compact .composer-meta,
+body.settings-compact .attachment-list {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
 .app {
   height: 100vh;
   height: 100dvh;
@@ -72,9 +97,15 @@ body {
   display: grid;
   grid-template-columns: 260px 1fr;
   overflow: hidden;
+  transition: grid-template-columns 180ms ease;
 }
 
-.app.home-mode {
+.app.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
+
+.app.home-mode,
+.app.home-mode.sidebar-collapsed {
   grid-template-columns: 1fr;
 }
 
@@ -384,6 +415,105 @@ body {
   background: rgba(17, 26, 38, 0.86);
 }
 
+.workspace-route-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 9, 14, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.workspace-route-card {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid #4F2A2A;
+  background: linear-gradient(180deg, rgba(14, 21, 30, 0.98) 0%, rgba(10, 16, 24, 0.96) 100%);
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(180, 206, 231, 0.08);
+}
+
+.workspace-route-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-route-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid #5A2A2A;
+  background: rgba(209, 75, 75, 0.14);
+  color: #F4CACA;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.workspace-route-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #4D2A2A;
+  background: #271212;
+  color: #E6C4C4;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
+}
+
+.workspace-route-close:hover {
+  background: #351717;
+  border-color: #5E3333;
+}
+
+.workspace-route-title {
+  margin: 0;
+  font-size: clamp(20px, 2.6vw, 24px);
+  line-height: 1.2;
+  color: #F8E0E0;
+}
+
+.workspace-route-prompt {
+  margin: 0;
+  color: #D1A8A8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.workspace-route-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.workspace-route-btn {
+  min-width: 148px;
+  padding: 11px 14px;
+  border-radius: 12px;
+}
+
+.workspace-route-btn.ghost {
+  background: rgba(13, 20, 29, 0.72);
+  border-color: #4D2C2C;
+  color: #F2D4D4;
+}
+
+.workspace-route-btn.ghost:hover {
+  background: rgba(17, 26, 38, 0.86);
+}
+
 .legal-modal {
   position: fixed;
   inset: 0;
@@ -513,6 +643,7 @@ body {
 }
 
 .sidebar {
+  min-width: 0;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   padding: 18px 14px;
@@ -520,6 +651,15 @@ body {
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
+  transition: padding 180ms ease, border-color 180ms ease;
+}
+
+.app.sidebar-collapsed .sidebar {
+  padding-left: 0;
+  padding-right: 0;
+  border-right-color: transparent;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .side-header {
@@ -585,6 +725,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.side-tabs-section {
+  gap: 8px;
 }
 
 .side-label {
@@ -730,6 +874,31 @@ body {
   gap: 10px;
 }
 
+.sidebar-toggle-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1A0E0E;
+  border-color: #3A2020;
+  color: #E7C9C9;
+}
+
+.sidebar-toggle-btn span {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #241313;
+  border-color: #4A2727;
+}
+
 .title {
   font-size: 16px;
   font-weight: 600;
@@ -801,8 +970,11 @@ body {
   width: 100%;
   min-width: 0;
   margin: 0;
+}
+
+.workspace-tabs-top {
   padding: 10px 14px 8px;
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
@@ -811,12 +983,25 @@ body {
   flex: 0 0 auto;
 }
 
-.workspace-tabs[hidden] {
+.workspace-tabs-top[hidden] {
+  display: none;
+}
+
+.workspace-tabs-sidebar {
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  background: transparent;
+}
+
+.workspace-tabs-sidebar[hidden] {
   display: none;
 }
 
 .workspace-tab {
+  width: 100%;
   padding: 8px 12px;
+  text-align: left;
   white-space: nowrap;
   border-radius: 10px;
   border: 1px solid #422525;
@@ -826,6 +1011,10 @@ body {
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
+}
+
+.workspace-tabs-top .workspace-tab {
+  width: auto;
 }
 
 .workspace-tab:hover {
@@ -3072,6 +3261,14 @@ button.stop-mode:hover {
     display: none;
   }
 
+  .workspace-tabs-top {
+    display: flex;
+  }
+
+  .sidebar-toggle-btn {
+    display: none;
+  }
+
   .home-bg-chat {
     padding: 42px 16px 24px;
     opacity: 0.46;
@@ -3168,6 +3365,29 @@ button.stop-mode:hover {
   }
 
   .workspace-apply-btn {
+    width: 100%;
+  }
+
+  .workspace-route-modal {
+    padding: 12px;
+  }
+
+  .workspace-route-card {
+    gap: 10px;
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+
+  .workspace-route-title {
+    font-size: 19px;
+  }
+
+  .workspace-route-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .workspace-route-btn {
     width: 100%;
   }
 
@@ -3382,7 +3602,7 @@ button.stop-mode:hover {
     max-height: 60vh;
   }
 
-  .workspace-tabs {
+  .workspace-tabs-top {
     padding-left: 14px;
     padding-right: 14px;
     padding-top: 10px;
@@ -3534,7 +3754,7 @@ button.stop-mode:hover {
     height: 36px;
   }
 
-  .workspace-tabs {
+  .workspace-tabs-top {
     padding: 8px 10px 7px;
     gap: 6px;
   }
@@ -4102,5 +4322,9 @@ button.stop-mode:hover {
     animation: none;
   }
 }
+
+
+
+
 
 

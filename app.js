@@ -1,5 +1,6 @@
-ï»¿const chat = document.getElementById("chat");
+const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
+const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
 const workspacePanelTitle = document.getElementById("workspacePanelTitle");
@@ -41,6 +42,7 @@ const brandHomeBtn = document.getElementById("brandHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
 const homeStartBtn = document.getElementById("homeStartBtn");
 const clearBtn = document.getElementById("clearBtn");
+const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
 const modelSelect = document.getElementById("modelSelect");
 const newChatBtn = document.getElementById("newChatBtn");
 const currentSessionBtn = document.getElementById("currentSessionBtn");
@@ -61,6 +63,11 @@ const workspaceApplyModalPreview = document.getElementById("workspaceApplyModalP
 const workspaceApplyConfirmBtn = document.getElementById("workspaceApplyConfirmBtn");
 const workspaceApplyCancelBtn = document.getElementById("workspaceApplyCancelBtn");
 const workspaceApplyCloseBtn = document.getElementById("workspaceApplyCloseBtn");
+const workspaceRouteModal = document.getElementById("workspaceRouteModal");
+const workspaceRoutePrompt = document.getElementById("workspaceRoutePrompt");
+const workspaceRouteYesBtn = document.getElementById("workspaceRouteYesBtn");
+const workspaceRouteNoBtn = document.getElementById("workspaceRouteNoBtn");
+const workspaceRouteCloseBtn = document.getElementById("workspaceRouteCloseBtn");
 const legalModal = document.getElementById("legalModal");
 const legalCloseBtn = document.getElementById("legalCloseBtn");
 const legalTermsTab = document.getElementById("legalTermsTab");
@@ -103,20 +110,39 @@ const DEFAULT_CLIENT_LIMITS = {
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
+const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
+const USER_SETTINGS_KEY = "rok.settings.v1";
+const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "mistral:latest";
-const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest"]);
+const DEFAULT_USER_SETTINGS = {
+  defaultModel: DEFAULT_CHAT_MODEL,
+  rememberModel: true,
+  maxSessions: MAX_LOCAL_SESSIONS,
+  historyLimit: DEFAULT_CLIENT_LIMITS.historyLimit,
+  cooldownMs: DEFAULT_CLIENT_LIMITS.cooldownMs,
+  typingSpeed: DEFAULT_CLIENT_LIMITS.typingSpeedMs,
+  enterToSend: true,
+  autoScroll: true,
+  accentColor: "#d14b4b",
+  compactMode: false,
+  reduceMotion: false
+};
+const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava:latest"]);
 const DEFAULT_MODEL_OPTIONS = [
   { id: "qwen2.5:latest", label: "ROK Geek" },
-  { id: "mistral:latest", label: "ROK Quaility" }
+  { id: "mistral:latest", label: "ROK Quaility" },
+  { id: "llava:latest", label: "ROK Vision" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen2.5:latest": "ROK Geek",
-  "mistral:latest": "ROK Quaility"
+  "mistral:latest": "ROK Quaility",
+  "llava:latest": "ROK Vision"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen2.5:latest": "Fast responses for quick questions, experiments, and everyday drafting.",
-  "mistral:latest": "More thorough responses for longer writing and refinement."
+  "mistral:latest": "More thorough responses for longer writing and refinement.",
+  "llava:latest": "Vision model for image understanding, screenshots, and visual Q and A."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
@@ -224,22 +250,22 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently out of office.",
   "Looks like ROK took a wrong turn at the last router.",
   "ROK is currently off the grid.",
-  "Weâ€™re giving ROK a quick tune-up.",
+  "We’re giving ROK a quick tune-up.",
   "ROK is undergoing a little spring cleaning.",
-  "ROKâ€™s gears are jammed, but weâ€™re fixing them now.",
+  "ROK’s gears are jammed, but we’re fixing them now.",
   "ROK is installing some fresh batteries.",
   "Just polishing the ROK. Back online momentarily.",
-  "ROK is playing hide and seek. (Itâ€™s winning).",
-  "ROK is currently in â€˜Do Not Disturbâ€™ mode.",
+  "ROK is playing hide and seek. (It’s winning).",
+  "ROK is currently in ‘Do Not Disturb’ mode.",
   "Waiting for ROK to wake up...",
   "ROK: Gone fishing. Back shortly.",
   "ROK is taking a breather.",
-  "ROK hit a snag! Weâ€™re working on it.",
+  "ROK hit a snag! We’re working on it.",
   "Something tripped ROK up. Hang tight.",
   "ROK is currently speechless.",
   "ROK ran into a bit of a hiccup.",
   "ROK is currently counting sheep.",
-  "Itâ€™s not you, itâ€™s ROK. We need a moment.",
+  "It’s not you, it’s ROK. We need a moment.",
   "ROK is playing hard to get. Try again!",
   "ROK is out for a jog. Back soon.",
   "ROK is currently meditating. Namaste.",
@@ -283,7 +309,7 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently communicating with alien lifeforms. Back soon.",
   "ROK is currently caught in a time warp. Please hold on.",
   "ROK is currently experiencing a solar flare. Please wait for it to pass.",
-  "ROK is currently orbiting a black hole. Itâ€™s a bit slow right now.",
+  "ROK is currently orbiting a black hole. It’s a bit slow right now.",
   "ROK is currently on a mission to Mars. Communication delay expected.",
 
   // --- Construction Theme ---
@@ -313,12 +339,16 @@ let homePreviewRunToken = 0;
 let workspaceSaveTimer = null;
 let workspaceApplyResolver = null;
 let workspaceApplyLastFocusedElement = null;
+let workspaceRouteResolver = null;
+let workspaceRouteLastFocusedElement = null;
 let workspaceAssistantExpanded = false;
 let wasWorkspaceTabActive = false;
 let isWorkspaceSuggestionLoading = false;
 let workspaceAssistantFadeTimer = null;
 let workspaceDocSaveStateTimer = null;
 let isBanOverlayActive = false;
+let isSidebarCollapsed = false;
+let userSettings = { ...DEFAULT_USER_SETTINGS };
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -385,7 +415,8 @@ let DEFAULT_MODEL_ID = resolveDefaultModelId(MODEL_OPTIONS, runtimeConfig.defaul
 function setModelCatalog(rawOptions, rawDefaultModel) {
   const nextOptions = normalizeModelOptions(rawOptions);
   const nextIds = new Set(nextOptions.map((item) => item.id));
-  const nextDefaultModelId = resolveDefaultModelId(nextOptions, rawDefaultModel);
+  const preferredDefaultModelId = getPreferredDefaultModelId();
+  const nextDefaultModelId = resolveDefaultModelId(nextOptions, preferredDefaultModelId || rawDefaultModel);
   const didOptionsChange =
     nextOptions.length !== MODEL_OPTIONS.length ||
     nextOptions.some((item, index) => {
@@ -593,6 +624,101 @@ function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_IN
   return Math.min(max, Math.max(min, rounded));
 }
 
+function normalizeHexColor(value, fallback = "#d14b4b") {
+  const candidate = String(value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(candidate)) {
+    return candidate.toLowerCase();
+  }
+  return fallback;
+}
+
+function loadUserSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(USER_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_USER_SETTINGS };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_USER_SETTINGS };
+    return { ...DEFAULT_USER_SETTINGS, ...parsed };
+  } catch {
+    return { ...DEFAULT_USER_SETTINGS };
+  }
+}
+
+function loadLastModelFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_LAST_MODEL_KEY);
+    return sanitizeModelId(raw);
+  } catch {
+    return "";
+  }
+}
+
+function saveLastModelToStorage(modelId) {
+  try {
+    const normalized = sanitizeModelId(modelId);
+    if (!normalized) {
+      localStorage.removeItem(LOCAL_LAST_MODEL_KEY);
+      return;
+    }
+    localStorage.setItem(LOCAL_LAST_MODEL_KEY, normalized);
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function getPreferredDefaultModelId() {
+  const preferredConfigured = sanitizeModelId(userSettings.defaultModel);
+  if (userSettings.rememberModel) {
+    const lastModel = loadLastModelFromStorage();
+    if (lastModel) {
+      return lastModel;
+    }
+  }
+  return preferredConfigured;
+}
+
+function getMaxLocalSessionsValue() {
+  return normalizeClientLimit(userSettings.maxSessions, MAX_LOCAL_SESSIONS, 5, 100);
+}
+
+function applyUserSettingsToRuntime(options = {}) {
+  const { syncModelDefaults = true } = options;
+  userSettings = loadUserSettingsFromStorage();
+
+  userSettings.accentColor = normalizeHexColor(userSettings.accentColor, DEFAULT_USER_SETTINGS.accentColor);
+  document.documentElement.style.setProperty("--accent", userSettings.accentColor);
+  if (document.body) {
+    document.body.classList.toggle("settings-compact", Boolean(userSettings.compactMode));
+    document.body.classList.toggle("settings-reduce-motion", Boolean(userSettings.reduceMotion));
+  }
+
+  clientLimits.typingSpeedMs = normalizeClientLimit(
+    userSettings.typingSpeed,
+    clientLimits.typingSpeedMs,
+    1,
+    500
+  );
+  clientLimits.cooldownMs = normalizeClientLimit(
+    userSettings.cooldownMs,
+    clientLimits.cooldownMs,
+    0,
+    60000
+  );
+  clientLimits.historyLimit = normalizeClientLimit(
+    userSettings.historyLimit,
+    clientLimits.historyLimit,
+    1,
+    1000
+  );
+  trimHistoryToLimit();
+
+  if (syncModelDefaults) {
+    DEFAULT_MODEL_ID = resolveDefaultModelId(MODEL_OPTIONS, getPreferredDefaultModelId() || DEFAULT_MODEL_ID);
+    syncModelSelectorWithCurrentSession();
+    syncModelPanelWithCurrentSession();
+  }
+}
+
 function getHistoryLimitValue() {
   return normalizeClientLimit(clientLimits.historyLimit, DEFAULT_CLIENT_LIMITS.historyLimit, 1, 1000);
 }
@@ -674,6 +800,7 @@ async function refreshClientConfigFromServer() {
         : payload;
     if (!limits || typeof limits !== "object") return false;
     applyClientLimitsFromServer(limits);
+    applyUserSettingsToRuntime({ syncModelDefaults: false });
     refreshSendState();
     return true;
   } catch {
@@ -741,6 +868,46 @@ function ensureReadyMessage() {
   hasShownReadyMessage = true;
 }
 
+function loadSidebarCollapsedFromStorage() {
+  try {
+    return localStorage.getItem(LOCAL_SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarCollapsedToStorage(collapsed) {
+  try {
+    localStorage.setItem(LOCAL_SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function applySidebarCollapsedState(collapsed, options = {}) {
+  const { persist = true } = options;
+  isSidebarCollapsed = Boolean(collapsed);
+  if (appRoot) {
+    appRoot.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
+  }
+  if (sidebarToggleBtn) {
+    const isExpanded = !isSidebarCollapsed;
+    const label = isExpanded ? "Collapse left panel" : "Expand left panel";
+    sidebarToggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    sidebarToggleBtn.setAttribute("aria-label", label);
+    sidebarToggleBtn.title = label;
+    const icon = sidebarToggleBtn.querySelector("span");
+    if (icon instanceof HTMLElement) {
+      icon.textContent = isExpanded ? "<" : ">";
+    } else {
+      sidebarToggleBtn.textContent = isExpanded ? "<" : ">";
+    }
+  }
+  if (persist) {
+    saveSidebarCollapsedToStorage(isSidebarCollapsed);
+  }
+}
+
 function showHomeScreen() {
   storeWorkspaceDraftsFromWindows();
   flushPendingWorkspaceSave();
@@ -764,6 +931,9 @@ function showHomeScreen() {
   }
   if (workspaceTabs) {
     workspaceTabs.hidden = true;
+  }
+  if (workspaceSidebarTabs) {
+    workspaceSidebarTabs.hidden = true;
   }
   if (workspacePanel) {
     workspacePanel.hidden = true;
@@ -797,6 +967,9 @@ function hideHomeScreen() {
   }
   if (workspaceTabs) {
     workspaceTabs.hidden = false;
+  }
+  if (workspaceSidebarTabs) {
+    workspaceSidebarTabs.hidden = false;
   }
   if (composerWrap) {
     composerWrap.hidden = false;
@@ -932,6 +1105,8 @@ function toggleServerDownWhyPanel() {
 }
 
 function scrollToBottom() {
+  if (!chat) return;
+  if (!userSettings.autoScroll) return;
   chat.scrollTop = chat.scrollHeight;
 }
 
@@ -1110,14 +1285,21 @@ function storeWorkspaceDraftsFromWindows() {
   refreshWorkspaceDocumentToolbarState();
 }
 
+function getWorkspaceTabContainers() {
+  return [workspaceTabs, workspaceSidebarTabs].filter((node) => node instanceof HTMLElement);
+}
+
 function updateWorkspaceTabButtons(activeTab) {
-  if (!workspaceTabs) return;
-  const tabButtons = workspaceTabs.querySelectorAll("[data-workspace-tab]");
-  tabButtons.forEach((btn) => {
-    const tab = btn.getAttribute("data-workspace-tab");
-    const isActive = tab === activeTab;
-    btn.classList.toggle("active", isActive);
-    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  const containers = getWorkspaceTabContainers();
+  if (!containers.length) return;
+  containers.forEach((container) => {
+    const tabButtons = container.querySelectorAll("[data-workspace-tab]");
+    tabButtons.forEach((btn) => {
+      const tab = btn.getAttribute("data-workspace-tab");
+      const isActive = tab === activeTab;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
   });
 }
 
@@ -1193,6 +1375,7 @@ function setCurrentSessionModel(rawModel) {
   renderSavedSessions();
   syncModelSelectorWithCurrentSession();
   syncModelPanelWithCurrentSession();
+  saveLastModelToStorage(nextModel);
 }
 
 function inferWorkspaceOutputType(content = "", promptText = "") {
@@ -1922,7 +2105,7 @@ async function requestWorkspaceSuggestions() {
 
 function renderWorkspaceUI(options = {}) {
   const { focus = false } = options;
-  if (!workspaceTabs || !workspacePanel || !chat || !composerWrap) return;
+  if (!workspacePanel || !chat || !composerWrap) return;
 
   const current = getWorkspaceCurrentSession();
   if (!current) return;
@@ -1937,7 +2120,12 @@ function renderWorkspaceUI(options = {}) {
     mainPanel.classList.toggle("workspace-mode", activeTab !== "chat");
   }
 
-  workspaceTabs.hidden = false;
+  if (workspaceTabs) {
+    workspaceTabs.hidden = false;
+  }
+  if (workspaceSidebarTabs) {
+    workspaceSidebarTabs.hidden = false;
+  }
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isModelTab;
   workspacePanel.hidden = !isWorkspaceTab;
@@ -2256,6 +2444,99 @@ async function confirmWorkspaceWriteBack(replyText, options = {}) {
   return openWorkspaceApplyModal(replyText, options);
 }
 
+function isWorkspaceRouteModalOpen() {
+  return Boolean(workspaceRouteModal && !workspaceRouteModal.hidden && workspaceRouteResolver);
+}
+
+function closeWorkspaceRouteModal(approved) {
+  if (!workspaceRouteModal) return;
+
+  const resolve = workspaceRouteResolver;
+  workspaceRouteResolver = null;
+  workspaceRouteModal.hidden = true;
+  workspaceRouteModal.setAttribute("aria-hidden", "true");
+
+  if (
+    workspaceRouteLastFocusedElement instanceof HTMLElement &&
+    workspaceRouteLastFocusedElement.isConnected &&
+    typeof workspaceRouteLastFocusedElement.focus === "function"
+  ) {
+    workspaceRouteLastFocusedElement.focus();
+  }
+  workspaceRouteLastFocusedElement = null;
+
+  if (typeof resolve === "function") {
+    resolve(Boolean(approved));
+  }
+}
+
+function getWorkspaceRouteFocusableButtons() {
+  if (!workspaceRouteModal) return [];
+  const buttons = workspaceRouteModal.querySelectorAll("button");
+  return Array.from(buttons).filter((btn) => !btn.disabled && btn.offsetParent !== null);
+}
+
+function openWorkspaceRouteModal(intentLabel = "") {
+  if (!workspaceRouteModal || !workspaceRoutePrompt || !workspaceRouteYesBtn) {
+    return Promise.resolve(true);
+  }
+
+  if (workspaceRouteResolver) {
+    closeWorkspaceRouteModal(false);
+  }
+
+  const label = String(intentLabel || "").trim().toLowerCase();
+  workspaceRoutePrompt.textContent = label
+    ? `ROK detected a ${label} request. Do you want to take this conversation to the workspace?`
+    : "Do you want to take this conversation to the workspace?";
+
+  workspaceRouteLastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  workspaceRouteModal.hidden = false;
+  workspaceRouteModal.setAttribute("aria-hidden", "false");
+
+  return new Promise((resolve) => {
+    workspaceRouteResolver = resolve;
+    requestAnimationFrame(() => {
+      if (workspaceRouteYesBtn && !workspaceRouteModal.hidden) {
+        workspaceRouteYesBtn.focus();
+      }
+    });
+  });
+}
+
+function handleWorkspaceRouteModalKeydown(e) {
+  if (!isWorkspaceRouteModalOpen()) return;
+
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeWorkspaceRouteModal(false);
+    return;
+  }
+
+  if (e.key !== "Tab") return;
+  const focusable = getWorkspaceRouteFocusableButtons();
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (e.shiftKey && active === first) {
+    e.preventDefault();
+    last.focus();
+    return;
+  }
+
+  if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+async function confirmWorkspaceRouting(intentLabel = "") {
+  return openWorkspaceRouteModal(intentLabel);
+}
+
 async function appendAssistantReplyToWorkspace(replyText, options = {}) {
   const { stopped = false, sourcePrompt = "" } = options;
   if (!isWorkspaceSessionActive()) {
@@ -2434,6 +2715,11 @@ function buildSessionTitle(messages) {
   return compact.slice(0, 40) + "...";
 }
 
+function getDefaultModelForNewSession() {
+  const preferred = getPreferredDefaultModelId();
+  return normalizeSessionModel(preferred || DEFAULT_MODEL_ID);
+}
+
 function createSession(messages = []) {
   const now = Date.now();
   const safeMessages = sanitizeMessages(messages);
@@ -2443,7 +2729,7 @@ function createSession(messages = []) {
     createdAt: now,
     updatedAt: now,
     messages: safeMessages,
-    model: DEFAULT_MODEL_ID,
+    model: getDefaultModelForNewSession(),
     workspace: createDefaultWorkspace()
   };
 }
@@ -2567,7 +2853,7 @@ function syncCurrentSessionFromHistory() {
   current.title = buildSessionTitle(current.messages);
   current.updatedAt = Date.now();
   sortSessionsByRecent();
-  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+  sessions = sessions.slice(0, getMaxLocalSessionsValue());
   saveSessionsToStorage();
   saveCurrentSessionIdToStorage();
   updateCurrentSessionButton();
@@ -2684,7 +2970,7 @@ function startNewSession(showNotice) {
   const next = createSession([]);
   sessions.unshift(next);
   sortSessionsByRecent();
-  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+  sessions = sessions.slice(0, getMaxLocalSessionsValue());
   currentSessionId = next.id;
   saveSessionsToStorage();
   saveCurrentSessionIdToStorage();
@@ -2700,7 +2986,7 @@ function startNewSession(showNotice) {
 function initializeSessions() {
   sessions = loadSessionsFromStorage();
   sortSessionsByRecent();
-  sessions = sessions.slice(0, MAX_LOCAL_SESSIONS);
+  sessions = sessions.slice(0, getMaxLocalSessionsValue());
 
   if (!sessions.length) {
     sessions = [createSession([])];
@@ -2891,6 +3177,21 @@ function isTextLikeFile(file) {
   );
 }
 
+function isImageLikeFile(file) {
+  const type = (file.type || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+
+  const name = (file.name || "").toLowerCase();
+  return (
+    name.endsWith(".png") ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".gif") ||
+    name.endsWith(".webp") ||
+    name.endsWith(".bmp")
+  );
+}
+
 function renderAttachments() {
   if (!attachmentList) return;
 
@@ -2902,7 +3203,8 @@ function renderAttachments() {
   attachmentList.innerHTML = attachments
     .map((item) => {
       const safeName = escapeHtml(item.name);
-      return `<div class="attachment-pill"><span class="attachment-name" title="${safeName}">${safeName} (${formatFileSize(item.size)})</span><button class="attachment-remove" type="button" data-id="${item.id}" aria-label="Remove file">x</button></div>`;
+      const kindLabel = item.kind === "image" ? " image" : "";
+      return `<div class="attachment-pill"><span class="attachment-name" title="${safeName}">${safeName}${kindLabel} (${formatFileSize(item.size)})</span><button class="attachment-remove" type="button" data-id="${item.id}" aria-label="Remove file">x</button></div>`;
     })
     .join("");
 }
@@ -2934,17 +3236,54 @@ function buildMessageForApi(text, workspaceContext = "") {
     return "Please review and improve the workspace content.";
   }
   if (attachments.length) {
-    return "Please review the attached files.";
+    const imagesOnly = attachments.every((item) => item.kind === "image");
+    return imagesOnly ? "Please analyze the attached image(s)." : "Please review the attached files.";
   }
   return "(No text prompt provided)";
 }
 
 function buildAttachmentsPayload() {
-  return attachments.map((item) => ({
-    name: item.name,
-    size: item.size,
-    content: item.content
-  }));
+  return attachments.map((item) => {
+    if (item.kind === "image") {
+      return {
+        type: "image",
+        name: item.name,
+        size: item.size,
+        mime_type: item.mimeType || "image/png",
+        content_base64: item.contentBase64 || ""
+      };
+    }
+    return {
+      type: "text",
+      name: item.name,
+      size: item.size,
+      content: item.content || ""
+    };
+  });
+}
+
+function readImageFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const commaIndex = result.indexOf(",");
+      if (commaIndex < 0) {
+        reject(new Error("Invalid image data URL."));
+        return;
+      }
+      const payload = result.slice(commaIndex + 1).trim();
+      if (!payload) {
+        reject(new Error("Image encoding failed."));
+        return;
+      }
+      resolve(payload);
+    };
+    reader.onerror = () => {
+      reject(new Error("Image read failed."));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 async function addSelectedFiles(fileList) {
@@ -2962,22 +3301,41 @@ async function addSelectedFiles(fileList) {
       addMessage("system", `${file.name} is too large. Max ${formatFileSize(clientLimits.maxFileSizeBytes)} per file.`);
       continue;
     }
-    if (!isTextLikeFile(file)) {
-      addMessage("system", `${file.name} is not a supported text file.`);
+
+    if (isTextLikeFile(file)) {
+      try {
+        const content = await file.text();
+        attachments.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          kind: "text",
+          name: file.name,
+          size: file.size,
+          content: truncateText(content, clientLimits.maxFileChars)
+        });
+      } catch {
+        addMessage("system", `Could not read ${file.name}.`);
+      }
       continue;
     }
 
-    try {
-      const content = await file.text();
-      attachments.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        name: file.name,
-        size: file.size,
-        content: truncateText(content, clientLimits.maxFileChars)
-      });
-    } catch {
-      addMessage("system", `Could not read ${file.name}.`);
+    if (isImageLikeFile(file)) {
+      try {
+        const contentBase64 = await readImageFileAsBase64(file);
+        attachments.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          kind: "image",
+          name: file.name,
+          size: file.size,
+          mimeType: (file.type || "image/png").toLowerCase(),
+          contentBase64
+        });
+      } catch {
+        addMessage("system", `Could not read image ${file.name}.`);
+      }
+      continue;
     }
+
+    addMessage("system", `${file.name} is not a supported text or image file.`);
   }
 
   if (fileInput) {
@@ -3251,19 +3609,28 @@ async function send() {
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sessionWorkspaceContext = getWorkspaceContextFromSession();
   const intent = classifyPromptIntent(text, sessionWorkspaceContext, attachments);
-  const writeBackToWorkspace = Boolean(intent.routeToWorkspace);
-  const useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
-  const workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-  const hasWorkspaceContext = Boolean(workspaceContext);
+  let writeBackToWorkspace = Boolean(intent.routeToWorkspace);
+  let useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
+  let workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
+  let hasWorkspaceContext = Boolean(workspaceContext);
   const requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
   if (!text && attachments.length === 0 && !workspaceContext) return;
   if (isSending) return;
   if (isWorkspaceSuggestionLoading) return;
+  if (isWorkspaceRouteModalOpen()) return;
 
   if (Date.now() < nextAllowedAt) {
     startCooldownTimer();
     refreshSendState();
     return;
+  }
+
+  if (writeBackToWorkspace && text) {
+    const workspaceRouteApproved = await confirmWorkspaceRouting(intent.label);
+    writeBackToWorkspace = Boolean(workspaceRouteApproved);
+    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
+    workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
+    hasWorkspaceContext = Boolean(workspaceContext);
   }
 
   if (writeBackToWorkspace && !isWorkspaceSessionActive()) {
@@ -3334,7 +3701,8 @@ async function send() {
         workspace_context: workspaceContext,
         attachments: attachmentsPayload,
         history: recentHistory,
-        model: sessionModel
+        model: sessionModel,
+        max_tokens: clientLimits.maxResponseTokens
       })
     });
 
@@ -3792,6 +4160,9 @@ if (attachmentList) {
 
 input.addEventListener("input", autoResizeInput);
 input.addEventListener("keydown", (e) => {
+  if (!userSettings.enterToSend) {
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
     e.preventDefault();
     send();
@@ -3836,7 +4207,34 @@ if (workspaceApplyCloseBtn) {
   });
 }
 
+if (workspaceRouteModal) {
+  workspaceRouteModal.addEventListener("click", (e) => {
+    if (e.target === workspaceRouteModal) {
+      closeWorkspaceRouteModal(false);
+    }
+  });
+}
+
+if (workspaceRouteYesBtn) {
+  workspaceRouteYesBtn.addEventListener("click", () => {
+    closeWorkspaceRouteModal(true);
+  });
+}
+
+if (workspaceRouteNoBtn) {
+  workspaceRouteNoBtn.addEventListener("click", () => {
+    closeWorkspaceRouteModal(false);
+  });
+}
+
+if (workspaceRouteCloseBtn) {
+  workspaceRouteCloseBtn.addEventListener("click", () => {
+    closeWorkspaceRouteModal(false);
+  });
+}
+
 document.addEventListener("keydown", handleWorkspaceApplyModalKeydown);
+document.addEventListener("keydown", handleWorkspaceRouteModalKeydown);
 
 if (legalModal) {
   legalModal.addEventListener("click", (e) => {
@@ -3989,8 +4387,9 @@ if (modelOptionList) {
   });
 }
 
-if (workspaceTabs) {
-  workspaceTabs.addEventListener("click", (e) => {
+function bindWorkspaceTabClickEvents(tabContainer) {
+  if (!tabContainer) return;
+  tabContainer.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
     const tabBtn = target.closest("[data-workspace-tab]");
@@ -3998,6 +4397,15 @@ if (workspaceTabs) {
     const tab = tabBtn.getAttribute("data-workspace-tab");
     if (!tab) return;
     setActiveWorkspaceTab(tab, { focus: true });
+  });
+}
+
+bindWorkspaceTabClickEvents(workspaceTabs);
+bindWorkspaceTabClickEvents(workspaceSidebarTabs);
+
+if (sidebarToggleBtn) {
+  sidebarToggleBtn.addEventListener("click", () => {
+    applySidebarCollapsedState(!isSidebarCollapsed);
   });
 }
 
@@ -4033,6 +4441,7 @@ if (homeStartBtn) {
 }
 
 autoResizeInput();
+applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
 renderModelSelectOptions();
@@ -4042,4 +4451,21 @@ refreshWorkspaceDocumentToolbarState();
 bootstrapServerSession();
 refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
+applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
