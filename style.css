@@ -2634,6 +2634,46 @@ body.settings-compact .attachment-list {
   min-width: 0;
 }
 
+.thinking-block {
+  border: 1px solid #3b2121;
+  border-radius: 12px;
+  background: #140909;
+  overflow: hidden;
+}
+
+.thinking-block[hidden] {
+  display: none;
+}
+
+.thinking-block.is-streaming {
+  border-color: #7a3131;
+}
+
+.thinking-summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #d8a7a7;
+  background: #1b0d0d;
+}
+
+.thinking-summary::-webkit-details-marker {
+  display: none;
+}
+
+.thinking-body {
+  margin: 0;
+  padding: 12px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #d9b1b1;
+  border-top: 1px solid #2a1515;
+}
 .avatar {
   width: 28px;
   height: 28px;
@@ -2903,6 +2943,21 @@ body.settings-compact .attachment-list {
   white-space: nowrap;
 }
 
+.think-btn {
+  white-space: nowrap;
+  min-width: 68px;
+}
+
+.think-btn.is-active {
+  background: #2a0f0f;
+  border-color: #d14b4b;
+  color: #f7d3d3;
+}
+
+.think-btn.is-unsupported {
+  border-color: #5b3434;
+  color: #c8a7a7;
+}
 .file-input {
   display: none;
 }
@@ -4468,3 +4523,4 @@ button.stop-mode:hover {
     animation: none;
   }
 }
+

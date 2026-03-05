@@ -36,6 +36,7 @@ const mainPanel = document.querySelector(".main");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const attachBtn = document.getElementById("attachBtn");
+const thinkBtn = document.getElementById("thinkBtn");
 const fileInput = document.getElementById("fileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
@@ -93,11 +94,12 @@ const runtimeApiBase =
 const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
 const buildApiUrl = (path) => `${ROK_API_BASE}${path}`;
 const API_URL = buildApiUrl("/api/chat");
+const INTENT_URL = buildApiUrl("/api/intent");
 const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
-const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/status", "/api/models"]);
+const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
@@ -168,6 +170,7 @@ const HOME_PREVIEW_REVEAL_DELAY_MS = 260;
 const HOME_PREVIEW_LINE_DELAY_MS = 180;
 const HOME_PREVIEW_TYPING_SPEED_MS = 14;
 const STORY_MIN_CANVAS_CHARS = 260;
+const INTENT_HISTORY_CONTEXT_LIMIT = 6;
 const STORY_PROMPT_PATTERN =
   /\b(story|chapter|novel|fiction|tale|scene|script|dialogue|fanfic|roleplay|bedtime|fairy\s*tale|poem|lyrics)\b/i;
 const LONGFORM_PROMPT_PATTERN =
@@ -346,6 +349,7 @@ let workspaceRouteLastFocusedElement = null;
 let workspaceAssistantExpanded = false;
 let wasWorkspaceTabActive = false;
 let isWorkspaceSuggestionLoading = false;
+let isIntentClassificationLoading = false;
 let workspaceAssistantFadeTimer = null;
 let workspaceDocSaveStateTimer = null;
 let isBanOverlayActive = false;
@@ -577,35 +581,36 @@ async function safeReadResponseText(response) {
 function extractTokenFromStreamPayload(payload) {
   const raw = String(payload || "").trim();
   if (!raw) {
-    return { token: "", done: false };
+    return { token: "", thinking: "", done: false };
   }
   if (raw === "[DONE]") {
-    return { token: "", done: true };
+    return { token: "", thinking: "", done: true };
   }
   if (raw[0] !== "{") {
-    return { token: raw, done: false };
+    return { token: raw, thinking: "", done: false };
   }
 
   let parsed = null;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { token: raw, done: false };
+    return { token: raw, thinking: "", done: false };
   }
   if (!parsed || typeof parsed !== "object") {
-    return { token: "", done: false };
+    return { token: "", thinking: "", done: false };
   }
 
   const done = Boolean(parsed.done);
+  const thinking = typeof parsed.thinking === "string" ? parsed.thinking : "";
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, done };
+      return { token: value, thinking, done };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, done };
+    return { token: parsed.message.content, thinking, done };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -629,14 +634,54 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, done: done || choiceDone };
+      return { token: joined, thinking, done: done || choiceDone };
     }
     if (done || choiceDone) {
-      return { token: "", done: true };
+      return { token: "", thinking, done: true };
     }
   }
 
-  return { token: "", done };
+  return { token: "", thinking, done };
+}
+
+function splitThinkingFromText(text = "") {
+  const value = String(text || "");
+  if (!value.includes("<think>")) {
+    return { answer: value, thinking: "" };
+  }
+
+  const thinkingParts = [];
+  const answer = value.replace(/<think>([\s\S]*?)<\/think>/gi, (_, block) => {
+    const normalized = String(block || "").trim();
+    if (normalized) {
+      thinkingParts.push(normalized);
+    }
+    return "";
+  });
+
+  return {
+    answer: answer.trim(),
+    thinking: thinkingParts.join("\n\n").trim()
+  };
+}
+
+function createThinkingPanel() {
+  const shell = document.createElement("details");
+  shell.className = "thinking-block is-streaming";
+  shell.hidden = true;
+  shell.open = true;
+
+  const summary = document.createElement("summary");
+  summary.className = "thinking-summary";
+  summary.textContent = "Reasoning...";
+
+  const body = document.createElement("pre");
+  body.className = "thinking-body";
+
+  shell.appendChild(summary);
+  shell.appendChild(body);
+
+  return { shell, summary, body };
 }
 
 function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
@@ -1262,12 +1307,71 @@ function ensureSessionModel(session) {
   return session.model;
 }
 
+function modelSupportsThinking(modelId) {
+  return /^qwen3:/i.test(String(modelId || "").trim());
+}
+
+function normalizeSessionThinkingEnabled(rawValue) {
+  return rawValue === true;
+}
+
+function ensureSessionThinkingEnabled(session) {
+  if (!session || typeof session !== "object") {
+    return false;
+  }
+  session.thinkingEnabled = normalizeSessionThinkingEnabled(session.thinkingEnabled);
+  return session.thinkingEnabled;
+}
+
+function getCurrentSessionThinkingEnabled() {
+  const current = getSessionById(currentSessionId);
+  if (!current) return false;
+  return ensureSessionThinkingEnabled(current);
+}
+
+function updateThinkingToggleUI() {
+  if (!thinkBtn) return;
+
+  const current = getSessionById(currentSessionId);
+  const enabled = current ? ensureSessionThinkingEnabled(current) : false;
+  const supported = current ? modelSupportsThinking(ensureSessionModel(current)) : false;
+
+  thinkBtn.textContent = "Think";
+  thinkBtn.classList.toggle("is-active", enabled);
+  thinkBtn.classList.toggle("is-unsupported", enabled && !supported);
+  thinkBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+  thinkBtn.disabled = !current || isSending || isIntentClassificationLoading;
+
+  if (!current) {
+    thinkBtn.title = "Thinking is unavailable until a chat session is active.";
+  } else if (enabled && supported) {
+    thinkBtn.title = "Reasoning is enabled for this chat.";
+  } else if (enabled && !supported) {
+    thinkBtn.title = "Reasoning is enabled for this chat, but the current model may ignore it.";
+  } else if (supported) {
+    thinkBtn.title = "Enable reasoning for this chat.";
+  } else {
+    thinkBtn.title = "Reasoning works best on qwen3 models.";
+  }
+}
+
+function setCurrentSessionThinkingEnabled(nextValue) {
+  if (!currentSessionId) return;
+  const current = getSessionById(currentSessionId);
+  if (!current) return;
+
+  current.thinkingEnabled = Boolean(nextValue);
+  saveSessionsToStorage();
+  updateThinkingToggleUI();
+}
+
 function getWorkspaceCurrentSession() {
   if (!currentSessionId) return null;
   const current = getSessionById(currentSessionId);
   if (!current) return null;
   ensureSessionWorkspace(current);
   ensureSessionModel(current);
+  ensureSessionThinkingEnabled(current);
   return current;
 }
 
@@ -1397,6 +1501,7 @@ function setCurrentSessionModel(rawModel) {
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
     syncModelPanelWithCurrentSession();
+    updateThinkingToggleUI();
     return;
   }
 
@@ -1410,6 +1515,7 @@ function setCurrentSessionModel(rawModel) {
   syncModelSelectorWithCurrentSession();
   syncModelPanelWithCurrentSession();
   saveLastModelToStorage(nextModel);
+  updateThinkingToggleUI();
 }
 
 function inferWorkspaceOutputType(content = "", promptText = "") {
@@ -1440,7 +1546,7 @@ function getWorkspaceContextFromSession(limitChars = 18000) {
   return content.slice(0, Math.max(200, limitChars));
 }
 
-function classifyPromptIntent(promptText = "", workspaceText = "", attachedFiles = []) {
+function classifyPromptIntentFallback(promptText = "", workspaceText = "", attachedFiles = []) {
   const prompt = String(promptText || "").trim();
   const source = prompt.toLowerCase();
   const workspaceValue = String(workspaceText || "").trim();
@@ -1500,6 +1606,131 @@ function classifyPromptIntent(promptText = "", workspaceText = "", attachedFiles
     routeToWorkspace: false,
     outputType: inferWorkspaceOutputType("", prompt)
   };
+}
+
+function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "") {
+  const fallback = fallbackIntent || classifyPromptIntentFallback(promptText, "", []);
+  const typeAliases = {
+    story: "story",
+    fiction: "story",
+    roleplay: "story",
+    creative_writing: "story",
+    document: "document",
+    workspace: "document",
+    draft: "document",
+    code: "code",
+    coding: "code",
+    programming: "code",
+    general_chat: "general_chat",
+    general: "general_chat",
+    chat: "general_chat",
+    conversation: "general_chat"
+  };
+  const outputAliases = {
+    story: "Story",
+    fiction: "Story",
+    narrative: "Story",
+    poem: "Story",
+    lyrics: "Story",
+    essay: "Essay",
+    article: "Essay",
+    report: "Essay",
+    memo: "Essay",
+    proposal: "Essay",
+    letter: "Essay",
+    notes: "Notes",
+    study_guide: "Notes",
+    studyguide: "Notes",
+    flashcards: "Notes",
+    summary: "Summary",
+    outline: "Summary",
+    recap: "Summary",
+    code: "Code",
+    other: "Other"
+  };
+  const labelMap = {
+    story: "Story",
+    document: "Document",
+    code: "Code",
+    general_chat: "General chat"
+  };
+
+  const rawType = String(rawIntent && (rawIntent.type || rawIntent.intent || rawIntent.label) || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const type = typeAliases[rawType] || fallback.type;
+  const routeToWorkspace = type === "story" || type === "document";
+
+  const rawOutput = String(rawIntent && (rawIntent.output_type || rawIntent.outputType || rawIntent.output) || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  let outputType = outputAliases[rawOutput] || fallback.outputType || inferWorkspaceOutputType("", promptText);
+  if (type === "story") {
+    outputType = "Story";
+  } else if (type === "code") {
+    outputType = "Code";
+  }
+
+  const confidenceValue = Number(rawIntent && rawIntent.confidence);
+  const confidence = Number.isFinite(confidenceValue)
+    ? Math.max(0, Math.min(1, confidenceValue))
+    : null;
+
+  return {
+    type,
+    label: labelMap[type] || fallback.label || "General chat",
+    routeToWorkspace,
+    outputType,
+    confidence,
+    source: String(rawIntent && rawIntent.source || "model") || "model"
+  };
+}
+
+async function classifyPromptIntentWithModel(promptText = "", workspaceText = "", attachedFiles = [], historyItems = [], modelId = "") {
+  const fallbackIntent = classifyPromptIntentFallback(promptText, workspaceText, attachedFiles);
+  const prompt = String(promptText || "").trim();
+  const workspaceValue = String(workspaceText || "").trim();
+  const safeHistory = Array.isArray(historyItems) ? historyItems : [];
+
+  if (!prompt && workspaceValue) {
+    return fallbackIntent;
+  }
+
+  if (!prompt && (!Array.isArray(attachedFiles) || attachedFiles.length === 0)) {
+    return fallbackIntent;
+  }
+
+  try {
+    const res = await fetchWithBanGuard(INTENT_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({
+        message: prompt,
+        workspace_context: workspaceValue,
+        attachments: buildIntentAttachmentsPayload(attachedFiles),
+        history: safeHistory,
+        model: modelId
+      })
+    });
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    const bodyText = await safeReadResponseText(res);
+
+    if (!res.ok) {
+      throw new Error(bodyText || "Intent classification failed.");
+    }
+
+    if (!contentType.includes("application/json")) {
+      throw new Error("Intent classification returned an invalid response.");
+    }
+
+    const parsed = JSON.parse(bodyText || "{}");
+    return normalizeIntentClassification(parsed, fallbackIntent, prompt);
+  } catch (error) {
+    console.warn("intent classification failed", error);
+    return fallbackIntent;
+  }
 }
 
 function countWords(text) {
@@ -2627,11 +2858,8 @@ async function appendAssistantReplyToWorkspace(replyText, options = {}) {
   };
 }
 
-function shouldUseStoryCanvasForPrompt(promptText) {
-  const text = String(promptText || "").trim();
-  if (!text) return false;
-  if (!STORY_PROMPT_PATTERN.test(text)) return false;
-  return true;
+function shouldUseStoryCanvasForIntent(intent) {
+  return Boolean(intent && intent.type === "story");
 }
 
 function looksLikeStoryText(text) {
@@ -2764,6 +2992,7 @@ function createSession(messages = []) {
     updatedAt: now,
     messages: safeMessages,
     model: getDefaultModelForNewSession(),
+    thinkingEnabled: false,
     workspace: createDefaultWorkspace()
   };
 }
@@ -2804,6 +3033,7 @@ function loadSessionsFromStorage() {
       const title = typeof item.title === "string" && item.title.trim() ? item.title.trim() : buildSessionTitle(safeMessages);
       const workspace = normalizeWorkspace(item.workspace);
       const model = normalizeSessionModel(item.model);
+      const thinkingEnabled = normalizeSessionThinkingEnabled(item.thinkingEnabled);
 
       loaded.push({
         id,
@@ -2812,6 +3042,7 @@ function loadSessionsFromStorage() {
         updatedAt,
         messages: safeMessages,
         model,
+        thinkingEnabled,
         workspace
       });
     }
@@ -2943,6 +3174,7 @@ function openSession(sessionId, options = {}) {
   const target = getSessionById(sessionId);
   if (!target) return;
   ensureSessionWorkspace(target);
+  ensureSessionThinkingEnabled(target);
 
   currentSessionId = target.id;
   target.updatedAt = Date.now();
@@ -2957,6 +3189,7 @@ function openSession(sessionId, options = {}) {
   updateCurrentSessionButton();
   renderSavedSessions();
   renderWorkspaceUI({ focus: true });
+  updateThinkingToggleUI();
 }
 
 function deleteSession(sessionId) {
@@ -3015,6 +3248,7 @@ function startNewSession(showNotice) {
   updateCurrentSessionButton();
   renderSavedSessions();
   renderWorkspaceUI({ focus: true });
+  updateThinkingToggleUI();
 }
 
 function initializeSessions() {
@@ -3037,9 +3271,11 @@ function initializeSessions() {
   const current = getSessionById(currentSessionId);
   if (current) {
     ensureSessionWorkspace(current);
+    ensureSessionThinkingEnabled(current);
     renderConversation(current.messages);
     renderWorkspaceUI({ focus: false });
   }
+  updateThinkingToggleUI();
 }
 
 function isHomeScreenVisible() {
@@ -3313,6 +3549,27 @@ function buildAttachmentsPayload() {
   });
 }
 
+function buildIntentAttachmentsPayload(attachedFiles = []) {
+  return attachedFiles.map((item) => {
+    if (item.kind === "image") {
+      return {
+        type: "image",
+        name: item.name,
+        size: item.size,
+        mime_type: item.mimeType || "image/png"
+      };
+    }
+
+    const preview = String(item.content || "").replace(/\s+/g, " ").trim();
+    return {
+      type: "text",
+      name: item.name,
+      size: item.size,
+      content_preview: preview.slice(0, 280)
+    };
+  });
+}
+
 function readImageFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3420,7 +3677,7 @@ function setBubbleContent(bubble, text, markdown) {
 }
 
 function addMessage(role, text, options = {}) {
-  const { markdown = false, storyCanvas = false, typingDots = false } = options;
+  const { markdown = false, storyCanvas = false, thinkingBlock = false, typingDots = false } = options;
 
   const row = document.createElement("div");
   row.className = "msg " + role;
@@ -3433,7 +3690,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(bubble);
     chat.appendChild(row);
     scrollToBottom();
-    return { row, bubble, storyCanvas: null };
+    return { row, bubble, storyCanvas: null, thinkingPanel: null };
   }
 
   const avatar = document.createElement("div");
@@ -3446,28 +3703,35 @@ function addMessage(role, text, options = {}) {
     row.appendChild(bubble);
     chat.appendChild(row);
     scrollToBottom();
-    return { row, bubble, storyCanvas: null };
+    return { row, bubble, storyCanvas: null, thinkingPanel: null };
   }
 
-  if (role === "bot" && storyCanvas) {
-    bubble.classList.add("story-status");
-    bubble.textContent = text || "Writing story in canvas...";
+  setBubbleContent(bubble, text, markdown);
 
+  if (role === "bot" && (storyCanvas || thinkingBlock)) {
     const stack = document.createElement("div");
     stack.className = "bot-stack";
 
-    const canvas = createStoryCanvas();
+    const thinkingPanel = thinkingBlock ? createThinkingPanel() : null;
+    const canvas = storyCanvas ? createStoryCanvas() : null;
+    if (storyCanvas) {
+      bubble.classList.add("story-status");
+      bubble.textContent = text || "Writing story in canvas...";
+    }
+    if (thinkingPanel) {
+      stack.appendChild(thinkingPanel.shell);
+    }
     stack.appendChild(bubble);
-    stack.appendChild(canvas.shell);
+    if (canvas) {
+      stack.appendChild(canvas.shell);
+    }
 
     row.appendChild(avatar);
     row.appendChild(stack);
     chat.appendChild(row);
     scrollToBottom();
-    return { row, bubble, storyCanvas: canvas };
+    return { row, bubble, storyCanvas: canvas, thinkingPanel };
   }
-
-  setBubbleContent(bubble, text, markdown);
 
   if (role === "user") {
     row.appendChild(bubble);
@@ -3479,7 +3743,7 @@ function addMessage(role, text, options = {}) {
 
   chat.appendChild(row);
   scrollToBottom();
-  return { row, bubble, storyCanvas: null };
+  return { row, bubble, storyCanvas: null, thinkingPanel: null };
 }
 
 function hideCompactingBar() {
@@ -3529,7 +3793,7 @@ function updateSendButtonUI(cooldownActive) {
   sendBtn.textContent = "Send";
   sendBtn.removeAttribute("aria-label");
   sendBtn.removeAttribute("title");
-  sendBtn.disabled = cooldownActive;
+  sendBtn.disabled = cooldownActive || isIntentClassificationLoading;
 }
 
 function stopGeneration() {
@@ -3554,16 +3818,17 @@ function updateCooldownUI() {
 
 function refreshSendState() {
   const cooldownActive = Date.now() < nextAllowedAt;
+  const uiLocked = isSending || isIntentClassificationLoading;
   updateSendButtonUI(cooldownActive);
 
   if (attachBtn) {
-    attachBtn.disabled = isSending;
+    attachBtn.disabled = uiLocked;
   }
   if (fileInput) {
-    fileInput.disabled = isSending;
+    fileInput.disabled = uiLocked;
   }
   if (modelSelect) {
-    modelSelect.disabled = isSending;
+    modelSelect.disabled = uiLocked;
   }
 
   if (cooldownActive) {
@@ -3572,6 +3837,7 @@ function refreshSendState() {
     cooldownEl.textContent = "";
   }
 
+  updateThinkingToggleUI();
   refreshWorkspaceDocumentToolbarState();
 }
 
@@ -3703,16 +3969,12 @@ async function send() {
   hideHomeScreen();
   const text = input.value.trim();
   const sessionModel = getCurrentSessionModel();
+  const thinkingEnabled = getCurrentSessionThinkingEnabled();
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sessionWorkspaceContext = getWorkspaceContextFromSession();
-  const intent = classifyPromptIntent(text, sessionWorkspaceContext, attachments);
-  let writeBackToWorkspace = Boolean(intent.routeToWorkspace);
-  let useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
-  let workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-  let hasWorkspaceContext = Boolean(workspaceContext);
-  const requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
-  if (!text && attachments.length === 0 && !workspaceContext) return;
+  if (!text && attachments.length === 0 && !sessionWorkspaceContext) return;
   if (isSending) return;
+  if (isIntentClassificationLoading) return;
   if (isWorkspaceSuggestionLoading) return;
   if (isWorkspaceRouteModalOpen()) return;
 
@@ -3722,10 +3984,35 @@ async function send() {
     return;
   }
 
+  const intentHistory = history.slice(-Math.min(getHistoryLimitValue(), INTENT_HISTORY_CONTEXT_LIMIT));
+  let intent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
+  isIntentClassificationLoading = true;
+  refreshSendState();
+  try {
+    intent = await classifyPromptIntentWithModel(
+      text,
+      sessionWorkspaceContext,
+      attachments,
+      intentHistory,
+      sessionModel
+    );
+  } finally {
+    isIntentClassificationLoading = false;
+    refreshSendState();
+  }
+
+  if (isBanOverlayActive) return;
+
+  let writeBackToWorkspace = Boolean(intent.routeToWorkspace);
+  let useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
+  let workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
+  let hasWorkspaceContext = Boolean(workspaceContext);
+  const requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
+
   if (writeBackToWorkspace && text) {
     const workspaceRouteApproved = await confirmWorkspaceRouting(intent.label);
     writeBackToWorkspace = Boolean(workspaceRouteApproved);
-    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForPrompt(text);
+    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
     workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
     hasWorkspaceContext = Boolean(workspaceContext);
   }
@@ -3789,12 +4076,113 @@ async function send() {
   );
   let bubble = null;
   let storyCanvas = null;
+  let thinkingPanel = null;
   let partialText = "";
+  let thinkingText = "";
+  let thinkTagCarry = "";
+  let insideThinkTag = false;
+  let answerStarted = false;
   let assistantStreamStarted = false;
+  const THINK_OPEN_TAG = "<think>";
+  const THINK_CLOSE_TAG = "</think>";
   const markAssistantStreamStarted = () => {
     if (assistantStreamStarted) return;
     assistantStreamStarted = true;
     hideCompactingBar();
+  };
+  const finalizeThinkingPanel = (collapse) => {
+    if (!thinkingPanel) return;
+    const hasReasoning = Boolean(thinkingText.trim());
+    thinkingPanel.shell.hidden = !hasReasoning;
+    thinkingPanel.shell.classList.remove("is-streaming");
+    thinkingPanel.summary.textContent = "Reasoning";
+    if (hasReasoning && collapse) {
+      thinkingPanel.shell.open = false;
+    }
+  };
+  const handleThinking = (chunk) => {
+    markAssistantStreamStarted();
+    if (writeBackToWorkspace || !thinkingPanel) return;
+    const piece = String(chunk || "");
+    if (!piece) return;
+    thinkingText += piece;
+    if (!thinkingText.trim()) {
+      return;
+    }
+    thinkingPanel.shell.hidden = false;
+    thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
+    thinkingPanel.summary.textContent = answerStarted ? "Reasoning" : "Reasoning...";
+    thinkingPanel.body.textContent = thinkingText.trim();
+    if (!answerStarted) {
+      thinkingPanel.shell.open = true;
+    }
+    scrollToBottom();
+  };
+  const noteAnswerStarted = () => {
+    if (answerStarted) return;
+    answerStarted = true;
+    finalizeThinkingPanel(true);
+  };
+  const handleAnswerToken = (token) => {
+    const piece = String(token || "");
+    if (!piece) return;
+    noteAnswerStarted();
+    markAssistantStreamStarted();
+    partialText += piece;
+    const now = performance.now();
+    if (now - lastFlush > 40) {
+      flush();
+      lastFlush = now;
+    }
+  };
+  const consumeTaggedTokenChunk = (chunk) => {
+    let textChunk = thinkTagCarry + String(chunk || "");
+    thinkTagCarry = "";
+
+    while (textChunk) {
+      if (insideThinkTag) {
+        const closeIndex = textChunk.indexOf(THINK_CLOSE_TAG);
+        if (closeIndex === -1) {
+          const safeLength = Math.max(0, textChunk.length - (THINK_CLOSE_TAG.length - 1));
+          if (safeLength > 0) {
+            handleThinking(textChunk.slice(0, safeLength));
+            textChunk = textChunk.slice(safeLength);
+          }
+          thinkTagCarry = textChunk;
+          return;
+        }
+        handleThinking(textChunk.slice(0, closeIndex));
+        textChunk = textChunk.slice(closeIndex + THINK_CLOSE_TAG.length);
+        insideThinkTag = false;
+        continue;
+      }
+
+      const openIndex = textChunk.indexOf(THINK_OPEN_TAG);
+      if (openIndex === -1) {
+        const safeLength = Math.max(0, textChunk.length - (THINK_OPEN_TAG.length - 1));
+        if (safeLength > 0) {
+          handleAnswerToken(textChunk.slice(0, safeLength));
+          textChunk = textChunk.slice(safeLength);
+        }
+        thinkTagCarry = textChunk;
+        return;
+      }
+
+      if (openIndex > 0) {
+        handleAnswerToken(textChunk.slice(0, openIndex));
+      }
+      textChunk = textChunk.slice(openIndex + THINK_OPEN_TAG.length);
+      insideThinkTag = true;
+    }
+  };
+  const flushTaggedTokenCarry = () => {
+    if (!thinkTagCarry) return;
+    if (insideThinkTag) {
+      handleThinking(thinkTagCarry);
+    } else {
+      handleAnswerToken(thinkTagCarry);
+    }
+    thinkTagCarry = "";
   };
 
   try {
@@ -3809,7 +4197,8 @@ async function send() {
         attachments: attachmentsPayload,
         history: recentHistory,
         model: sessionModel,
-        max_tokens: clientLimits.maxResponseTokens
+        max_tokens: clientLimits.maxResponseTokens,
+        enable_thinking: thinkingEnabled
       })
     });
 
@@ -3854,10 +4243,12 @@ async function send() {
 
     if (!writeBackToWorkspace) {
       const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
-        storyCanvas: useStoryCanvas
+        storyCanvas: useStoryCanvas,
+        thinkingBlock: thinkingEnabled
       });
       bubble = botMsg.bubble;
       storyCanvas = botMsg.storyCanvas;
+      thinkingPanel = botMsg.thinkingPanel;
       if (!storyCanvas) {
         bubble.classList.remove("markdown");
         bubble.classList.add("plain");
@@ -3877,7 +4268,16 @@ async function send() {
           reply = bodyText;
         }
       }
+      const separatedReply = splitThinkingFromText(reply);
+      if (separatedReply.thinking) {
+        handleThinking(separatedReply.thinking);
+      }
+      reply = separatedReply.answer || reply;
       partialText = reply;
+      if (partialText) {
+        noteAnswerStarted();
+      }
+      finalizeThinkingPanel(Boolean(partialText));
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
           await typeInStoryCanvas(storyCanvas, bubble, reply);
@@ -3939,16 +4339,6 @@ async function send() {
     let plainBuffer = "";
     let streamEnded = false;
 
-    const handleToken = (token) => {
-      markAssistantStreamStarted();
-      partialText += token;
-      const now = performance.now();
-      if (now - lastFlush > 40) {
-        flush();
-        lastFlush = now;
-      }
-    };
-
     const processBuffer = () => {
       let idx;
       while ((idx = buffer.indexOf("\n")) >= 0) {
@@ -3967,8 +4357,11 @@ async function send() {
             streamEnded = true;
             return;
           }
+          if (parsedPayload.thinking) {
+            handleThinking(parsedPayload.thinking);
+          }
           if (parsedPayload.token) {
-            handleToken(parsedPayload.token);
+            consumeTaggedTokenChunk(parsedPayload.token);
           }
         }
       }
@@ -3986,8 +4379,11 @@ async function send() {
           continue;
         }
         const parsedPayload = extractTokenFromStreamPayload(line);
+        if (parsedPayload.thinking) {
+          handleThinking(parsedPayload.thinking);
+        }
         if (parsedPayload.token) {
-          handleToken(parsedPayload.token);
+          consumeTaggedTokenChunk(parsedPayload.token);
         }
         if (parsedPayload.done) {
           streamEnded = true;
@@ -4004,8 +4400,11 @@ async function send() {
         return;
       }
       const parsedPayload = extractTokenFromStreamPayload(remainder);
+      if (parsedPayload.thinking) {
+        handleThinking(parsedPayload.thinking);
+      }
       if (parsedPayload.token) {
-        handleToken(parsedPayload.token);
+        consumeTaggedTokenChunk(parsedPayload.token);
       }
       if (parsedPayload.done) {
         streamEnded = true;
@@ -4029,7 +4428,7 @@ async function send() {
         processPlainBuffer(false);
         if (streamEnded) break;
       } else {
-        handleToken(chunk);
+        consumeTaggedTokenChunk(chunk);
       }
     }
 
@@ -4042,11 +4441,14 @@ async function send() {
         plainBuffer += tail;
         processPlainBuffer(true);
       } else {
-        partialText += tail;
+        consumeTaggedTokenChunk(tail);
       }
     } else if (parseAsJsonLines) {
       processPlainBuffer(true);
     }
+
+    flushTaggedTokenCarry();
+    finalizeThinkingPanel(Boolean(partialText));
 
     if (!partialText) {
       partialText = "(No response)";
@@ -4086,6 +4488,8 @@ async function send() {
     if (typing.row.isConnected) {
       typing.row.remove();
     }
+    flushTaggedTokenCarry();
+    finalizeThinkingPanel(Boolean(partialText));
 
     if (isBanOverlayActive) {
       return;
@@ -4260,6 +4664,13 @@ sendBtn.addEventListener("click", () => {
 if (attachBtn && fileInput) {
   attachBtn.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
+}
+
+if (thinkBtn) {
+  thinkBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setCurrentSessionThinkingEnabled(!getCurrentSessionThinkingEnabled());
+  });
 }
 
 if (attachmentList) {
@@ -4590,3 +5001,27 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

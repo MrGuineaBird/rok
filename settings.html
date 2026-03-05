@@ -556,7 +556,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <a class="brand" href="index.html">
-      <img src="roklogo.png" alt="ROK" class="brand-logo" onerror="this.style.display='none'" />
+      <img src="roklogo.svg" alt="ROK" class="brand-logo" onerror="this.style.display='none'" />
       <span class="brand-text">
         <span class="brand-title">ROK</span>
         <span class="brand-subtitle">Settings</span>
@@ -693,9 +693,9 @@
           </div>
           <div class="setting-control">
             <select class="setting-select" id="defaultModel">
-              <option value="mistral:latest">ROK Quality (Mistral)</option>
-              <option value="qwen2.5:latest">ROK Geek (Qwen 2.5)</option>
-              <option value="llava-llama3">ROK Vision (LLaVA)</option>
+              <option value="qwen3:8b">ROK Fast</option>
+              <option value="qwen3:14b">ROK Pro</option>
+              <option value="llama3.2-vision">ROK Vision</option>
             </select>
           </div>
         </div>
@@ -906,13 +906,20 @@
 
 <script>
   const SETTINGS_KEY = "rok.settings.v1";
+  const SUPPORTED_MODEL_IDS = new Set(["qwen3:8b", "qwen3:14b", "llama3.2-vision"]);
+  const LEGACY_MODEL_ALIASES = {
+    "mistral:latest": "qwen3:14b",
+    "qwen2.5:latest": "qwen3:8b",
+    "llava:latest": "llama3.2-vision",
+    "llava-llama3": "llama3.2-vision",
+  };
 
   const DEFAULTS = {
     theme: "dark",
     accentColor: "#d14b4b",
     compactMode: false,
     reduceMotion: false,
-    defaultModel: "mistral:latest",
+    defaultModel: "qwen3:8b",
     rememberModel: true,
     showModelBadge: false,
     maxTokens: 600,
@@ -929,6 +936,12 @@
   let currentSettings = { ...DEFAULTS };
   let hasUnsavedChanges = false;
 
+  function normalizeModelId(value) {
+    const raw = String(value || "").trim();
+    const normalized = LEGACY_MODEL_ALIASES[raw] || raw;
+    return SUPPORTED_MODEL_IDS.has(normalized) ? normalized : DEFAULTS.defaultModel;
+  }
+
   // --- LOAD ---
   function loadSettings() {
     try {
@@ -936,9 +949,9 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         currentSettings = { ...DEFAULTS, ...parsed };
-        if (currentSettings.defaultModel === "llava:latest") currentSettings.defaultModel = "llava-llama3";
       }
     } catch { currentSettings = { ...DEFAULTS }; }
+    currentSettings.defaultModel = normalizeModelId(currentSettings.defaultModel);
     applyToUI(currentSettings);
     applyTheme(currentSettings.theme, currentSettings.accentColor);
   }
@@ -966,7 +979,7 @@
     document.getElementById("autoScroll").checked = s.autoScroll;
 
     // Model
-    document.getElementById("defaultModel").value = s.defaultModel;
+    document.getElementById("defaultModel").value = normalizeModelId(s.defaultModel);
 
     // Sliders
     const maxTokensEl = document.getElementById("maxTokens");
@@ -1094,7 +1107,7 @@
       accentColor: currentSettings.accentColor,
       compactMode: document.getElementById("compactMode").checked,
       reduceMotion: document.getElementById("reduceMotion").checked,
-      defaultModel: document.getElementById("defaultModel").value,
+      defaultModel: normalizeModelId(document.getElementById("defaultModel").value),
       rememberModel: document.getElementById("rememberModel").checked,
       showModelBadge: document.getElementById("showModelBadge").checked,
       maxTokens: parseInt(document.getElementById("maxTokens").value),
@@ -1174,6 +1187,7 @@
 </script>
 </body>
 </html>
+
 
 
 
