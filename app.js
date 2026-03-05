@@ -1,4 +1,4 @@
-﻿const chat = document.getElementById("chat");
+const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
@@ -115,7 +115,7 @@ const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "mistral:latest";
+const DEFAULT_CHAT_MODEL = "qwen3:14b";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -130,7 +130,7 @@ const DEFAULT_USER_SETTINGS = {
   reduceMotion: false,
   customSystemPrompt: ""
 };
-const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava-llama3"]);
+const SUPPORTED_MODEL_IDS = new Set(["qwen3:8b", "qwen3:14b", "llama3.2-vision"]);
 const DEFAULT_MODEL_OPTIONS = [
   { id: "qwen3:8b",        label: "ROK Fast" },
   { id: "qwen3:14b",       label: "ROK Pro" },
@@ -4582,28 +4582,3 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
