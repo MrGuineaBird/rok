@@ -132,19 +132,19 @@ const DEFAULT_USER_SETTINGS = {
 };
 const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava-llama3"]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "qwen2.5:latest", label: "ROK Geek" },
-  { id: "mistral:latest", label: "ROK Quaility" },
-  { id: "llava-llama3", label: "ROK Vision" }
+  { id: "qwen3:8b",        label: "ROK Fast" },
+  { id: "qwen3:14b",       label: "ROK Pro" },
+  { id: "llama3.2-vision", label: "ROK Vision" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "qwen2.5:latest": "ROK Geek",
-  "mistral:latest": "ROK Quaility",
-  "llava-llama3": "ROK Vision"
+  "qwen3:8b": "ROK Fast",
+  "qwen3:14b": "ROK Pro",
+  "llama3.2-vision": "ROK Vision"
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen2.5:latest": "Fast responses for quick questions, experiments, and everyday drafting.",
-  "mistral:latest": "More thorough responses for longer writing and refinement.",
-  "llava-llama3": "Vision model for image understanding, screenshots, and visual Q and A."
+  "qwen3:8b": "Fast responses for quick questions, experiments, and everyday drafting.",
+  "qwen3:14b": "More thorough responses for longer writing and refinement.",
+  "llama3.2-vision": "Vision model for image understanding, screenshots, and visual Q and A."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
@@ -4582,8 +4582,6 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
-
-
 
 
 
