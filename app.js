@@ -102,6 +102,7 @@ const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
   historyLimit: 200,
+  maxHistoryMessages: 200,
   maxAttachments: 5,
   maxFileSizeBytes: 200 * 1024 * 1024,
   maxFileChars: 12000,
@@ -126,7 +127,8 @@ const DEFAULT_USER_SETTINGS = {
   autoScroll: true,
   accentColor: "#d14b4b",
   compactMode: false,
-  reduceMotion: false
+  reduceMotion: false,
+  customSystemPrompt: ""
 };
 const SUPPORTED_MODEL_IDS = new Set(["qwen2.5:latest", "mistral:latest", "llava-llama3"]);
 const DEFAULT_MODEL_OPTIONS = [
@@ -349,6 +351,8 @@ let workspaceDocSaveStateTimer = null;
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
 let userSettings = { ...DEFAULT_USER_SETTINGS };
+let compactingBarElement = null;
+let compactingBarTimer = null;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -492,10 +496,27 @@ async function refreshModelCatalogFromServer() {
   }
 }
 
+function getCustomSystemPromptHeaderValue() {
+  try {
+    const rawSettings = localStorage.getItem(USER_SETTINGS_KEY);
+    if (!rawSettings) return "";
+    const parsed = JSON.parse(rawSettings);
+    if (!parsed || typeof parsed !== "object") return "";
+    const customPrompt = typeof parsed.customSystemPrompt === "string" ? parsed.customSystemPrompt.trim() : "";
+    return customPrompt;
+  } catch {
+    return "";
+  }
+}
+
 function buildApiHeaders(includeJson) {
   const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
+    const customSystemPrompt = getCustomSystemPromptHeaderValue();
+    if (customSystemPrompt) {
+      headers["X-Custom-System-Prompt"] = customSystemPrompt;
+    }
   }
   return headers;
 }
@@ -711,6 +732,7 @@ function applyUserSettingsToRuntime(options = {}) {
     1,
     1000
   );
+  clientLimits.maxHistoryMessages = clientLimits.historyLimit;
   trimHistoryToLimit();
 
   if (syncModelDefaults) {
@@ -722,6 +744,15 @@ function applyUserSettingsToRuntime(options = {}) {
 
 function getHistoryLimitValue() {
   return normalizeClientLimit(clientLimits.historyLimit, DEFAULT_CLIENT_LIMITS.historyLimit, 1, 1000);
+}
+
+function getMaxHistoryMessagesValue() {
+  return normalizeClientLimit(
+    clientLimits.maxHistoryMessages,
+    getHistoryLimitValue(),
+    1,
+    1000
+  );
 }
 
 function trimHistoryToLimit() {
@@ -745,12 +776,14 @@ function applyClientLimitsFromServer(rawLimits) {
     0,
     60000
   );
+  const rawHistoryLimit = rawLimits.max_history_messages ?? rawLimits.history_limit;
   clientLimits.historyLimit = normalizeClientLimit(
-    rawLimits.history_limit,
+    rawHistoryLimit,
     clientLimits.historyLimit,
     1,
     1000
   );
+  clientLimits.maxHistoryMessages = clientLimits.historyLimit;
   clientLimits.maxAttachments = normalizeClientLimit(
     rawLimits.max_attachments,
     clientLimits.maxAttachments,
@@ -3330,6 +3363,10 @@ async function addSelectedFiles(fileList) {
           size: file.size,
           content: truncateText(content, clientLimits.maxFileChars)
         });
+        renderAttachments();
+        if (fileInput) {
+          fileInput.value = "";
+        }
       } catch {
         addMessage("system", `Could not read ${file.name}.`);
       }
@@ -3347,6 +3384,10 @@ async function addSelectedFiles(fileList) {
           mimeType: (file.type || "image/png").toLowerCase(),
           contentBase64
         });
+        renderAttachments();
+        if (fileInput) {
+          fileInput.value = "";
+        }
       } catch {
         addMessage("system", `Could not read image ${file.name}.`);
       }
@@ -3356,9 +3397,6 @@ async function addSelectedFiles(fileList) {
     addMessage("system", `${file.name} is not a supported text or image file.`);
   }
 
-  if (fileInput) {
-    fileInput.value = "";
-  }
   renderAttachments();
 }
 
@@ -3433,6 +3471,37 @@ function addMessage(role, text, options = {}) {
   chat.appendChild(row);
   scrollToBottom();
   return { row, bubble, storyCanvas: null };
+}
+
+function hideCompactingBar() {
+  if (compactingBarTimer) {
+    clearTimeout(compactingBarTimer);
+    compactingBarTimer = null;
+  }
+  if (compactingBarElement && compactingBarElement.isConnected) {
+    compactingBarElement.remove();
+  }
+  compactingBarElement = null;
+}
+
+function showCompactingBar() {
+  if (!chat) return;
+
+  hideCompactingBar();
+  const bar = document.createElement("div");
+  bar.className = "compacting-bar";
+  bar.innerHTML =
+    '<div class="compacting-text">Compacting context so we can continue the chat!</div>' +
+    '<div class="compacting-progress"></div>';
+  chat.appendChild(bar);
+  compactingBarElement = bar;
+  scrollToBottom();
+
+  compactingBarTimer = setTimeout(() => {
+    if (compactingBarElement === bar) {
+      hideCompactingBar();
+    }
+  }, 3000);
 }
 
 function updateSendButtonUI(cooldownActive) {
@@ -3511,6 +3580,7 @@ function startCooldownTimer() {
 }
 
 function clearChat(showNotice) {
+  hideCompactingBar();
   chat.innerHTML = "";
   history.length = 0;
   clearAttachments();
@@ -3657,6 +3727,11 @@ async function send() {
     setActiveWorkspaceTab("chat", { focus: false });
   }
 
+  const maxHistoryMessages = getMaxHistoryMessagesValue();
+  if (maxHistoryMessages > 0 && history.length > maxHistoryMessages * 0.8) {
+    showCompactingBar();
+  }
+
   const recentHistory = history.slice(-getHistoryLimitValue());
 
   let displayText = text;
@@ -3707,6 +3782,12 @@ async function send() {
   let bubble = null;
   let storyCanvas = null;
   let partialText = "";
+  let assistantStreamStarted = false;
+  const markAssistantStreamStarted = () => {
+    if (assistantStreamStarted) return;
+    assistantStreamStarted = true;
+    hideCompactingBar();
+  };
 
   try {
     console.log("sending chat request...");
@@ -3725,6 +3806,11 @@ async function send() {
     });
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    const contextCompactedHeader =
+      String(res.headers.get("X-Context-Compacted") || "").trim().toLowerCase() === "true";
+    if (contextCompactedHeader) {
+      showCompactingBar();
+    }
 
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
@@ -3771,11 +3857,12 @@ async function send() {
       }
     }
 
-   const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+    const reader = res.body && res.body.getReader ? res.body.getReader() : null;
     console.log("reader:", reader, "content-type:", contentType, "res.body:", res.body);
 
     if (!reader) {
-  let reply = partialText || "(No response)";
+      markAssistantStreamStarted();
+      let reply = partialText || "(No response)";
       if (!partialText && !res.bodyUsed) {
         const bodyText = await safeReadResponseText(res);
         if (bodyText) {
@@ -3845,6 +3932,7 @@ async function send() {
     let streamEnded = false;
 
     const handleToken = (token) => {
+      markAssistantStreamStarted();
       partialText += token;
       const now = performance.now();
       if (now - lastFlush > 40) {
@@ -4494,6 +4582,10 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
+
+
+
 
 
 

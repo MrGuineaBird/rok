@@ -2675,6 +2675,32 @@ body.settings-compact .attachment-list {
   text-align: center;
 }
 
+.compacting-bar {
+  width: 100%;
+  max-width: var(--chat-width);
+  margin: 8px auto;
+  padding: 10px 16px;
+  background: rgba(209, 75, 75, 0.08);
+  border: 1px solid rgba(209, 75, 75, 0.2);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  animation: rise 180ms ease-out;
+}
+
+.compacting-text {
+  margin: 0 0 8px;
+}
+
+.compacting-progress {
+  width: 0%;
+  height: 2px;
+  border-radius: 999px;
+  background: #d14b4b;
+  animation: compacting-progress 2.5s linear forwards;
+}
+
 .bubble.plain {
   white-space: pre-wrap;
 }
@@ -3080,6 +3106,15 @@ button.stop-mode:hover {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes compacting-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
   }
 }
 
@@ -4397,6 +4432,7 @@ button.stop-mode:hover {
     animation: none;
   }
 }
+
 
 
 
