@@ -101,7 +101,7 @@ const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
-  historyLimit: 200,
+  historyLimit: 2,
   maxHistoryMessages: 200,
   maxAttachments: 5,
   maxFileSizeBytes: 200 * 1024 * 1024,
@@ -4582,6 +4582,7 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
 
 
 
