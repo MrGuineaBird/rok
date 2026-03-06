@@ -2656,10 +2656,55 @@ body.settings-compact .attachment-list {
   font-weight: 700;
   color: #d8a7a7;
   background: #1b0d0d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  list-style: none;
 }
 
 .thinking-summary::-webkit-details-marker {
   display: none;
+}
+
+.thinking-summary::marker {
+  display: none;
+}
+
+.thinking-summary-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.thinking-summary-icon {
+  flex: none;
+  color: #bc8d8d;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.thinking-summary-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+  color: #e3c3c3;
+}
+
+.thinking-summary-arrow {
+  flex: none;
+  margin-left: auto;
+  color: #c09393;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.thinking-block[open] .thinking-summary-arrow {
+  transform: rotate(90deg);
 }
 
 .thinking-body {

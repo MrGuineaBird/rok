@@ -668,11 +668,32 @@ function createThinkingPanel() {
   const shell = document.createElement("details");
   shell.className = "thinking-block is-streaming";
   shell.hidden = true;
-  shell.open = true;
+  shell.open = false;
 
   const summary = document.createElement("summary");
   summary.className = "thinking-summary";
-  summary.textContent = "Reasoning...";
+
+  const summaryMain = document.createElement("span");
+  summaryMain.className = "thinking-summary-main";
+
+  const summaryIcon = document.createElement("span");
+  summaryIcon.className = "thinking-summary-icon";
+  summaryIcon.setAttribute("aria-hidden", "true");
+  summaryIcon.textContent = "◷";
+
+  const summaryLabel = document.createElement("span");
+  summaryLabel.className = "thinking-summary-label";
+  summaryLabel.textContent = "Thinking...";
+
+  const summaryArrow = document.createElement("span");
+  summaryArrow.className = "thinking-summary-arrow";
+  summaryArrow.setAttribute("aria-hidden", "true");
+  summaryArrow.textContent = "›";
+
+  summaryMain.appendChild(summaryIcon);
+  summaryMain.appendChild(summaryLabel);
+  summary.appendChild(summaryMain);
+  summary.appendChild(summaryArrow);
 
   const body = document.createElement("pre");
   body.className = "thinking-body";
@@ -680,7 +701,204 @@ function createThinkingPanel() {
   shell.appendChild(summary);
   shell.appendChild(body);
 
-  return { shell, summary, body };
+  return { shell, summary, summaryLabel, body };
+}
+
+function normalizeThinkingTitle(rawValue = "") {
+  const collapsed = String(rawValue || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/["'`]/g, " ")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!collapsed) {
+    return "";
+  }
+
+  return collapsed
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 7)
+    .join(" ");
+}
+
+async function readChatTextResponse(response) {
+  if (!response) {
+    return "";
+  }
+
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (!response.ok) {
+    const errorText = await safeReadResponseText(response);
+    throw new Error(errorText || `Request failed (${response.status})`);
+  }
+
+  const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+  if (!reader) {
+    const bodyText = await safeReadResponseText(response);
+    const separated = splitThinkingFromText(bodyText);
+    return separated.answer || bodyText || "";
+  }
+
+  const decoder = new TextDecoder("utf-8");
+  const isEventStream = contentType.includes("text/event-stream");
+  const parseAsJsonLines = !isEventStream && (contentType.includes("json") || contentType.includes("ndjson"));
+  let buffer = "";
+  let plainBuffer = "";
+  let answer = "";
+  let streamEnded = false;
+
+  const appendToken = (token) => {
+    if (typeof token === "string" && token) {
+      answer += token;
+    }
+  };
+
+  const processBuffer = () => {
+    let idx;
+    while ((idx = buffer.indexOf("\n")) >= 0) {
+      let line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (line.endsWith("\r")) {
+        line = line.slice(0, -1);
+      }
+      if (!line || line.startsWith(":")) {
+        continue;
+      }
+      if (!line.startsWith("data:")) {
+        continue;
+      }
+      const parsedPayload = extractTokenFromStreamPayload(line.slice(5));
+      if (parsedPayload.token) {
+        appendToken(parsedPayload.token);
+      }
+      if (parsedPayload.done) {
+        streamEnded = true;
+        return;
+      }
+    }
+  };
+
+  const processPlainBuffer = (flushRemainder = false) => {
+    let idx;
+    while ((idx = plainBuffer.indexOf("\n")) >= 0) {
+      let line = plainBuffer.slice(0, idx);
+      plainBuffer = plainBuffer.slice(idx + 1);
+      if (line.endsWith("\r")) {
+        line = line.slice(0, -1);
+      }
+      if (!line.trim()) {
+        continue;
+      }
+      const parsedPayload = extractTokenFromStreamPayload(line);
+      if (parsedPayload.token) {
+        appendToken(parsedPayload.token);
+      }
+      if (parsedPayload.done) {
+        streamEnded = true;
+        return;
+      }
+    }
+
+    if (!flushRemainder) {
+      return;
+    }
+
+    const remainder = plainBuffer.trim();
+    plainBuffer = "";
+    if (!remainder) {
+      return;
+    }
+
+    const parsedPayload = extractTokenFromStreamPayload(remainder);
+    if (parsedPayload.token) {
+      appendToken(parsedPayload.token);
+    }
+    if (parsedPayload.done) {
+      streamEnded = true;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    if (!chunk) continue;
+
+    if (isEventStream) {
+      buffer += chunk;
+      processBuffer();
+      if (streamEnded) break;
+      continue;
+    }
+
+    if (parseAsJsonLines) {
+      plainBuffer += chunk;
+      processPlainBuffer(false);
+      if (streamEnded) break;
+      continue;
+    }
+
+    appendToken(chunk);
+  }
+
+  const tail = decoder.decode();
+  if (tail) {
+    if (isEventStream) {
+      buffer += tail;
+      processBuffer();
+    } else if (parseAsJsonLines) {
+      plainBuffer += tail;
+      processPlainBuffer(true);
+    } else {
+      appendToken(tail);
+    }
+  } else if (parseAsJsonLines) {
+    processPlainBuffer(true);
+  }
+
+  const separated = splitThinkingFromText(answer);
+  return separated.answer || answer || "";
+}
+
+async function generateThinkingTitle(thinkingText = "", modelId = "") {
+  const excerpt = String(thinkingText || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+
+  if (!excerpt) {
+    return "";
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  try {
+    const prompt = [
+      "Return only a 4 to 7 word title for this reasoning excerpt.",
+      "No punctuation.",
+      "No quotes.",
+      "No markdown.",
+      "No explanation.",
+      `Excerpt: ${excerpt}`
+    ].join("\n");
+    const res = await fetchWithBanGuard(API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      signal: controller.signal,
+      body: JSON.stringify({
+        message: prompt,
+        history: [],
+        model: modelId || getCurrentSessionModel(),
+        max_tokens: 24
+      })
+    });
+    return normalizeThinkingTitle(await readChatTextResponse(res));
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
@@ -3965,25 +4183,58 @@ async function send() {
   let workspaceContext = "";
   let hasWorkspaceContext = false;
   let requestedOutputType = inferWorkspaceOutputType("", text);
+  let thinkingTitleRequested = false;
+  let thinkingTitleResolved = false;
   const streamRenderState = {
     lastFlush: 0,
     flush: () => {}
   };
   const THINK_OPEN_TAG = "<think>";
   const THINK_CLOSE_TAG = "</think>";
+  const setThinkingSummaryLabel = (value) => {
+    if (!thinkingPanel) return;
+    const label = String(value || "Reasoning").trim() || "Reasoning";
+    thinkingPanel.summaryLabel.textContent = label;
+    thinkingPanel.summaryLabel.title = label;
+  };
+  const requestThinkingSummaryTitle = () => {
+    if (!thinkingPanel || thinkingTitleRequested || !thinkingText.trim()) {
+      return;
+    }
+    thinkingTitleRequested = true;
+    setThinkingSummaryLabel("Thinking...");
+    void generateThinkingTitle(thinkingText, sessionModel)
+      .then((title) => {
+        thinkingTitleResolved = true;
+        setThinkingSummaryLabel(title || "Reasoning");
+      })
+      .catch(() => {
+        thinkingTitleResolved = true;
+        setThinkingSummaryLabel("Reasoning");
+      });
+  };
   const markAssistantStreamStarted = () => {
     if (assistantStreamStarted) return;
     assistantStreamStarted = true;
     hideCompactingBar();
   };
-  const finalizeThinkingPanel = (collapse) => {
+  const finalizeThinkingPanel = (collapse, complete = false) => {
     if (!thinkingPanel) return;
     const hasReasoning = Boolean(thinkingText.trim());
     thinkingPanel.shell.hidden = !hasReasoning;
     thinkingPanel.shell.classList.remove("is-streaming");
-    thinkingPanel.summary.textContent = "Reasoning";
+    if (!hasReasoning) {
+      setThinkingSummaryLabel("Reasoning");
+      return;
+    }
     if (hasReasoning && collapse) {
       thinkingPanel.shell.open = false;
+    }
+    if (!thinkingTitleResolved) {
+      setThinkingSummaryLabel("Thinking...");
+    }
+    if (complete) {
+      requestThinkingSummaryTitle();
     }
   };
   const handleThinking = (chunk) => {
@@ -3997,11 +4248,8 @@ async function send() {
     }
     thinkingPanel.shell.hidden = false;
     thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
-    thinkingPanel.summary.textContent = answerStarted ? "Reasoning" : "Reasoning...";
+    setThinkingSummaryLabel("Thinking...");
     thinkingPanel.body.textContent = thinkingText.trim();
-    if (!answerStarted) {
-      thinkingPanel.shell.open = true;
-    }
     scrollToBottom();
   };
   const noteAnswerStarted = () => {
@@ -4229,7 +4477,7 @@ async function send() {
       if (partialText) {
         noteAnswerStarted();
       }
-      finalizeThinkingPanel(Boolean(partialText));
+      finalizeThinkingPanel(Boolean(partialText), true);
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
           await typeInStoryCanvas(storyCanvas, bubble, reply);
@@ -4400,7 +4648,7 @@ async function send() {
     }
 
     flushTaggedTokenCarry();
-    finalizeThinkingPanel(Boolean(partialText));
+    finalizeThinkingPanel(Boolean(partialText), true);
 
     if (!partialText) {
       partialText = "(No response)";
@@ -4440,7 +4688,7 @@ async function send() {
     console.log("chat error:", err);
     removeTypingIndicator();
     flushTaggedTokenCarry();
-    finalizeThinkingPanel(Boolean(partialText));
+    finalizeThinkingPanel(Boolean(partialText), true);
 
     if (isBanOverlayActive) {
       return;
