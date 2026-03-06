@@ -2942,22 +2942,6 @@ body.settings-compact .attachment-list {
 .attach-btn {
   white-space: nowrap;
 }
-
-.think-btn {
-  white-space: nowrap;
-  min-width: 68px;
-}
-
-.think-btn.is-active {
-  background: #2a0f0f;
-  border-color: #d14b4b;
-  color: #f7d3d3;
-}
-
-.think-btn.is-unsupported {
-  border-color: #5b3434;
-  color: #c8a7a7;
-}
 .file-input {
   display: none;
 }

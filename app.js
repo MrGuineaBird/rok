@@ -36,7 +36,6 @@ const mainPanel = document.querySelector(".main");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const attachBtn = document.getElementById("attachBtn");
-const thinkBtn = document.getElementById("thinkBtn");
 const fileInput = document.getElementById("fileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
@@ -1307,71 +1306,12 @@ function ensureSessionModel(session) {
   return session.model;
 }
 
-function modelSupportsThinking(modelId) {
-  return /^qwen3:/i.test(String(modelId || "").trim());
-}
-
-function normalizeSessionThinkingEnabled(rawValue) {
-  return rawValue === true;
-}
-
-function ensureSessionThinkingEnabled(session) {
-  if (!session || typeof session !== "object") {
-    return false;
-  }
-  session.thinkingEnabled = normalizeSessionThinkingEnabled(session.thinkingEnabled);
-  return session.thinkingEnabled;
-}
-
-function getCurrentSessionThinkingEnabled() {
-  const current = getSessionById(currentSessionId);
-  if (!current) return false;
-  return ensureSessionThinkingEnabled(current);
-}
-
-function updateThinkingToggleUI() {
-  if (!thinkBtn) return;
-
-  const current = getSessionById(currentSessionId);
-  const enabled = current ? ensureSessionThinkingEnabled(current) : false;
-  const supported = current ? modelSupportsThinking(ensureSessionModel(current)) : false;
-
-  thinkBtn.textContent = "Think";
-  thinkBtn.classList.toggle("is-active", enabled);
-  thinkBtn.classList.toggle("is-unsupported", enabled && !supported);
-  thinkBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
-  thinkBtn.disabled = !current || isSending || isIntentClassificationLoading;
-
-  if (!current) {
-    thinkBtn.title = "Thinking is unavailable until a chat session is active.";
-  } else if (enabled && supported) {
-    thinkBtn.title = "Reasoning is enabled for this chat.";
-  } else if (enabled && !supported) {
-    thinkBtn.title = "Reasoning is enabled for this chat, but the current model may ignore it.";
-  } else if (supported) {
-    thinkBtn.title = "Enable reasoning for this chat.";
-  } else {
-    thinkBtn.title = "Reasoning works best on qwen3 models.";
-  }
-}
-
-function setCurrentSessionThinkingEnabled(nextValue) {
-  if (!currentSessionId) return;
-  const current = getSessionById(currentSessionId);
-  if (!current) return;
-
-  current.thinkingEnabled = Boolean(nextValue);
-  saveSessionsToStorage();
-  updateThinkingToggleUI();
-}
-
 function getWorkspaceCurrentSession() {
   if (!currentSessionId) return null;
   const current = getSessionById(currentSessionId);
   if (!current) return null;
   ensureSessionWorkspace(current);
   ensureSessionModel(current);
-  ensureSessionThinkingEnabled(current);
   return current;
 }
 
@@ -1501,7 +1441,6 @@ function setCurrentSessionModel(rawModel) {
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
     syncModelPanelWithCurrentSession();
-    updateThinkingToggleUI();
     return;
   }
 
@@ -1515,7 +1454,6 @@ function setCurrentSessionModel(rawModel) {
   syncModelSelectorWithCurrentSession();
   syncModelPanelWithCurrentSession();
   saveLastModelToStorage(nextModel);
-  updateThinkingToggleUI();
 }
 
 function inferWorkspaceOutputType(content = "", promptText = "") {
@@ -2992,7 +2930,6 @@ function createSession(messages = []) {
     updatedAt: now,
     messages: safeMessages,
     model: getDefaultModelForNewSession(),
-    thinkingEnabled: false,
     workspace: createDefaultWorkspace()
   };
 }
@@ -3033,8 +2970,6 @@ function loadSessionsFromStorage() {
       const title = typeof item.title === "string" && item.title.trim() ? item.title.trim() : buildSessionTitle(safeMessages);
       const workspace = normalizeWorkspace(item.workspace);
       const model = normalizeSessionModel(item.model);
-      const thinkingEnabled = normalizeSessionThinkingEnabled(item.thinkingEnabled);
-
       loaded.push({
         id,
         title: title || "New Chat",
@@ -3042,7 +2977,6 @@ function loadSessionsFromStorage() {
         updatedAt,
         messages: safeMessages,
         model,
-        thinkingEnabled,
         workspace
       });
     }
@@ -3174,7 +3108,6 @@ function openSession(sessionId, options = {}) {
   const target = getSessionById(sessionId);
   if (!target) return;
   ensureSessionWorkspace(target);
-  ensureSessionThinkingEnabled(target);
 
   currentSessionId = target.id;
   target.updatedAt = Date.now();
@@ -3189,7 +3122,6 @@ function openSession(sessionId, options = {}) {
   updateCurrentSessionButton();
   renderSavedSessions();
   renderWorkspaceUI({ focus: true });
-  updateThinkingToggleUI();
 }
 
 function deleteSession(sessionId) {
@@ -3248,7 +3180,6 @@ function startNewSession(showNotice) {
   updateCurrentSessionButton();
   renderSavedSessions();
   renderWorkspaceUI({ focus: true });
-  updateThinkingToggleUI();
 }
 
 function initializeSessions() {
@@ -3271,11 +3202,9 @@ function initializeSessions() {
   const current = getSessionById(currentSessionId);
   if (current) {
     ensureSessionWorkspace(current);
-    ensureSessionThinkingEnabled(current);
     renderConversation(current.messages);
     renderWorkspaceUI({ focus: false });
   }
-  updateThinkingToggleUI();
 }
 
 function isHomeScreenVisible() {
@@ -3837,7 +3766,6 @@ function refreshSendState() {
     cooldownEl.textContent = "";
   }
 
-  updateThinkingToggleUI();
   refreshWorkspaceDocumentToolbarState();
 }
 
@@ -3969,7 +3897,6 @@ async function send() {
   hideHomeScreen();
   const text = input.value.trim();
   const sessionModel = getCurrentSessionModel();
-  const thinkingEnabled = getCurrentSessionThinkingEnabled();
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sessionWorkspaceContext = getWorkspaceContextFromSession();
   if (!text && attachments.length === 0 && !sessionWorkspaceContext) return;
@@ -4201,8 +4128,7 @@ async function send() {
         attachments: attachmentsPayload,
         history: recentHistory,
         model: sessionModel,
-        max_tokens: clientLimits.maxResponseTokens,
-        enable_thinking: thinkingEnabled
+        max_tokens: clientLimits.maxResponseTokens
       })
     });
 
@@ -4248,7 +4174,7 @@ async function send() {
     if (!writeBackToWorkspace) {
       const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
         storyCanvas: useStoryCanvas,
-        thinkingBlock: thinkingEnabled
+        thinkingBlock: true
       });
       bubble = botMsg.bubble;
       storyCanvas = botMsg.storyCanvas;
@@ -4668,13 +4594,6 @@ sendBtn.addEventListener("click", () => {
 if (attachBtn && fileInput) {
   attachBtn.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
-}
-
-if (thinkBtn) {
-  thinkBtn.addEventListener("click", () => {
-    if (isSending || isIntentClassificationLoading) return;
-    setCurrentSessionThinkingEnabled(!getCurrentSessionThinkingEnabled());
-  });
 }
 
 if (attachmentList) {
