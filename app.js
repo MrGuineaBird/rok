@@ -3911,64 +3911,19 @@ async function send() {
     return;
   }
 
-  const intentHistory = history.slice(-Math.min(getHistoryLimitValue(), INTENT_HISTORY_CONTEXT_LIMIT));
-  let intent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
-  isIntentClassificationLoading = true;
-  refreshSendState();
-  try {
-    intent = await classifyPromptIntentWithModel(
-      text,
-      sessionWorkspaceContext,
-      attachments,
-      intentHistory,
-      sessionModel
-    );
-  } finally {
-    isIntentClassificationLoading = false;
-    refreshSendState();
-  }
-
-  if (isBanOverlayActive) return;
-
-  let writeBackToWorkspace = Boolean(intent.routeToWorkspace);
-  let useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
-  let workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-  let hasWorkspaceContext = Boolean(workspaceContext);
-  const requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
-
-  if (writeBackToWorkspace && text) {
-    const workspaceRouteApproved = await confirmWorkspaceRouting(intent.label);
-    writeBackToWorkspace = Boolean(workspaceRouteApproved);
-    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
-    workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-    hasWorkspaceContext = Boolean(workspaceContext);
-  }
-
-  if (writeBackToWorkspace && !isWorkspaceSessionActive()) {
-    setActiveWorkspaceTab("workspace", { focus: false });
-  } else if (!writeBackToWorkspace && isWorkspaceSessionActive()) {
-    setActiveWorkspaceTab("chat", { focus: false });
-  }
-
-  const maxHistoryMessages = getMaxHistoryMessagesValue();
-  if (maxHistoryMessages > 0 && history.length > maxHistoryMessages * 0.8) {
-    showCompactingBar();
-  }
-
-  const recentHistory = history.slice(-getHistoryLimitValue());
-
   let displayText = text;
   if (!displayText) {
-    if (workspaceContext && attachments.length) {
+    if (sessionWorkspaceContext && attachments.length) {
       displayText = `Review my workspace and ${attachments.length} file(s).`;
-    } else if (workspaceContext) {
+    } else if (sessionWorkspaceContext) {
       displayText = "Review my workspace content.";
     } else {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
-  const messageForApi = buildMessageForApi(text, workspaceContext);
-  const attachmentsPayload = buildAttachmentsPayload();
+  const intentHistory = history.slice(-Math.min(getHistoryLimitValue(), INTENT_HISTORY_CONTEXT_LIMIT));
+  const recentHistory = history.slice(-getHistoryLimitValue());
+  const priorHistoryLength = history.length;
 
   addMessage("user", displayText);
   history.push({ role: "user", content: displayText });
@@ -3985,22 +3940,17 @@ async function send() {
   nextAllowedAt = Date.now() + clientLimits.cooldownMs;
   startCooldownTimer();
   refreshSendState();
-  if (writeBackToWorkspace) {
-    setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
-      intentText: hasWorkspaceContext
-        ? "Reviewing workspace document context to prepare a clean insertion draft."
-        : "Preparing document-ready content from your prompt.",
-      outputTypeText: requestedOutputType,
-      summaryText: WORKSPACE_GENERATION_PHASES.reviewing,
-      triggerFadeIn: true
-    });
-  }
 
   const typing = addMessage(
     "bot",
     "",
     { typingDots: true }
   );
+  const removeTypingIndicator = () => {
+    if (typing.row.isConnected) {
+      typing.row.remove();
+    }
+  };
   let bubble = null;
   let storyCanvas = null;
   let thinkingPanel = null;
@@ -4010,6 +3960,11 @@ async function send() {
   let insideThinkTag = false;
   let answerStarted = false;
   let assistantStreamStarted = false;
+  let writeBackToWorkspace = false;
+  let useStoryCanvas = false;
+  let workspaceContext = "";
+  let hasWorkspaceContext = false;
+  let requestedOutputType = inferWorkspaceOutputType("", text);
   const streamRenderState = {
     lastFlush: 0,
     flush: () => {}
@@ -4052,6 +4007,7 @@ async function send() {
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
+    removeTypingIndicator();
     finalizeThinkingPanel(true);
   };
   const handleAnswerToken = (token) => {
@@ -4117,7 +4073,74 @@ async function send() {
   };
 
   try {
+    let intent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
+    isIntentClassificationLoading = true;
+    refreshSendState();
+    try {
+      intent = await classifyPromptIntentWithModel(
+        text,
+        sessionWorkspaceContext,
+        attachments,
+        intentHistory,
+        sessionModel
+      );
+    } finally {
+      isIntentClassificationLoading = false;
+      refreshSendState();
+    }
+
+    if (stopRequested) {
+      throw new DOMException("Generation stopped by user.", "AbortError");
+    }
+
+    if (isBanOverlayActive) {
+      removeTypingIndicator();
+      return;
+    }
+
+    writeBackToWorkspace = Boolean(intent.routeToWorkspace);
+    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
+    workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
+    hasWorkspaceContext = Boolean(workspaceContext);
+    requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
+
+    if (writeBackToWorkspace && text) {
+      const workspaceRouteApproved = await confirmWorkspaceRouting(intent.label);
+      if (stopRequested) {
+        throw new DOMException("Generation stopped by user.", "AbortError");
+      }
+      writeBackToWorkspace = Boolean(workspaceRouteApproved);
+      useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
+      workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
+      hasWorkspaceContext = Boolean(workspaceContext);
+    }
+
+    if (writeBackToWorkspace && !isWorkspaceSessionActive()) {
+      setActiveWorkspaceTab("workspace", { focus: false });
+    } else if (!writeBackToWorkspace && isWorkspaceSessionActive()) {
+      setActiveWorkspaceTab("chat", { focus: false });
+    }
+
+    const maxHistoryMessages = getMaxHistoryMessagesValue();
+    if (maxHistoryMessages > 0 && priorHistoryLength > maxHistoryMessages * 0.8) {
+      showCompactingBar();
+    }
+
+    const messageForApi = buildMessageForApi(text, workspaceContext);
+    const attachmentsPayload = buildAttachmentsPayload();
+    if (writeBackToWorkspace) {
+      setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
+        intentText: hasWorkspaceContext
+          ? "Reviewing workspace document context to prepare a clean insertion draft."
+          : "Preparing document-ready content from your prompt.",
+        outputTypeText: requestedOutputType,
+        summaryText: WORKSPACE_GENERATION_PHASES.reviewing,
+        triggerFadeIn: true
+      });
+    }
+
     console.log("sending chat request...");
+    activeRequestController = new AbortController();
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -4160,7 +4183,6 @@ async function send() {
     }
 
     hideServerDownScreen();
-    typing.row.remove();
     if (writeBackToWorkspace) {
       setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.drafting, {
         intentText: hasWorkspaceContext
@@ -4383,6 +4405,7 @@ async function send() {
     if (!partialText) {
       partialText = "(No response)";
     }
+    removeTypingIndicator();
 
     if (!writeBackToWorkspace) {
       streamRenderState.flush();
@@ -4415,9 +4438,7 @@ async function send() {
     clearAttachments();
   } catch (err) {
     console.log("chat error:", err);
-    if (typing.row.isConnected) {
-      typing.row.remove();
-    }
+    removeTypingIndicator();
     flushTaggedTokenCarry();
     finalizeThinkingPanel(Boolean(partialText));
 
