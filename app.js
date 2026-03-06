@@ -4083,6 +4083,10 @@ async function send() {
   let insideThinkTag = false;
   let answerStarted = false;
   let assistantStreamStarted = false;
+  const streamRenderState = {
+    lastFlush: 0,
+    flush: () => {}
+  };
   const THINK_OPEN_TAG = "<think>";
   const THINK_CLOSE_TAG = "</think>";
   const markAssistantStreamStarted = () => {
@@ -4130,9 +4134,9 @@ async function send() {
     markAssistantStreamStarted();
     partialText += piece;
     const now = performance.now();
-    if (now - lastFlush > 40) {
-      flush();
-      lastFlush = now;
+    if (now - streamRenderState.lastFlush > 40) {
+      streamRenderState.flush();
+      streamRenderState.lastFlush = now;
     }
   };
   const consumeTaggedTokenChunk = (chunk) => {
@@ -4316,8 +4320,8 @@ async function send() {
     }
 
     const decoder = new TextDecoder("utf-8");
-    let lastFlush = 0;
-    const flush = () => {
+    streamRenderState.lastFlush = 0;
+    streamRenderState.flush = () => {
       if (writeBackToWorkspace) {
         return;
       }
@@ -4455,7 +4459,7 @@ async function send() {
     }
 
     if (!writeBackToWorkspace) {
-      flush();
+      streamRenderState.flush();
       if (storyCanvas) {
         storyCanvas.setStatus("Complete");
         bubble.textContent = "Story ready. Use Expand to read.";
@@ -5001,6 +5005,7 @@ refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
 showHomeScreen();
+
 
 
 
