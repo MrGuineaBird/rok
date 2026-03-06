@@ -4204,6 +4204,16 @@ async function send() {
     "",
     { typingDots: true }
   );
+  const botAvatar = typing.row.querySelector(".avatar");
+  const botAvatarMarkup = botAvatar ? botAvatar.innerHTML : "R";
+  const showGeneratingAvatar = () => {
+    if (!botAvatar) return;
+    botAvatar.innerHTML = '<img src="rokgenerating.gif" class="avatar-gif" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+  };
+  const restoreBotAvatar = () => {
+    if (!botAvatar) return;
+    botAvatar.innerHTML = botAvatarMarkup;
+  };
   let typingIndicator = null;
   let typingRowConverted = false;
   const removeTypingIndicator = () => {
@@ -4263,6 +4273,7 @@ async function send() {
     storyCanvas = mounted.storyCanvas;
     thinkingPanel = mounted.thinkingPanel;
     typingIndicator = mounted.typingIndicator;
+    showGeneratingAvatar();
     typingRowConverted = true;
     scrollToBottom();
   };
@@ -4912,6 +4923,7 @@ async function send() {
 
     addMessage("system", "Error: " + err.message);
   } finally {
+    restoreBotAvatar();
     activeRequestController = null;
     stopRequested = false;
     isSending = false;
