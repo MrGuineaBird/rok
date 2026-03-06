@@ -3899,7 +3899,7 @@ function addMessage(role, text, options = {}) {
   if (role === "user") {
     avatar.textContent = "Y";
   } else {
-    avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:86%;height:86%;object-fit:contain;border-radius:50%;">';
   }
 
   if (typingDots) {
