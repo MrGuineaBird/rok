@@ -3823,6 +3823,60 @@ function setBubbleContent(bubble, text, markdown) {
   }
 }
 
+function createTypingDotsElement() {
+  const dots = document.createElement("div");
+  dots.className = "typing-dots";
+  for (let i = 0; i < 3; i += 1) {
+    dots.appendChild(document.createElement("span"));
+  }
+  return dots;
+}
+
+function populateBotMessageContainer(container, options = {}) {
+  const {
+    text = "",
+    markdown = false,
+    storyCanvas = false,
+    thinkingBlock = false,
+    showTypingDots = false
+  } = options;
+  if (!(container instanceof HTMLElement)) {
+    return { bubble: null, storyCanvas: null, thinkingPanel: null, typingIndicator: null };
+  }
+
+  container.textContent = "";
+  container.className = "bot-stack";
+
+  const thinkingPanel = thinkingBlock ? createThinkingPanel() : null;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+  const canvas = storyCanvas ? createStoryCanvas() : null;
+  let typingIndicator = null;
+
+  if (storyCanvas) {
+    bubble.classList.add("story-status");
+  }
+
+  if (showTypingDots) {
+    typingIndicator = createTypingDotsElement();
+    bubble.appendChild(typingIndicator);
+  } else if (storyCanvas) {
+    bubble.textContent = text || "Writing story in canvas...";
+  } else {
+    setBubbleContent(bubble, text, markdown);
+  }
+
+  if (thinkingPanel) {
+    container.appendChild(thinkingPanel.shell);
+  }
+  container.appendChild(bubble);
+  if (canvas) {
+    container.appendChild(canvas.shell);
+  }
+
+  return { bubble, storyCanvas: canvas, thinkingPanel, typingIndicator };
+}
+
 function addMessage(role, text, options = {}) {
   const { markdown = false, storyCanvas = false, thinkingBlock = false, typingDots = false } = options;
 
@@ -3845,7 +3899,7 @@ function addMessage(role, text, options = {}) {
   avatar.textContent = role === "user" ? "Y" : "R";
 
   if (typingDots) {
-    bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    bubble.appendChild(createTypingDotsElement());
     row.appendChild(avatar);
     row.appendChild(bubble);
     chat.appendChild(row);
@@ -3857,27 +3911,13 @@ function addMessage(role, text, options = {}) {
 
   if (role === "bot" && (storyCanvas || thinkingBlock)) {
     const stack = document.createElement("div");
-    stack.className = "bot-stack";
-
-    const thinkingPanel = thinkingBlock ? createThinkingPanel() : null;
-    const canvas = storyCanvas ? createStoryCanvas() : null;
-    if (storyCanvas) {
-      bubble.classList.add("story-status");
-      bubble.textContent = text || "Writing story in canvas...";
-    }
-    if (thinkingPanel) {
-      stack.appendChild(thinkingPanel.shell);
-    }
-    stack.appendChild(bubble);
-    if (canvas) {
-      stack.appendChild(canvas.shell);
-    }
+    const mounted = populateBotMessageContainer(stack, { text, markdown, storyCanvas, thinkingBlock });
 
     row.appendChild(avatar);
     row.appendChild(stack);
     chat.appendChild(row);
     scrollToBottom();
-    return { row, bubble, storyCanvas: canvas, thinkingPanel };
+    return { row, bubble: mounted.bubble, storyCanvas: mounted.storyCanvas, thinkingPanel: mounted.thinkingPanel };
   }
 
   if (role === "user") {
@@ -4164,10 +4204,29 @@ async function send() {
     "",
     { typingDots: true }
   );
+  let typingIndicator = null;
+  let typingRowConverted = false;
   const removeTypingIndicator = () => {
-    if (typing.row.isConnected) {
+    if (typingIndicator && typingIndicator.isConnected) {
+      typingIndicator.remove();
+      typingIndicator = null;
+      return;
+    }
+    if (!typingRowConverted && typing.row.isConnected) {
       typing.row.remove();
     }
+  };
+  const removeEmptyConvertedBotRow = () => {
+    if (!typingRowConverted || !typing.row.isConnected) {
+      return;
+    }
+    if (partialText || thinkingText.trim()) {
+      return;
+    }
+    typing.row.remove();
+    bubble = null;
+    storyCanvas = null;
+    thinkingPanel = null;
   };
   let bubble = null;
   let storyCanvas = null;
@@ -4191,6 +4250,22 @@ async function send() {
   };
   const THINK_OPEN_TAG = "<think>";
   const THINK_CLOSE_TAG = "</think>";
+  const convertTypingRowToBotMessage = () => {
+    if (typingRowConverted || writeBackToWorkspace) {
+      return;
+    }
+    const mounted = populateBotMessageContainer(typing.bubble, {
+      storyCanvas: useStoryCanvas,
+      thinkingBlock: true,
+      showTypingDots: true
+    });
+    bubble = mounted.bubble;
+    storyCanvas = mounted.storyCanvas;
+    thinkingPanel = mounted.thinkingPanel;
+    typingIndicator = mounted.typingIndicator;
+    typingRowConverted = true;
+    scrollToBottom();
+  };
   const setThinkingSummaryLabel = (value) => {
     if (!thinkingPanel) return;
     const label = String(value || "Reasoning").trim() || "Reasoning";
@@ -4442,18 +4517,7 @@ async function send() {
     }
 
     if (!writeBackToWorkspace) {
-      const botMsg = addMessage("bot", useStoryCanvas ? "Writing story in canvas..." : "", {
-        storyCanvas: useStoryCanvas,
-        thinkingBlock: true
-      });
-      bubble = botMsg.bubble;
-      storyCanvas = botMsg.storyCanvas;
-      thinkingPanel = botMsg.thinkingPanel;
-      if (!storyCanvas) {
-        bubble.classList.remove("markdown");
-        bubble.classList.add("plain");
-        bubble.textContent = "";
-      }
+      convertTypingRowToBotMessage();
     }
 
     const reader = res.body && res.body.getReader ? res.body.getReader() : null;
@@ -4691,6 +4755,7 @@ async function send() {
     finalizeThinkingPanel(Boolean(partialText), true);
 
     if (isBanOverlayActive) {
+      removeEmptyConvertedBotRow();
       return;
     }
 
@@ -4772,6 +4837,7 @@ async function send() {
     }
 
     if (isLikelyServerDownError(err)) {
+      removeEmptyConvertedBotRow();
       if (writeBackToWorkspace) {
         const unavailableSummary = buildWorkspaceStructuredSummary(
           "Could not complete workspace generation due to connectivity issues.",
@@ -4809,6 +4875,7 @@ async function send() {
       return;
     }
 
+    removeEmptyConvertedBotRow();
     if (writeBackToWorkspace) {
       const errorSummary = buildWorkspaceStructuredSummary(
         "Workspace generation ended with an error.",

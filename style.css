@@ -2635,10 +2635,10 @@ body.settings-compact .attachment-list {
 }
 
 .thinking-block {
-  border: 1px solid #3b2121;
-  border-radius: 12px;
-  background: #140909;
-  overflow: hidden;
+  border: none;
+  border-left: 2px solid #3A2020;
+  background: transparent;
+  padding-left: 12px;
 }
 
 .thinking-block[hidden] {
@@ -2646,16 +2646,16 @@ body.settings-compact .attachment-list {
 }
 
 .thinking-block.is-streaming {
-  border-color: #7a3131;
+  border-left-color: #3A2020;
 }
 
 .thinking-summary {
-  padding: 8px 12px;
+  padding: 4px 0;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
   color: #d8a7a7;
-  background: #1b0d0d;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2709,7 +2709,7 @@ body.settings-compact .attachment-list {
 
 .thinking-body {
   margin: 0;
-  padding: 12px;
+  padding: 8px 0 0;
   max-height: 220px;
   overflow: auto;
   white-space: pre-wrap;
@@ -2717,7 +2717,7 @@ body.settings-compact .attachment-list {
   font-size: 12px;
   line-height: 1.55;
   color: #d9b1b1;
-  border-top: 1px solid #2a1515;
+  border-top: none;
 }
 .avatar {
   width: 28px;
