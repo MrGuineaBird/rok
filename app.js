@@ -3896,7 +3896,11 @@ function addMessage(role, text, options = {}) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
-  avatar.textContent = role === "user" ? "Y" : "R";
+  if (role === "user") {
+    avatar.textContent = "Y";
+  } else {
+    avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+  }
 
   if (typingDots) {
     bubble.appendChild(createTypingDotsElement());
