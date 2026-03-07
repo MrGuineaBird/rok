@@ -2741,6 +2741,13 @@ body.settings-compact .attachment-list {
   border-color: #422424;
 }
 
+.msg.bot .avatar {
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  border: none;
+}
+
 .bubble {
   max-width: min(680px, 88vw);
   padding: 10px 14px;
