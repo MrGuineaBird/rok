@@ -2992,8 +2992,60 @@ body.settings-compact .attachment-list {
   align-items: flex-end;
 }
 
-.attach-btn {
-  white-space: nowrap;
+.composer-toolbox {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.composer-plus-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 500;
+  color: #EACCCC;
+}
+
+.composer-plus-btn.is-open {
+  border-color: #5A3232;
+  background: #211010;
+}
+
+.composer-tray {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  min-width: 124px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid #4F2A2A;
+  background: #170B0B;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 12;
+}
+
+.composer-tray[hidden] {
+  display: none;
+}
+
+.composer-tray-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.composer-tray-btn.is-active {
+  border-color: #754242;
+  background: rgba(209, 75, 75, 0.14);
+  color: #F2D8D8;
 }
 .file-input {
   display: none;
@@ -3493,10 +3545,50 @@ button.stop-mode:hover {
 @media (max-width: 980px) {
   .app {
     grid-template-columns: 1fr;
+    position: relative;
   }
 
   .sidebar {
-    display: none;
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(84vw, 320px);
+    z-index: 125;
+    transform: translateX(-104%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 150ms ease;
+    box-shadow: 24px 0 38px rgba(0, 0, 0, 0.45);
+  }
+
+  .app.sidebar-collapsed .sidebar {
+    padding: 18px 14px;
+    border-right-color: var(--border);
+    overflow-y: auto;
+  }
+
+  .app::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    background: rgba(4, 6, 10, 0.62);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .app.mobile-sidebar-open .sidebar {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .app.mobile-sidebar-open::after {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .workspace-tabs-top {
@@ -3504,7 +3596,11 @@ button.stop-mode:hover {
   }
 
   .sidebar-toggle-btn {
-    display: none;
+    display: inline-flex;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    font-size: 13px;
   }
 
   .home-bg-chat {
@@ -3526,6 +3622,19 @@ button.stop-mode:hover {
   .top-left {
     min-width: 0;
     gap: 8px;
+  }
+
+  #homeScreen .home-nav {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  #homeScreen .home-nav-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .model-switch {

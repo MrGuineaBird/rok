@@ -35,7 +35,11 @@ const workspaceAssistantStyleList = document.getElementById("workspaceAssistantS
 const mainPanel = document.querySelector(".main");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
+const composerToolbox = document.getElementById("composerToolbox");
+const composerPlusBtn = document.getElementById("composerPlusBtn");
+const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
+const webToggleBtn = document.getElementById("webToggleBtn");
 const fileInput = document.getElementById("fileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
@@ -148,6 +152,7 @@ const MODEL_DESCRIPTIONS = {
   "llama3.2-vision": "Vision model for image understanding, screenshots, and visual Q and A."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
+const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
   /^(?:sure|certainly|absolutely|of course|okay|ok|alright|yep|yes|no problem|got it|sounds good)\b[\s,!.:\-]*/i;
@@ -353,9 +358,14 @@ let workspaceAssistantFadeTimer = null;
 let workspaceDocSaveStateTimer = null;
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
+let isMobileLayout = false;
+let isMobileSidebarOpen = false;
+let mobileLayoutMediaQueryList = null;
 let userSettings = { ...DEFAULT_USER_SETTINGS };
 let compactingBarElement = null;
 let compactingBarTimer = null;
+let composerTrayOpen = false;
+let webSearchEnabled = false;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -580,36 +590,37 @@ async function safeReadResponseText(response) {
 function extractTokenFromStreamPayload(payload) {
   const raw = String(payload || "").trim();
   if (!raw) {
-    return { token: "", thinking: "", done: false };
+    return { token: "", thinking: "", status: "", done: false };
   }
   if (raw === "[DONE]") {
-    return { token: "", thinking: "", done: true };
+    return { token: "", thinking: "", status: "", done: true };
   }
   if (raw[0] !== "{") {
-    return { token: raw, thinking: "", done: false };
+    return { token: raw, thinking: "", status: "", done: false };
   }
 
   let parsed = null;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { token: raw, thinking: "", done: false };
+    return { token: raw, thinking: "", status: "", done: false };
   }
   if (!parsed || typeof parsed !== "object") {
-    return { token: "", thinking: "", done: false };
+    return { token: "", thinking: "", status: "", done: false };
   }
 
   const done = Boolean(parsed.done);
   const thinking = typeof parsed.thinking === "string" ? parsed.thinking : "";
+  const status = typeof parsed.status === "string" ? parsed.status : "";
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, done };
+      return { token: value, thinking, status, done };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, thinking, done };
+    return { token: parsed.message.content, thinking, status, done };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -633,14 +644,14 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, thinking, done: done || choiceDone };
+      return { token: joined, thinking, status, done: done || choiceDone };
     }
     if (done || choiceDone) {
-      return { token: "", thinking, done: true };
+      return { token: "", thinking: "", status, done: true };
     }
   }
 
-  return { token: "", thinking, done };
+  return { token: "", thinking, status, done };
 }
 
 function splitThinkingFromText(text = "") {
@@ -1180,25 +1191,90 @@ function saveSidebarCollapsedToStorage(collapsed) {
   }
 }
 
+function isMobileLayoutViewport() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches;
+}
+
+function setSidebarToggleButtonState() {
+  if (!sidebarToggleBtn) return;
+  const icon = sidebarToggleBtn.querySelector("span");
+
+  if (isMobileLayout) {
+    const isExpanded = isMobileSidebarOpen;
+    const label = isExpanded ? "Close menu" : "Open menu";
+    const iconText = isExpanded ? "x" : "=";
+    sidebarToggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    sidebarToggleBtn.setAttribute("aria-label", label);
+    sidebarToggleBtn.title = label;
+    if (icon instanceof HTMLElement) {
+      icon.textContent = iconText;
+    } else {
+      sidebarToggleBtn.textContent = iconText;
+    }
+    return;
+  }
+
+  const isExpanded = !isSidebarCollapsed;
+  const label = isExpanded ? "Collapse left panel" : "Expand left panel";
+  sidebarToggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+  sidebarToggleBtn.setAttribute("aria-label", label);
+  sidebarToggleBtn.title = label;
+  if (icon instanceof HTMLElement) {
+    icon.textContent = isExpanded ? "<" : ">";
+  } else {
+    sidebarToggleBtn.textContent = isExpanded ? "<" : ">";
+  }
+}
+
+function applyMobileSidebarState(open) {
+  isMobileSidebarOpen = Boolean(open);
+  if (appRoot) {
+    appRoot.classList.toggle("mobile-sidebar-open", isMobileLayout && isMobileSidebarOpen);
+  }
+  setSidebarToggleButtonState();
+}
+
+function closeMobileSidebarIfNeeded() {
+  if (!isMobileLayout || !isMobileSidebarOpen) return;
+  applyMobileSidebarState(false);
+}
+
+function syncLayoutForViewport() {
+  const nextIsMobile = isMobileLayoutViewport();
+  if (nextIsMobile !== isMobileLayout) {
+    isMobileLayout = nextIsMobile;
+    if (isMobileLayout) {
+      if (appRoot) {
+        appRoot.classList.remove("sidebar-collapsed");
+      }
+      applyMobileSidebarState(false);
+      return;
+    }
+    applyMobileSidebarState(false);
+    applySidebarCollapsedState(isSidebarCollapsed, { persist: false });
+    return;
+  }
+
+  if (appRoot && !isMobileLayout) {
+    appRoot.classList.remove("mobile-sidebar-open");
+  }
+  setSidebarToggleButtonState();
+}
+
 function applySidebarCollapsedState(collapsed, options = {}) {
   const { persist = true } = options;
   isSidebarCollapsed = Boolean(collapsed);
   if (appRoot) {
-    appRoot.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
-  }
-  if (sidebarToggleBtn) {
-    const isExpanded = !isSidebarCollapsed;
-    const label = isExpanded ? "Collapse left panel" : "Expand left panel";
-    sidebarToggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
-    sidebarToggleBtn.setAttribute("aria-label", label);
-    sidebarToggleBtn.title = label;
-    const icon = sidebarToggleBtn.querySelector("span");
-    if (icon instanceof HTMLElement) {
-      icon.textContent = isExpanded ? "<" : ">";
+    if (isMobileLayout) {
+      appRoot.classList.remove("sidebar-collapsed");
     } else {
-      sidebarToggleBtn.textContent = isExpanded ? "<" : ">";
+      appRoot.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
     }
   }
+  setSidebarToggleButtonState();
   if (persist) {
     saveSidebarCollapsedToStorage(isSidebarCollapsed);
   }
@@ -1207,6 +1283,7 @@ function applySidebarCollapsedState(collapsed, options = {}) {
 function showHomeScreen() {
   storeWorkspaceDraftsFromWindows();
   flushPendingWorkspaceSave();
+  closeMobileSidebarIfNeeded();
   wasWorkspaceTabActive = false;
   hideServerDownScreen();
   startHomeDemoRotation();
@@ -1249,6 +1326,7 @@ function showHomeScreen() {
 function hideHomeScreen() {
   stopHomeDemoRotation();
   stopHomeWorkspacePreview();
+  closeMobileSidebarIfNeeded();
   if (homeScreen) {
     homeScreen.hidden = true;
   }
@@ -2596,6 +2674,7 @@ function setActiveWorkspaceTab(tab, options = {}) {
   const { focus = true } = options;
   if (!WORKSPACE_TAB_KEYS.includes(tab) || !currentSessionId) return;
 
+  closeMobileSidebarIfNeeded();
   storeWorkspaceDraftsFromWindows();
   const current = getWorkspaceCurrentSession();
   if (!current) return;
@@ -3323,6 +3402,7 @@ function openSession(sessionId, options = {}) {
   if (!skipWorkspaceFlush) {
     flushPendingWorkspaceSave();
   }
+  closeMobileSidebarIfNeeded();
   const target = getSessionById(sessionId);
   if (!target) return;
   ensureSessionWorkspace(target);
@@ -3384,6 +3464,7 @@ function startNewSession(showNotice) {
   }
 
   flushPendingWorkspaceSave();
+  closeMobileSidebarIfNeeded();
   const next = createSession([]);
   sessions.unshift(next);
   sortSessionsByRecent();
@@ -4007,19 +4088,48 @@ function updateCooldownUI() {
   return true;
 }
 
+function setComposerTrayOpen(nextOpen) {
+  const open = Boolean(nextOpen);
+  composerTrayOpen = open;
+  if (composerTray) {
+    composerTray.hidden = !open;
+  }
+  if (composerPlusBtn) {
+    composerPlusBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    composerPlusBtn.classList.toggle("is-open", open);
+  }
+}
+
+function setWebSearchEnabled(nextEnabled) {
+  webSearchEnabled = Boolean(nextEnabled);
+  if (!webToggleBtn) return;
+  webToggleBtn.setAttribute("aria-pressed", webSearchEnabled ? "true" : "false");
+  webToggleBtn.classList.toggle("is-active", webSearchEnabled);
+  webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
+}
+
 function refreshSendState() {
   const cooldownActive = Date.now() < nextAllowedAt;
   const uiLocked = isSending || isIntentClassificationLoading;
   updateSendButtonUI(cooldownActive);
 
+  if (composerPlusBtn) {
+    composerPlusBtn.disabled = uiLocked;
+  }
   if (attachBtn) {
     attachBtn.disabled = uiLocked;
+  }
+  if (webToggleBtn) {
+    webToggleBtn.disabled = uiLocked;
   }
   if (fileInput) {
     fileInput.disabled = uiLocked;
   }
   if (modelSelect) {
     modelSelect.disabled = uiLocked;
+  }
+  if (uiLocked) {
+    setComposerTrayOpen(false);
   }
 
   if (cooldownActive) {
@@ -4342,9 +4452,23 @@ async function send() {
     thinkingPanel.body.textContent = thinkingText.trim();
     scrollToBottom();
   };
+  const handleStatusUpdate = (status) => {
+    const value = String(status || "").trim();
+    if (!value) return;
+    if (writeBackToWorkspace) return;
+    convertTypingRowToBotMessage();
+    if (!thinkingPanel) return;
+    thinkingPanel.shell.hidden = false;
+    thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
+    setThinkingSummaryLabel(value);
+    scrollToBottom();
+  };
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
+    if (thinkingPanel && !thinkingText.trim()) {
+      setThinkingSummaryLabel("Thinking...");
+    }
     removeTypingIndicator();
     finalizeThinkingPanel(true);
   };
@@ -4479,18 +4603,22 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
+    const requestBody = {
+      message: messageForApi,
+      workspace_context: workspaceContext,
+      attachments: attachmentsPayload,
+      history: recentHistory,
+      model: sessionModel,
+      max_tokens: clientLimits.maxResponseTokens
+    };
+    if (webSearchEnabled) {
+      requestBody.enable_web_search = true;
+    }
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: activeRequestController.signal,
-      body: JSON.stringify({
-        message: messageForApi,
-        workspace_context: workspaceContext,
-        attachments: attachmentsPayload,
-        history: recentHistory,
-        model: sessionModel,
-        max_tokens: clientLimits.maxResponseTokens
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -4636,6 +4764,9 @@ async function send() {
             streamEnded = true;
             return;
           }
+          if (parsedPayload.status) {
+            handleStatusUpdate(parsedPayload.status);
+          }
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
           }
@@ -4658,6 +4789,9 @@ async function send() {
           continue;
         }
         const parsedPayload = extractTokenFromStreamPayload(line);
+        if (parsedPayload.status) {
+          handleStatusUpdate(parsedPayload.status);
+        }
         if (parsedPayload.thinking) {
           handleThinking(parsedPayload.thinking);
         }
@@ -4679,6 +4813,9 @@ async function send() {
         return;
       }
       const parsedPayload = extractTokenFromStreamPayload(remainder);
+      if (parsedPayload.status) {
+        handleStatusUpdate(parsedPayload.status);
+      }
       if (parsedPayload.thinking) {
         handleThinking(parsedPayload.thinking);
       }
@@ -4943,9 +5080,27 @@ sendBtn.addEventListener("click", () => {
   send();
 });
 
+if (composerPlusBtn) {
+  composerPlusBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setComposerTrayOpen(!composerTrayOpen);
+  });
+}
+
 if (attachBtn && fileInput) {
-  attachBtn.addEventListener("click", () => fileInput.click());
+  attachBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setComposerTrayOpen(false);
+    fileInput.click();
+  });
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
+}
+
+if (webToggleBtn) {
+  webToggleBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setWebSearchEnabled(!webSearchEnabled);
+  });
 }
 
 if (attachmentList) {
@@ -5228,9 +5383,36 @@ bindWorkspaceTabClickEvents(workspaceSidebarTabs);
 
 if (sidebarToggleBtn) {
   sidebarToggleBtn.addEventListener("click", () => {
+    if (isMobileLayout) {
+      applyMobileSidebarState(!isMobileSidebarOpen);
+      return;
+    }
     applySidebarCollapsedState(!isSidebarCollapsed);
   });
 }
+
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target;
+  if (composerTrayOpen && target instanceof Node) {
+    if (!composerToolbox || !composerToolbox.contains(target)) {
+      setComposerTrayOpen(false);
+    }
+  }
+
+  if (!isMobileLayout || !isMobileSidebarOpen) return;
+  if (!(target instanceof Node)) return;
+  if (sidebar && sidebar.contains(target)) return;
+  if (sidebarToggleBtn && sidebarToggleBtn.contains(target)) return;
+  applyMobileSidebarState(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (composerTrayOpen) {
+    setComposerTrayOpen(false);
+  }
+  closeMobileSidebarIfNeeded();
+});
 
 if (serverDownRetryBtn) {
   serverDownRetryBtn.addEventListener("click", () => {
@@ -5264,6 +5446,8 @@ if (homeStartBtn) {
 }
 
 autoResizeInput();
+setComposerTrayOpen(false);
+setWebSearchEnabled(false);
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
@@ -5275,6 +5459,15 @@ bootstrapServerSession();
 refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
 applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  mobileLayoutMediaQueryList = window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY);
+  if (typeof mobileLayoutMediaQueryList.addEventListener === "function") {
+    mobileLayoutMediaQueryList.addEventListener("change", syncLayoutForViewport);
+  } else if (typeof mobileLayoutMediaQueryList.addListener === "function") {
+    mobileLayoutMediaQueryList.addListener(syncLayoutForViewport);
+  }
+}
+syncLayoutForViewport();
 showHomeScreen();
 
 

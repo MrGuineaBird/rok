@@ -277,7 +277,22 @@ Change Scope: Short</p>
       <div class="composer-wrap">
         <div class="composer">
           <textarea id="input" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
-          <button id="attachBtn" class="ghost attach-btn" type="button">Attach</button>
+          <div id="composerToolbox" class="composer-toolbox">
+            <button
+              id="composerPlusBtn"
+              class="ghost composer-plus-btn"
+              type="button"
+              aria-label="Open composer tools"
+              aria-expanded="false"
+              aria-controls="composerTray"
+            >
+              +
+            </button>
+            <div id="composerTray" class="composer-tray" hidden>
+              <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
+              <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
+            </div>
+          </div>
           <button id="sendBtn" type="button">Send</button>
         </div>
         <input
