@@ -903,7 +903,8 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
         message: prompt,
         history: [],
         model: modelId || getCurrentSessionModel(),
-        max_tokens: 24
+        max_tokens: 24,
+        skip_tools: true
       })
     });
     return normalizeThinkingTitle(await readChatTextResponse(res));
