@@ -3403,9 +3403,16 @@ function buildChatWelcomeElement() {
   wrapper.className = "chat-welcome";
   wrapper.hidden = true;
   wrapper.innerHTML = `
-    <div class="chat-welcome-card">
-      <div class="chat-welcome-title">Welcome to ROK</div>
+    <div class="chat-welcome-content" role="presentation">
+      <img src="roklogo.png" alt="" class="chat-welcome-logo" />
+      <div class="chat-welcome-title">What can I help with?</div>
       <div class="chat-welcome-subtitle">Ask a question, drop a file, or paste text to get started.</div>
+      <div class="chat-welcome-chips" aria-hidden="true">
+        <button class="chat-welcome-chip" type="button">Write</button>
+        <button class="chat-welcome-chip" type="button">Code</button>
+        <button class="chat-welcome-chip" type="button">Think</button>
+        <button class="chat-welcome-chip" type="button">Summarize</button>
+      </div>
     </div>
   `;
   return wrapper;

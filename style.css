@@ -966,36 +966,69 @@ body.settings-compact .attachment-list {
 
 .chat-welcome {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: min(520px, 90vw);
   text-align: center;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-.chat-welcome-card {
-  max-width: 420px;
-  padding: 18px 22px;
-  border-radius: 16px;
-  border: 1px solid #3b2222;
-  background: rgba(17, 9, 9, 0.68);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+.chat-welcome-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-welcome-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.4));
 }
 
 .chat-welcome-title {
   font-size: 20px;
   font-weight: 700;
   color: #f4dcdc;
-  margin-bottom: 6px;
+  margin: 0;
 }
 
 .chat-welcome-subtitle {
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #bfa3a3;
+  margin: 0;
 }
+
+.chat-welcome-chips {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.chat-welcome-chip {
+  border: 1px solid #3f2323;
+  background: rgba(13, 20, 29, 0.6);
+  color: #e0bcbc;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.chat-welcome-chip:hover,
+.chat-welcome-chip:focus-visible {
+  border-color: #6b3a3a;
+  background: rgba(17, 26, 36, 0.72);
+  color: #f0d0d0;
+  outline: none;
+}
+
 
 .main.workspace-mode .chat {
   display: none !important;
@@ -3381,6 +3414,10 @@ body.settings-compact .attachment-list {
   z-index: 6;
   padding: 0;
   border: 0;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #homeScreen .hs-nav-brand {
@@ -3402,6 +3439,9 @@ body.settings-compact .attachment-list {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 #homeScreen .hs-nav-link {
@@ -3423,6 +3463,44 @@ body.settings-compact .attachment-list {
 #homeScreen .hs-nav-link:hover {
   background: rgba(15, 24, 35, 0.84);
   border-color: #664040;
+}
+
+@media (max-width: 720px) {
+  #homeScreen .hs-nav {
+    justify-content: center;
+  }
+
+  #homeScreen .hs-nav-links {
+    justify-content: center;
+  }
+
+  #homeScreen .hs-nav-link {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  #homeScreen .hs-nav {
+    align-items: center;
+    justify-content: center;
+    row-gap: 6px;
+  }
+
+  #homeScreen .hs-nav-brand,
+  #homeScreen .hs-nav-links {
+    flex: 1 1 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  #homeScreen .hs-nav-links {
+    gap: 6px;
+  }
+
+  #homeScreen .hs-nav-logo {
+    height: clamp(32px, 8vw, 44px);
+  }
 }
 
 #homeScreen .hs-hero {
