@@ -65,7 +65,9 @@
       </header>
 
       <section id="homeScreen" class="home-screen" hidden>
-        <div class="home-bg-demo" aria-hidden="true">
+
+        <!-- hidden demo elements kept for JS hooks -->
+        <div class="home-bg-demo" aria-hidden="true" style="display:none;">
           <div class="home-bg-chat">
             <div class="home-bg-line user">
               <div class="home-bg-chip">You</div>
@@ -76,84 +78,70 @@
             <div class="home-bg-line bot">
               <div class="home-bg-chip">ROK</div>
               <div class="home-bg-bubble">
-                <span id="homeDemoReply" class="home-bg-type home-bg-type-bot">Absolutely. Here is a quick summary and five flashcards with questions and answers.</span>
+                <span id="homeDemoReply" class="home-bg-type home-bg-type-bot">Here is a quick summary and five flashcards.</span>
               </div>
             </div>
             <div class="home-bg-line bot cards">
               <div class="home-bg-chip">ROK</div>
               <div class="home-bg-bubble home-bg-cards-bubble">
                 <div class="home-bg-gen-line">Generating flashcards...</div>
-                <div id="homeDemoCards" class="home-bg-cards">
-                  <div class="home-bg-card"><strong>1.</strong> What event started WWI?</div>
-                  <div class="home-bg-card"><strong>2.</strong> Which alliances shaped the war?</div>
-                  <div class="home-bg-card"><strong>3.</strong> Define trench warfare.</div>
-                  <div class="home-bg-card"><strong>4.</strong> Why did the U.S. join?</div>
-                  <div class="home-bg-card"><strong>5.</strong> Main outcomes of the Treaty?</div>
-                </div>
+                <div id="homeDemoCards" class="home-bg-cards"></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="home-nav" aria-label="Home navigation">
-          <button class="home-nav-brand" type="button" aria-label="ROK Home">
-            <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+
+        <!-- top nav -->
+        <nav class="hs-nav" aria-label="Home navigation">
+          <button class="hs-nav-brand" type="button" aria-label="ROK Home">
+            <img src="roklogo.png" alt="ROK" class="hs-nav-logo" />
           </button>
-          <div class="home-nav-links">
-            <a class="home-nav-link" href="docs.html">Docs</a>
-            <a class="home-nav-link" href="about.html">About</a>
-            <a class="home-nav-link" href="settings.html">Settings</a>
+          <div class="hs-nav-links">
+            <a class="hs-nav-link" href="docs.html">Docs</a>
+            <a class="hs-nav-link" href="about.html">About</a>
+            <a class="hs-nav-link" href="settings.html">Settings</a>
+          </div>
+        </nav>
+
+        <!-- hero -->
+        <div class="hs-hero">
+          <div class="hs-kicker">Private · Local · Yours</div>
+
+          <h1 class="hs-title">
+            <span class="hs-title-rok">ROK</span>
+            <span class="hs-title-tag">Solid Answers</span>
+          </h1>
+
+          <p class="hs-sub">Your own private AI model</p>
+
+          <button id="homeStartBtn" class="hs-cta" type="button">
+            Start chatting
+            <span class="hs-cta-arrow">→</span>
+          </button>
+
+          <div class="hs-pills">
+            <span class="home-prompt-pill">Summarize this error log</span>
+            <span class="home-prompt-pill">Explain this code snippet</span>
+            <span class="home-prompt-pill">Turn this into flashcards</span>
+            <span class="home-prompt-pill">Help me with my homework</span>
           </div>
         </div>
-        <div class="home-card">
-          <div class="home-top">
-            <div class="home-subtitle">Private local AI workspace</div>
+
+        <!-- footer -->
+        <footer class="hs-footer">
+          <div class="hs-footer-copy">© ROK AI 2026</div>
+          <div class="hs-footer-links">
+            <button class="hs-footer-link" type="button" data-legal="terms">Terms</button>
+            <span>·</span>
+            <button class="hs-footer-link" type="button" data-legal="privacy">Privacy</button>
+            <span>·</span>
+            <button class="hs-footer-link" type="button" data-legal="credits">Credits</button>
           </div>
-          <div class="home-middle">
-            <h1>Build, learn, and ship faster</h1>
-            <p>ROK is your private local AI workspace, running on your own machine.</p>
-            <button id="homeStartBtn" class="home-cta" type="button">Start chatting</button>
-            <div class="home-prompt-row">
-              <span class="home-prompt-pill">Summarize this error log</span>
-              <span class="home-prompt-pill">Explain this code snippet</span>
-              <span class="home-prompt-pill">Turn this into flashcards</span>
-            </div>
-          </div>
-          <section id="homeWorkspacePreview" class="home-preview is-hidden-preview" aria-live="polite">
-            <h2 class="home-preview-title">Workspace Preview</h2>
-            <div class="home-preview-shell">
-              <div class="home-preview-side" aria-hidden="true">
-                <div class="home-preview-side-item">ROK Workspace</div>
-                <div class="home-preview-side-item">Assistant Notes</div>
-                <div class="home-preview-side-item">Model: Mistral</div>
-              </div>
-              <div class="home-preview-main">
-                <div class="home-preview-toolbar" aria-hidden="true">
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-dot"></span>
-                  <span class="home-preview-toolbar-title">Live draft</span>
-                </div>
-                <div class="home-preview-example">
-                  <div class="home-preview-example-line" data-preview-line="Prompt: Summarize this error log in five bullets."></div>
-                  <div class="home-preview-example-line" data-preview-line="ROK: Found 3 root causes and 2 quick fixes."></div>
-                  <div class="home-preview-example-line" data-preview-line="Action: Added a cleaner workspace-ready draft below."></div>
-                </div>
-              </div>
-            </div>
-          </section>
-          <div class="home-bottom">
-            <div class="home-copyright-row">
-              <div class="home-copyright">Copyright ROK AI 2026. All rights reserved.</div>
-              <div class="home-legal-links">
-                <button class="home-legal-link" type="button" data-legal="terms">Terms of Service</button>
-                <span class="home-legal-sep">•</span>
-                <button class="home-legal-link" type="button" data-legal="privacy">Privacy Policy</button>
-                <span class="home-legal-sep">•</span>
-                <button class="home-legal-link" type="button" data-legal="credits">Credits</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </footer>
+
+        <!-- hidden workspace preview for JS -->
+        <section id="homeWorkspacePreview" class="home-preview is-hidden-preview" aria-live="polite" hidden></section>
+
       </section>
 
       <nav id="workspaceTabs" class="workspace-tabs workspace-tabs-top" hidden aria-label="Workspace tabs">
@@ -291,6 +279,10 @@ Change Scope: Short</p>
             <div id="composerTray" class="composer-tray" hidden>
               <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
               <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
+              <button id="lightningToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false" title="Lightning mode: faster replies with less reasoning">
+                <span class="lightning-icon is-outline" aria-hidden="true">⚡</span>
+                <span class="lightning-label">Lightning</span>
+              </button>
             </div>
           </div>
           <button id="sendBtn" type="button">Send</button>

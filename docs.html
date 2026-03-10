@@ -207,7 +207,7 @@
           <div class="docs-block" data-api-example="js">
             <h3 class="docs-block-title">JavaScript Example (with built-in token parser)</h3>
             <pre><code>async function runRokChat() {
-  const apiBase = window.location.origin || "http://127.0.0.1:5000";
+  const apiBase = "https://rokapi.kyklos.online";
   const apiKey = "YOUR_ISSUED_API_KEY_HERE";
 
   const response = await fetch(`${apiBase}/api/chat`, {
@@ -285,7 +285,7 @@ runRokChat()
             <pre><code>import json
 import requests
 
-API_BASE = "http://127.0.0.1:5000"
+API_BASE = "https://rokapi.kyklos.online"
 API_KEY = "YOUR_ISSUED_API_KEY_HERE"
 
 headers = {
@@ -337,14 +337,14 @@ with requests.post(
 
           <div class="docs-block" data-api-example="curl" hidden>
             <h3 class="docs-block-title">cURL Example (raw stream)</h3>
-            <pre><code>curl -N -X POST "http://127.0.0.1:5000/api/chat" ^
+            <pre><code>curl -N -X POST "https://rokapi.kyklos.online/api/chat" ^
   -H "Content-Type: application/json" ^
   -H "Accept: text/event-stream" ^
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" ^
   -d "{\"message\":\"Summarize this in 3 bullets.\",\"history\":[]}"
 
 # macOS/Linux line-continuation version:
-curl -N -X POST "http://127.0.0.1:5000/api/chat" \
+curl -N -X POST "https://rokapi.kyklos.online/api/chat" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" \
@@ -429,6 +429,5 @@ curl -N -X POST "http://127.0.0.1:5000/api/chat" \
   </script>
 </body>
 </html>
-
 
 

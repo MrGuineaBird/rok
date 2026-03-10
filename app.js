@@ -40,6 +40,9 @@ const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
+const lightningToggleBtn = document.getElementById("lightningToggleBtn");
+const lightningToggleIcon = lightningToggleBtn ? lightningToggleBtn.querySelector(".lightning-icon") : null;
+const lightningToggleLabel = lightningToggleBtn ? lightningToggleBtn.querySelector(".lightning-label") : null;
 const fileInput = document.getElementById("fileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
@@ -117,6 +120,7 @@ const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
 const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
+const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
@@ -366,6 +370,7 @@ let compactingBarElement = null;
 let compactingBarTimer = null;
 let composerTrayOpen = false;
 let webSearchEnabled = false;
+let lightning_mode = false;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -904,7 +909,8 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
         history: [],
         model: modelId || getCurrentSessionModel(),
         max_tokens: 24,
-        skip_tools: true
+        skip_tools: true,
+        enable_thinking: !lightning_mode
       })
     });
     return normalizeThinkingTitle(await readChatTextResponse(res));
@@ -957,6 +963,22 @@ function saveLastModelToStorage(modelId) {
       return;
     }
     localStorage.setItem(LOCAL_LAST_MODEL_KEY, normalized);
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function loadLightningModeFromStorage() {
+  try {
+    return localStorage.getItem(LOCAL_LIGHTNING_MODE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveLightningModeToStorage(enabled) {
+  try {
+    localStorage.setItem(LOCAL_LIGHTNING_MODE_KEY, enabled ? "1" : "0");
   } catch {
     // Ignore storage write failures.
   }
@@ -2501,7 +2523,12 @@ async function requestWorkspaceSuggestions() {
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
-      body: JSON.stringify({ message: prompt, history: [], model: sessionModel })
+      body: JSON.stringify({
+        message: prompt,
+        history: [],
+        model: sessionModel,
+        enable_thinking: !lightning_mode
+      })
     });
     if (!res.ok) {
       throw new Error("Failed to generate suggestions.");
@@ -3370,9 +3397,43 @@ function resetChatRuntimeState() {
   refreshSendState();
 }
 
+function buildChatWelcomeElement() {
+  const wrapper = document.createElement("div");
+  wrapper.id = "chatWelcome";
+  wrapper.className = "chat-welcome";
+  wrapper.hidden = true;
+  wrapper.innerHTML = `
+    <div class="chat-welcome-card">
+      <div class="chat-welcome-title">Welcome to ROK</div>
+      <div class="chat-welcome-subtitle">Ask a question, drop a file, or paste text to get started.</div>
+    </div>
+  `;
+  return wrapper;
+}
+
+function ensureChatWelcomeElement() {
+  if (!chat) return null;
+  let welcome = document.getElementById("chatWelcome");
+  if (!welcome) {
+    welcome = buildChatWelcomeElement();
+  }
+  if (!welcome.isConnected) {
+    chat.appendChild(welcome);
+  }
+  return welcome;
+}
+
+function updateChatWelcomeVisibility() {
+  const welcome = ensureChatWelcomeElement();
+  if (!welcome) return;
+  const hasConversation = Boolean(chat.querySelector(".msg.user, .msg.bot"));
+  welcome.hidden = hasConversation;
+}
+
 function renderConversation(messages) {
   chat.innerHTML = "";
   history.length = 0;
+  ensureChatWelcomeElement();
 
   const safeMessages = sanitizeMessages(messages);
   for (const item of safeMessages) {
@@ -3391,6 +3452,7 @@ function renderConversation(messages) {
   }
 
   hasShownReadyMessage = safeMessages.length > 0;
+  updateChatWelcomeVisibility();
 }
 
 function openSession(sessionId, options = {}) {
@@ -3973,6 +4035,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(bubble);
     chat.appendChild(row);
     scrollToBottom();
+    updateChatWelcomeVisibility();
     return { row, bubble, storyCanvas: null, thinkingPanel: null };
   }
 
@@ -3990,6 +4053,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(bubble);
     chat.appendChild(row);
     scrollToBottom();
+    updateChatWelcomeVisibility();
     return { row, bubble, storyCanvas: null, thinkingPanel: null };
   }
 
@@ -4003,6 +4067,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(stack);
     chat.appendChild(row);
     scrollToBottom();
+    updateChatWelcomeVisibility();
     return { row, bubble: mounted.bubble, storyCanvas: mounted.storyCanvas, thinkingPanel: mounted.thinkingPanel };
   }
 
@@ -4016,6 +4081,7 @@ function addMessage(role, text, options = {}) {
 
   chat.appendChild(row);
   scrollToBottom();
+  updateChatWelcomeVisibility();
   return { row, bubble, storyCanvas: null, thinkingPanel: null };
 }
 
@@ -4109,6 +4175,33 @@ function setWebSearchEnabled(nextEnabled) {
   webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
 }
 
+function setLightningModeEnabled(nextEnabled, options = {}) {
+  const { animate = true } = options;
+  const wasEnabled = lightning_mode;
+  lightning_mode = Boolean(nextEnabled);
+  saveLightningModeToStorage(lightning_mode);
+  if (!lightningToggleBtn) return;
+  lightningToggleBtn.setAttribute("aria-pressed", lightning_mode ? "true" : "false");
+  lightningToggleBtn.classList.toggle("is-active", lightning_mode);
+  if (lightningToggleLabel) {
+    lightningToggleLabel.textContent = lightning_mode ? "Lightning On" : "Lightning Off";
+  } else {
+    lightningToggleBtn.textContent = lightning_mode ? "⚡ Lightning On" : "⚡ Lightning Off";
+  }
+  if (lightningToggleIcon) {
+    lightningToggleIcon.classList.toggle("is-filled", lightning_mode);
+    lightningToggleIcon.classList.toggle("is-outline", !lightning_mode);
+    if (lightning_mode && !wasEnabled && animate) {
+      lightningToggleIcon.classList.remove("is-spinning");
+      // Force reflow so the animation retriggers on consecutive enables.
+      void lightningToggleIcon.offsetWidth;
+      lightningToggleIcon.classList.add("is-spinning");
+    } else if (!lightning_mode) {
+      lightningToggleIcon.classList.remove("is-spinning");
+    }
+  }
+}
+
 function refreshSendState() {
   const cooldownActive = Date.now() < nextAllowedAt;
   const uiLocked = isSending || isIntentClassificationLoading;
@@ -4122,6 +4215,9 @@ function refreshSendState() {
   }
   if (webToggleBtn) {
     webToggleBtn.disabled = uiLocked;
+  }
+  if (lightningToggleBtn) {
+    lightningToggleBtn.disabled = uiLocked;
   }
   if (fileInput) {
     fileInput.disabled = uiLocked;
@@ -4158,6 +4254,7 @@ function startCooldownTimer() {
 function clearChat(showNotice) {
   hideCompactingBar();
   chat.innerHTML = "";
+  ensureChatWelcomeElement();
   history.length = 0;
   clearAttachments();
   nextAllowedAt = 0;
@@ -4173,6 +4270,7 @@ function clearChat(showNotice) {
     addMessage("system", "New chat started.");
   }
   syncCurrentSessionFromHistory();
+  updateChatWelcomeVisibility();
 }
 
 function typeIn(bubble, fullText) {
@@ -4610,7 +4708,8 @@ async function send() {
       attachments: attachmentsPayload,
       history: recentHistory,
       model: sessionModel,
-      max_tokens: clientLimits.maxResponseTokens
+      max_tokens: clientLimits.maxResponseTokens,
+      enable_thinking: !lightning_mode
     };
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -5104,6 +5203,21 @@ if (webToggleBtn) {
   });
 }
 
+if (lightningToggleBtn) {
+  lightningToggleBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setLightningModeEnabled(!lightning_mode);
+  });
+}
+
+if (lightningToggleIcon) {
+  lightningToggleIcon.addEventListener("animationend", (event) => {
+    if (event.animationName === "lightning-spin") {
+      lightningToggleIcon.classList.remove("is-spinning");
+    }
+  });
+}
+
 if (attachmentList) {
   attachmentList.addEventListener("click", (e) => {
     const target = e.target;
@@ -5449,6 +5563,7 @@ if (homeStartBtn) {
 autoResizeInput();
 setComposerTrayOpen(false);
 setWebSearchEnabled(false);
+setLightningModeEnabled(loadLightningModeFromStorage(), { animate: false });
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
