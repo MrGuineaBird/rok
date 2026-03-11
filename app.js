@@ -99,7 +99,6 @@ const homeDemoReply = document.getElementById("homeDemoReply");
 const homeDemoCards = document.getElementById("homeDemoCards");
 const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
-document.cookie = "ngrok-skip-browser-warning=true; path=/; SameSite=None; Secure";
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
 const runtimeApiBase =
