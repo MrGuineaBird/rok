@@ -5396,6 +5396,22 @@ button.stop-mode:hover {
   min-height: 0;
 }
 
+/* Discreet standalone link */
+.math-standalone-link {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 18;
+  font-size: 11px;
+  color: rgba(180, 180, 180, 0.55);
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: color 0.12s ease;
+}
+.math-standalone-link:hover {
+  color: rgba(230, 230, 230, 0.85);
+}
+
 /* Secret "rok" button - small, subtle, bottom-right corner */
 .math-chat-toggle-btn {
   position: absolute;
