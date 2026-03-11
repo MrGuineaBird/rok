@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="style.css?v=home86" />
+  <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
 </head>
 <body>
   <div class="app">
@@ -25,6 +26,7 @@
           <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
           <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
           <button class="workspace-tab" type="button" data-workspace-tab="model" role="tab" aria-selected="false">Model</button>
+          <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
         </nav>
       </div>
 
@@ -148,6 +150,7 @@
         <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
         <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
         <button class="workspace-tab" type="button" data-workspace-tab="model" role="tab" aria-selected="false">MODEL</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
       </nav>
 
       <section id="workspacePanel" class="workspace-panel" hidden data-tab="chat">
@@ -258,6 +261,30 @@ Change Scope: Short</p>
           <div id="modelPanelCurrent" class="model-panel-current">Current model: ROK Balanced (Mistral)</div>
           <div id="modelOptionList" class="model-option-list" role="radiogroup" aria-label="Available models"></div>
         </div>
+      </section>
+      <section id="mathPanel" class="math-panel" hidden>
+
+        <!-- Desmos embed -->
+        <div id="desmosContainer" class="desmos-container"></div>
+
+        <!-- Secret chat button -->
+        <button id="mathChatToggleBtn" class="math-chat-toggle-btn" type="button" title="Ask ROK">
+          <span>rok</span>
+        </button>
+
+        <!-- Sliding chat drawer -->
+        <div id="mathChatDrawer" class="math-chat-drawer" hidden>
+          <div class="math-chat-drawer-header">
+            <span class="math-chat-drawer-title">Ask ROK Math</span>
+            <button id="mathChatCloseBtn" class="math-chat-close-btn" type="button">&times;</button>
+          </div>
+          <div id="mathChatMessages" class="math-chat-messages"></div>
+          <div class="math-chat-input-row">
+            <input id="mathChatInput" class="math-chat-input" type="text" placeholder="Ask a math question or type an equation..." autocomplete="off" />
+            <button id="mathChatSendBtn" class="math-chat-send-btn" type="button">Ask</button>
+          </div>
+        </div>
+
       </section>
 
       <main id="chat" class="chat"></main>

@@ -3,6 +3,13 @@ const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const modelPanel = document.getElementById("modelPanel");
+const mathPanel = document.getElementById("mathPanel");
+const mathChatToggleBtn = document.getElementById("mathChatToggleBtn");
+const mathChatDrawer = document.getElementById("mathChatDrawer");
+const mathChatCloseBtn = document.getElementById("mathChatCloseBtn");
+const mathChatMessages = document.getElementById("mathChatMessages");
+const mathChatInput = document.getElementById("mathChatInput");
+const mathChatSendBtn = document.getElementById("mathChatSendBtn");
 const workspacePanelTitle = document.getElementById("workspacePanelTitle");
 const workspaceEditor = document.getElementById("workspaceEditor");
 const workspaceDocWordCount = document.getElementById("workspaceDocWordCount");
@@ -155,7 +162,7 @@ const MODEL_DESCRIPTIONS = {
   "qwen3:14b": "More thorough responses for longer writing and refinement.",
   "llama3.2-vision": "Vision model for image understanding, screenshots, and visual Q and A."
 };
-const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model"];
+const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
@@ -365,6 +372,8 @@ let isSidebarCollapsed = false;
 let isMobileLayout = false;
 let isMobileSidebarOpen = false;
 let mobileLayoutMediaQueryList = null;
+let desmosCalculator = null;
+let isMathChatDrawerOpen = false;
 let userSettings = { ...DEFAULT_USER_SETTINGS };
 let compactingBarElement = null;
 let compactingBarTimer = null;
@@ -2630,6 +2639,24 @@ async function requestWorkspaceSuggestions() {
   }
 }
 
+function initDesmosIfNeeded() {
+  if (desmosCalculator) return;
+  const container = document.getElementById("desmosContainer");
+  if (!container || typeof Desmos === "undefined") return;
+  desmosCalculator = Desmos.GraphingCalculator(container, {
+    keypad: false,
+    expressions: true,
+    settingsMenu: false,
+    zoomButtons: true,
+    border: false,
+    backgroundColor: "#0d0f14",
+    textColor: "#f3ecec",
+    axisColor: "#3a1f24",
+    gridColor: "#1e2530",
+    defaultViewport: { xmin: -10, xmax: 10, ymin: -10, ymax: 10 }
+  });
+}
+
 function renderWorkspaceUI(options = {}) {
   const { focus = false } = options;
   if (!workspacePanel || !chat || !composerWrap) return;
@@ -2642,6 +2669,7 @@ function renderWorkspaceUI(options = {}) {
   const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
   const isWorkspaceTab = activeTab === "workspace";
   const isModelTab = activeTab === "model";
+  const isMathTab = activeTab === "math";
 
   if (mainPanel) {
     mainPanel.classList.toggle("workspace-mode", activeTab !== "chat");
@@ -2654,14 +2682,24 @@ function renderWorkspaceUI(options = {}) {
     workspaceSidebarTabs.hidden = false;
   }
   chat.hidden = activeTab !== "chat";
-  composerWrap.hidden = isModelTab;
+  composerWrap.hidden = isModelTab || isMathTab;
   workspacePanel.hidden = !isWorkspaceTab;
   if (modelPanel) {
     modelPanel.hidden = !isModelTab;
   }
+  if (mathPanel) {
+    mathPanel.hidden = !isMathTab;
+  }
   workspacePanel.dataset.tab = activeTab || "chat";
   if (workspaceAssistantPanel) {
     workspaceAssistantPanel.hidden = !isWorkspaceTab;
+  }
+  if (isMathTab) {
+    initDesmosIfNeeded();
+    composerWrap.hidden = true;
+    if (workspaceAssistantPanel) {
+      workspaceAssistantPanel.hidden = true;
+    }
   }
 
   updateWorkspaceTabButtons(activeTab);
@@ -2692,10 +2730,80 @@ function renderWorkspaceUI(options = {}) {
         target.focus();
       }
     }
+  } else if (isMathTab) {
+    if (focus && isMathChatDrawerOpen && mathChatInput) {
+      mathChatInput.focus();
+    }
   } else if (focus && input) {
     input.focus();
   }
   wasWorkspaceTabActive = isWorkspaceTab;
+}
+
+function setMathChatDrawerOpen(open) {
+  isMathChatDrawerOpen = Boolean(open);
+  if (mathChatDrawer) mathChatDrawer.hidden = !isMathChatDrawerOpen;
+  if (mathChatToggleBtn) {
+    mathChatToggleBtn.classList.toggle("is-active", isMathChatDrawerOpen);
+  }
+  if (isMathChatDrawerOpen && mathChatInput) {
+    mathChatInput.focus();
+  }
+}
+
+async function sendMathChatMessage() {
+  if (!mathChatInput || !mathChatMessages) return;
+  const text = mathChatInput.value.trim();
+  if (!text) return;
+
+  mathChatInput.value = "";
+
+  // Add user message to drawer
+  const userMsg = document.createElement("div");
+  userMsg.className = "math-chat-msg math-chat-msg-user";
+  userMsg.textContent = text;
+  mathChatMessages.appendChild(userMsg);
+  mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+
+  // Add loading message
+  const botMsg = document.createElement("div");
+  botMsg.className = "math-chat-msg math-chat-msg-bot";
+  botMsg.textContent = "Thinking...";
+  mathChatMessages.appendChild(botMsg);
+  mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+
+  try {
+    const sessionModel = getCurrentSessionModel();
+    const prompt = `You are a math assistant inside a Desmos graphing calculator. The user asked: "${text}"\n\nRespond helpfully. If the question involves an equation or function that can be graphed, end your response with a line that says exactly: GRAPH: followed by the Desmos expression (e.g. GRAPH: y=x^2). Only include one GRAPH line if relevant.`;
+
+    const res = await fetchWithBanGuard(API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({
+        message: prompt,
+        history: [],
+        model: sessionModel,
+        max_tokens: 400,
+        enable_thinking: false
+      })
+    });
+
+    const reply = await readChatTextResponse(res);
+
+    // Check for GRAPH: directive and plot it
+    const graphMatch = reply.match(/GRAPH:\s*(.+)/i);
+    if (graphMatch && desmosCalculator) {
+      const expression = graphMatch[1].trim();
+      desmosCalculator.setExpression({ id: `math-${Date.now()}`, latex: expression, color: "#d14b4b" });
+    }
+
+    // Show reply without the GRAPH line
+    const displayReply = reply.replace(/GRAPH:\s*.+/i, "").trim();
+    botMsg.textContent = displayReply || "Done! Check the graph.";
+    mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+  } catch (err) {
+    botMsg.textContent = "Error: " + err.message;
+  }
 }
 
 function setActiveWorkspaceTab(tab, options = {}) {
@@ -5502,6 +5610,25 @@ function bindWorkspaceTabClickEvents(tabContainer) {
 
 bindWorkspaceTabClickEvents(workspaceTabs);
 bindWorkspaceTabClickEvents(workspaceSidebarTabs);
+
+if (mathChatToggleBtn) {
+  mathChatToggleBtn.addEventListener("click", () => {
+    setMathChatDrawerOpen(!isMathChatDrawerOpen);
+  });
+}
+if (mathChatCloseBtn) {
+  mathChatCloseBtn.addEventListener("click", () => {
+    setMathChatDrawerOpen(false);
+  });
+}
+if (mathChatSendBtn) {
+  mathChatSendBtn.addEventListener("click", sendMathChatMessage);
+}
+if (mathChatInput) {
+  mathChatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMathChatMessage();
+  });
+}
 
 if (sidebarToggleBtn) {
   sidebarToggleBtn.addEventListener("click", () => {
