@@ -1,0 +1,469 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>ROK</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="style.css?v=home86" />
+  <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
+</head>
+<body>
+  <div class="app">
+    <aside id="appSidebar" class="sidebar">
+      <div class="side-header">
+        <button id="brandHomeBtn" class="brand brand-btn" type="button" aria-label="ROK Home">
+          <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+        </button>
+        <button id="newChatBtn" class="side-btn" type="button">New chat</button>
+      </div>
+
+      <div class="side-section side-tabs-section">
+        <div class="side-label">Views</div>
+        <nav id="workspaceSidebarTabs" class="workspace-tabs workspace-tabs-sidebar" hidden aria-label="Workspace tabs">
+          <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
+          <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
+          <button class="workspace-tab" type="button" data-workspace-tab="model" role="tab" aria-selected="false">Model</button>
+          <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
+        </nav>
+      </div>
+
+      <div class="side-section">
+        <div class="side-label">Right Now</div>
+        <button id="currentSessionBtn" class="side-item active" type="button">Current Session</button>
+      </div>
+
+      <div class="side-section">
+        <div class="side-label">Saved Chats</div>
+        <div id="savedChatsList" class="side-sessions"></div>
+      </div>
+
+      <div class="side-footer">
+        <div class="side-hint">Chats are saved on this browser only.</div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="top-left">
+          <button
+            id="sidebarToggleBtn"
+            class="ghost sidebar-toggle-btn"
+            type="button"
+            aria-controls="appSidebar"
+            aria-expanded="true"
+            aria-label="Collapse left panel"
+            title="Collapse left panel"
+          >
+            <span aria-hidden="true">&lt;</span>
+          </button>
+          <div class="title">
+            <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
+          </div>
+        </div>
+        <button id="clearBtn" class="ghost" type="button">Clear</button>
+      </header>
+
+      <section id="homeScreen" class="home-screen" hidden>
+
+        <!-- hidden demo elements kept for JS hooks -->
+        <div class="home-bg-demo" aria-hidden="true" style="display:none;">
+          <div class="home-bg-chat">
+            <div class="home-bg-line user">
+              <div class="home-bg-chip">You</div>
+              <div class="home-bg-bubble">
+                <span id="homeDemoPrompt" class="home-bg-type home-bg-type-user">Help me study for tomorrow's history quiz and make 5 flashcards.</span>
+              </div>
+            </div>
+            <div class="home-bg-line bot">
+              <div class="home-bg-chip">ROK</div>
+              <div class="home-bg-bubble">
+                <span id="homeDemoReply" class="home-bg-type home-bg-type-bot">Here is a quick summary and five flashcards.</span>
+              </div>
+            </div>
+            <div class="home-bg-line bot cards">
+              <div class="home-bg-chip">ROK</div>
+              <div class="home-bg-bubble home-bg-cards-bubble">
+                <div class="home-bg-gen-line">Generating flashcards...</div>
+                <div id="homeDemoCards" class="home-bg-cards"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- top nav -->
+        <nav class="hs-nav" aria-label="Home navigation">
+          <button class="hs-nav-brand" type="button" aria-label="ROK Home">
+            <img src="roklogo.png" alt="ROK" class="hs-nav-logo" />
+          </button>
+          <div class="hs-nav-links">
+            <a class="hs-nav-link" href="docs.html">Docs</a>
+            <a class="hs-nav-link" href="about.html">About</a>
+            <a class="hs-nav-link" href="settings.html">Settings</a>
+          </div>
+        </nav>
+
+        <!-- hero -->
+        <div class="hs-hero">
+          <div class="hs-kicker">Private · Local · Yours</div>
+
+          <h1 class="hs-title">
+            <span class="hs-title-rok">ROK</span>
+            <span class="hs-title-tag">Solid Answers</span>
+          </h1>
+
+          <p class="hs-sub">Your own private AI model</p>
+
+          <button id="homeStartBtn" class="hs-cta" type="button">
+            Start chatting
+            <span class="hs-cta-arrow">→</span>
+          </button>
+
+          <div class="hs-pills">
+            <span class="home-prompt-pill">Summarize this error log</span>
+            <span class="home-prompt-pill">Explain this code snippet</span>
+            <span class="home-prompt-pill">Turn this into flashcards</span>
+            <span class="home-prompt-pill">Help me with my homework</span>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <footer class="hs-footer">
+          <div class="hs-footer-copy">© ROK AI 2026</div>
+          <div class="hs-footer-links">
+            <button class="hs-footer-link" type="button" data-legal="terms">Terms</button>
+            <span>·</span>
+            <button class="hs-footer-link" type="button" data-legal="privacy">Privacy</button>
+            <span>·</span>
+            <button class="hs-footer-link" type="button" data-legal="credits">Credits</button>
+          </div>
+        </footer>
+
+        <!-- hidden workspace preview for JS -->
+        <section id="homeWorkspacePreview" class="home-preview is-hidden-preview" aria-live="polite" hidden></section>
+
+      </section>
+
+      <nav id="workspaceTabs" class="workspace-tabs workspace-tabs-top" hidden aria-label="Workspace tabs">
+        <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="model" role="tab" aria-selected="false">MODEL</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
+      </nav>
+
+      <section id="workspacePanel" class="workspace-panel" hidden data-tab="chat">
+        <div class="workspace-document-shell">
+          <div class="workspace-panel-head">
+            <div id="workspacePanelTitle" class="workspace-panel-title">ROK Workspace</div>
+            <div class="workspace-panel-hint">Type here. Use Improve, Copy, or Download from the toolbar while you write.</div>
+            <div class="workspace-panel-tools">
+              <div class="workspace-panel-stats" aria-live="polite">
+                <span id="workspaceDocWordCount" class="workspace-doc-chip">0 words</span>
+                <span id="workspaceDocReadTime" class="workspace-doc-chip">1 min read</span>
+                <span id="workspaceDocSaveState" class="workspace-doc-chip" data-tone="idle">Empty</span>
+              </div>
+              <div class="workspace-panel-actions">
+                <button id="workspaceCopyBtn" class="workspace-mini-btn ghost" type="button">Copy</button>
+                <button id="workspaceDownloadBtn" class="workspace-mini-btn ghost" type="button">Download</button>
+                <button id="workspaceImproveBtn" class="workspace-mini-btn" type="button">Improve</button>
+              </div>
+            </div>
+          </div>
+          <textarea
+            id="workspaceEditor"
+            class="workspace-editor"
+            placeholder="Write anything here, then ask ROK to review, improve, or continue it."
+            spellcheck="true"
+          ></textarea>
+        </div>
+        <section id="workspaceAssistantPanel" class="workspace-assistant is-collapsed" aria-live="polite">
+          <div class="workspace-assistant-head">
+            <button
+              id="workspaceAssistantToggle"
+              class="workspace-assistant-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="workspaceAssistantBody"
+            >
+              <span id="workspaceAssistantChevron" class="workspace-assistant-chevron" aria-hidden="true">></span>
+              <span class="workspace-assistant-heading">
+                <span class="workspace-assistant-title">Workspace Assistant</span>
+                <span class="workspace-assistant-subtitle">ROK Notes</span>
+              </span>
+              <span class="workspace-assistant-indicator">
+                <span id="workspaceAssistantStatusDot" class="workspace-assistant-dot idle" aria-hidden="true"></span>
+                <span id="workspaceAssistantStatusText" class="workspace-assistant-status-text">Idle</span>
+              </span>
+            </button>
+            <button id="workspaceAssistantSuggestBtn" class="workspace-assistant-suggest-btn" type="button">Suggest Improvements</button>
+          </div>
+          <div id="workspaceAssistantBody" class="workspace-assistant-body" hidden>
+            <dl class="workspace-assistant-grid">
+              <div class="workspace-assistant-row">
+                <dt>Intent</dt>
+                <dd id="workspaceAssistantIntent">No document context yet</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Output Type</dt>
+                <dd id="workspaceAssistantOutput">Other</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Word Count</dt>
+                <dd id="workspaceAssistantWordCount">0</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Read Time</dt>
+                <dd id="workspaceAssistantReadTime">1 min</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Action</dt>
+                <dd id="workspaceAssistantAction">Not Applied</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Change Scope</dt>
+                <dd id="workspaceAssistantChangeScope">Short</dd>
+              </div>
+              <div class="workspace-assistant-row">
+                <dt>Last Action</dt>
+                <dd id="workspaceAssistantLastAction">None yet</dd>
+              </div>
+            </dl>
+            <p id="workspaceAssistantSummary" class="workspace-assistant-summary">Intent: No document context yet
+Output Type: Other
+Action: Not Applied
+Change Scope: Short</p>
+            <section id="workspaceAssistantSuggestions" class="workspace-assistant-suggestions" hidden>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Clarity improvements</h4>
+                <ul id="workspaceAssistantClarityList"></ul>
+              </div>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Grammar issues</h4>
+                <ul id="workspaceAssistantGrammarList"></ul>
+              </div>
+              <div class="workspace-assistant-suggestion-section">
+                <h4>Style enhancements</h4>
+                <ul id="workspaceAssistantStyleList"></ul>
+              </div>
+            </section>
+            <div class="workspace-assistant-footnote">Visible only in Workspace mode</div>
+          </div>
+        </section>
+      </section>
+      <section id="modelPanel" class="model-panel" hidden>
+        <div class="model-panel-shell" role="dialog" aria-modal="false" aria-labelledby="modelPanelTitle">
+          <div class="model-panel-head">
+            <div id="modelPanelTitle" class="model-panel-title">Model Selection</div>
+            <p class="model-panel-hint">Choose which model ROK should use for this chat session.</p>
+          </div>
+          <div id="modelPanelCurrent" class="model-panel-current">Current model: ROK Balanced (Mistral)</div>
+          <div id="modelOptionList" class="model-option-list" role="radiogroup" aria-label="Available models"></div>
+        </div>
+      </section>
+      <section id="mathPanel" class="math-panel" hidden>
+
+        <!-- Desmos embed -->
+        <div id="desmosContainer" class="desmos-container"></div>
+
+        <!-- Discreet standalone link -->
+        <a class="math-standalone-link" href="math.html" target="_blank" rel="noopener">open standalone</a>
+
+        <!-- Secret chat button -->
+        <button id="mathChatToggleBtn" class="math-chat-toggle-btn" type="button" title="Ask ROK">
+          <span>rok</span>
+        </button>
+
+        <!-- Sliding chat drawer -->
+        <div id="mathChatDrawer" class="math-chat-drawer" hidden>
+          <div class="math-chat-drawer-header">
+            <span class="math-chat-drawer-title">Ask ROK Math</span>
+            <button id="mathChatCloseBtn" class="math-chat-close-btn" type="button">&times;</button>
+          </div>
+          <div id="mathChatMessages" class="math-chat-messages"></div>
+          <div class="math-chat-input-row">
+            <input id="mathChatInput" class="math-chat-input" type="text" placeholder="Ask a math question or type an equation..." autocomplete="off" />
+            <button id="mathChatSendBtn" class="math-chat-send-btn" type="button">Ask</button>
+          </div>
+        </div>
+
+      </section>
+
+      <main id="chat" class="chat"></main>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="input" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
+          <div id="composerToolbox" class="composer-toolbox">
+            <button
+              id="composerPlusBtn"
+              class="ghost composer-plus-btn"
+              type="button"
+              aria-label="Open composer tools"
+              aria-expanded="false"
+              aria-controls="composerTray"
+            >
+              +
+            </button>
+            <div id="composerTray" class="composer-tray" hidden>
+              <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
+              <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
+              <button id="lightningToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false" title="Lightning mode: faster replies with less reasoning">
+                <span class="lightning-icon is-outline" aria-hidden="true">⚡</span>
+                <span class="lightning-label">Lightning</span>
+              </button>
+            </div>
+          </div>
+          <button id="sendBtn" type="button">Send</button>
+        </div>
+        <input
+          id="fileInput"
+          class="file-input"
+          type="file"
+          accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.png,.jpg,.jpeg,.gif,.webp,.bmp,text/*,image/*"
+          multiple
+        />
+        <div id="attachmentList" class="attachment-list" aria-live="polite"></div>
+        <div class="composer-meta">
+          <div class="composer-hint">ROK is currently in beta! Check important info.</div>
+          <div id="cooldown" class="cooldown"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="banOverlay" class="ban-overlay" hidden aria-live="assertive" aria-modal="true" role="alertdialog">
+    <div class="ban-overlay-card">
+      <h2>Uh Oh! Looks like You've been banned from ROK!</h2>
+    </div>
+  </section>
+
+  <section id="serverDownScreen" class="server-down" hidden>
+    <div class="server-down-card">
+      <div class="server-down-badge">Connection issue</div>
+      <div class="server-down-logo">ROK <span class="title-beta">beta</span></div>
+      <h2 class="server-down-title">ROK is currently unavailable</h2>
+      <p id="serverDownMessage">Server is currently down. Check back later.</p>
+      <div id="serverDownMeta" class="server-down-meta">Unable to connect to the backend right now.</div>
+      <div class="server-down-actions">
+        <button id="serverDownRetryBtn" class="server-down-btn" type="button">Try again</button>
+        <button id="serverDownHomeBtn" class="server-down-btn ghost" type="button">Back to home</button>
+      </div>
+      <button
+        id="serverDownWhyBtn"
+        class="server-down-why-btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="serverDownWhyPanel"
+      >
+        Why does this happen?
+      </button>
+      <div id="serverDownWhyPanel" class="server-down-why-panel" hidden>
+        ROK is currently offline due to server capacity limits. We’re actively scaling to support 24/7 availability.
+      </div>
+    </div>
+  </section>
+
+  <section id="workspaceApplyModal" class="workspace-apply-modal" hidden aria-hidden="true">
+    <div
+      class="workspace-apply-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="workspaceApplyTitle"
+      aria-describedby="workspaceApplyModalIntro workspaceApplyModalPreview"
+    >
+      <div class="workspace-apply-head">
+        <div class="workspace-apply-badge">Workspace edit</div>
+        <button id="workspaceApplyCloseBtn" class="workspace-apply-close" type="button" aria-label="Close dialog">x</button>
+      </div>
+      <h2 id="workspaceApplyTitle" class="workspace-apply-title">Apply these changes?</h2>
+      <p id="workspaceApplyModalIntro" class="workspace-apply-intro"></p>
+      <pre id="workspaceApplyModalPreview" class="workspace-apply-preview"></pre>
+      <div class="workspace-apply-actions">
+        <button id="workspaceApplyCancelBtn" class="workspace-apply-btn ghost" type="button">Cancel</button>
+        <button id="workspaceApplyConfirmBtn" class="workspace-apply-btn" type="button">Apply changes</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="workspaceRouteModal" class="workspace-route-modal" hidden aria-hidden="true">
+    <div
+      class="workspace-route-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="workspaceRouteTitle"
+      aria-describedby="workspaceRoutePrompt"
+    >
+      <div class="workspace-route-head">
+        <div class="workspace-route-badge">Workspace suggestion</div>
+        <button id="workspaceRouteCloseBtn" class="workspace-route-close" type="button" aria-label="Close dialog">x</button>
+      </div>
+      <h2 id="workspaceRouteTitle" class="workspace-route-title">Move this to Workspace?</h2>
+      <p id="workspaceRoutePrompt" class="workspace-route-prompt">
+        Do you want to take this conversation to the workspace?
+      </p>
+      <div class="workspace-route-actions">
+        <button id="workspaceRouteNoBtn" class="workspace-route-btn ghost" type="button">No, keep in chat</button>
+        <button id="workspaceRouteYesBtn" class="workspace-route-btn" type="button">Yes, use workspace</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="legalModal" class="legal-modal" hidden aria-hidden="true">
+    <div class="legal-card" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+      <div class="legal-head">
+        <div>
+          <div id="legalTitle" class="legal-title">ROK Legal</div>
+          <div class="legal-subtitle">Last updated February 16, 2026</div>
+        </div>
+        <button id="legalCloseBtn" class="legal-close" type="button" aria-label="Close legal dialog">x</button>
+      </div>
+      <div class="legal-tabs" role="tablist" aria-label="Legal documents">
+        <button id="legalTermsTab" class="legal-tab active" type="button" role="tab" aria-selected="true" data-legal-tab="terms">Terms of Service</button>
+        <button id="legalPrivacyTab" class="legal-tab" type="button" role="tab" aria-selected="false" data-legal-tab="privacy">Privacy Policy</button>
+        <button id="legalCreditsTab" class="legal-tab" type="button" role="tab" aria-selected="false" data-legal-tab="credits">Credits / About</button>
+      </div>
+      <div class="legal-body">
+        <div id="legalTermsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalTermsTab">
+          <h3>Terms of Service</h3>
+          <p>ROK is provided as-is for personal use. By using the app, you agree you are responsible for how you use the outputs.</p>
+          <ul>
+            <li>ROK may send your prompts and workspace text to the configured AI endpoint to generate responses.</li>
+            <li>Do not submit sensitive or personal data you do not want processed by that endpoint.</li>
+            <li>We do not guarantee uptime, accuracy, or fitness for a particular purpose.</li>
+            <li>We may update these terms over time; continuing to use ROK means you accept the latest version.</li>
+          </ul>
+          <p>Questions? Contact the app owner before relying on ROK for critical decisions.</p>
+        </div>
+        <div id="legalPrivacyPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalPrivacyTab" hidden>
+          <h3>Privacy Policy</h3>
+          <p>ROK is local-first and stores chat sessions in your browser storage.</p>
+          <ul>
+            <li>We store chat sessions locally in your browser only, unless you delete them.</li>
+            <li>Requests are sent to the configured AI endpoint to generate responses.</li>
+            <li>We do not collect analytics or sell your data from this client.</li>
+            <li>You can clear local data at any time using the Clear button.</li>
+          </ul>
+          <p>ROK does not store any data on remote servers. ROK is a local-first application.</p>
+        </div>
+        <div id="legalCreditsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalCreditsTab" hidden>
+          <h3>Credits / About</h3>
+          <p>ROK is a local-first AI workspace project built for focused drafting, studying, and coding.</p>
+          <ul>
+            <li>Kyklos: guy who broke into ROK and held it hostage.</li>
+            <li>kx1xixit (Kane): made the ROK logo. Go check them out.</li>
+          </ul>
+          <p>Thanks to everyone testing and helping improve ROK.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    window.ROK_API_BASE = "https://rokapi.kyklos.online";
+  </script>
+  <script src="app.js?v=home87"></script>
+</body>
+</html>
