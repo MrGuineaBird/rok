@@ -5550,3 +5550,20 @@ button.stop-mode:hover {
   font-family: inherit;
 }
 .math-chat-send-btn:hover { filter: brightness(1.1); }
+
+.desmos-topbar-icon {
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.desmos-topbar-icon:hover { opacity: 1; }
+
+.desmos-topbar-folder-icon {
+  color: #aaa;
+  display: inline-flex;
+  align-items: center;
+}
