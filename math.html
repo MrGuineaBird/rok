@@ -367,6 +367,16 @@
   </div>
 
   <script>
+    // Match however app.js gets the backend URL - check localStorage first,
+    // then fall back to same origin (for when served by Flask directly)
+    const ROK_API_BASE = (
+      localStorage.getItem("rok_api_base") ||
+      localStorage.getItem("apiBase") ||
+      window.location.origin
+    ).replace(/\/+$/, "");
+
+    const API_URL = ROK_API_BASE + "/api/chat";
+
     function resizeDesmos() {
       const el = document.getElementById("desmosContainer");
       if (el) {
@@ -431,7 +441,7 @@
       try {
         const prompt = `You are a math assistant inside a Desmos graphing calculator. The user asked: "${text}"\n\nRespond helpfully and concisely. If the question involves an equation or function that can be graphed, end your response with a line that says exactly: GRAPH: followed by the Desmos LaTeX expression (e.g. GRAPH: y=x^2). Only one GRAPH line if relevant.`;
 
-        const res = await fetch("/api/chat", {
+        const res = await fetch(API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
