@@ -369,11 +369,11 @@
   <script>
     // Match however app.js gets the backend URL - check localStorage first,
     // then fall back to same origin (for when served by Flask directly)
-    const ROK_API_BASE = (
-      localStorage.getItem("rok_api_base") ||
-      localStorage.getItem("apiBase") ||
-      window.location.origin
-    ).replace(/\/+$/, "");
+   const ROK_API_BASE = (
+  localStorage.getItem("rok_api_base") ||
+  localStorage.getItem("apiBase") ||
+  "https://rokapi.kyklos.online"  // correct fallback
+).replace(/\/+$/, "");
 
     const API_URL = ROK_API_BASE + "/api/chat";
 
