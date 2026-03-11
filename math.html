@@ -19,8 +19,148 @@
 
     #desmosContainer {
       position: fixed;
-      inset: 0;
+      top: 40px;
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
+
+    .desmos-topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 40px;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1e1e1e;
+      border-bottom: 1px solid #333;
+      padding: 0 12px;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+    }
+
+    .desmos-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+    }
+
+    .desmos-topbar-folder-icon {
+      color: #aaa;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .desmos-topbar-divider {
+      width: 1px;
+      height: 20px;
+      background: #444;
+      margin: 0 4px;
+    }
+
+    .desmos-topbar-title {
+      color: #ccc;
+      font-size: 13px;
+      font-weight: 400;
+      background: none;
+      border: none;
+      outline: none;
+      cursor: text;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .desmos-topbar-title:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .desmos-topbar-save {
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: transparent;
+      color: #bbb;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .desmos-topbar-save:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+
+    .desmos-topbar-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      font-weight: 300;
+      color: #ccc;
+      letter-spacing: 2px;
+      pointer-events: none;
+    }
+
+    .desmos-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+      justify-content: flex-end;
+    }
+
+    .desmos-topbar-login {
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: transparent;
+      color: #ccc;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .desmos-topbar-login:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+
+    .desmos-topbar-signup {
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: none;
+      background: #2d70b3;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .desmos-topbar-signup:hover {
+      background: #3580c3;
+    }
+
+    .desmos-topbar-icons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 8px;
+      color: #999;
+      font-size: 15px;
+    }
+
+    .desmos-topbar-icon {
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+      line-height: 1;
+    }
+
+    .desmos-topbar-icon:hover { opacity: 1; }
 
     /* -- Secret ROK button - tiny, blends into corner -- */
     .rok-secret-btn {
@@ -183,6 +323,28 @@
 </head>
 <body>
 
+  <header class="desmos-topbar">
+    <div class="desmos-topbar-left">
+      <span class="desmos-topbar-folder-icon">&#x1F4C2;</span>
+      <div class="desmos-topbar-divider"></div>
+      <input class="desmos-topbar-title" type="text" value="Untitled Graph" spellcheck="false" />
+      <button class="desmos-topbar-save" type="button">Save</button>
+    </div>
+
+    <div class="desmos-topbar-center">desmos</div>
+
+    <div class="desmos-topbar-right">
+      <button class="desmos-topbar-login" type="button">Log In</button>
+      <button class="desmos-topbar-signup" type="button">Sign Up</button>
+      <div class="desmos-topbar-icons">
+        <span class="desmos-topbar-icon" title="Share">&#x2197;</span>
+        <span class="desmos-topbar-icon" title="Help">&#x3F;</span>
+        <span class="desmos-topbar-icon" title="Language">&#x1F310;</span>
+        <span class="desmos-topbar-icon" title="Accessibility" style="color:#4caf50;">&#x2713;</span>
+      </div>
+    </div>
+  </header>
+
   <div id="desmosContainer"></div>
 
   <!-- Secret button - nearly invisible until hovered -->
@@ -208,10 +370,19 @@
     const ROK_API_BASE = (typeof window.ROK_API_BASE === "string" ? window.ROK_API_BASE : "").trim().replace(/\/+$/, "");
     const API_URL = ROK_API_BASE + "/api/chat";
 
+    function resizeDesmos() {
+      const el = document.getElementById("desmosContainer");
+      if (el) {
+        el.style.width = window.innerWidth + "px";
+        el.style.height = (window.innerHeight - 40) + "px";
+      }
+    }
+
     // Init Desmos - light theme, full features, looks exactly like desmos.com
     let calculator = null;
     window.addEventListener("DOMContentLoaded", () => {
       const el = document.getElementById("desmosContainer");
+      resizeDesmos();
       if (typeof Desmos !== "undefined" && el) {
         calculator = Desmos.GraphingCalculator(el, {
           keypad: true,
@@ -223,6 +394,7 @@
         });
       }
     });
+    window.addEventListener("resize", resizeDesmos);
 
     // Secret button toggle
     const secretBtn = document.getElementById("rokSecretBtn");
