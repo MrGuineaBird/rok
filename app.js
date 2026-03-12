@@ -130,7 +130,7 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "qwen3:8b";
+const DEFAULT_CHAT_MODEL = "stepfun/step-3.5-flash:free";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -145,21 +145,25 @@ const DEFAULT_USER_SETTINGS = {
   reduceMotion: false,
   customSystemPrompt: ""
 };
-const SUPPORTED_MODEL_IDS = new Set(["qwen3:8b", "qwen3:14b", "llama3.2-vision"]);
+const SUPPORTED_MODEL_IDS = new Set([
+  "stepfun/step-3.5-flash:free",
+  "deepseek/deepseek-r1:free",
+  "meta-llama/llama-3.2-11b-vision-instruct:free",
+]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "qwen3:8b",        label: "ROK Fast" },
-  { id: "qwen3:14b",       label: "ROK Pro" },
-  { id: "llama3.2-vision", label: "ROK Vision" },
+  { id: "stepfun/step-3.5-flash:free",                  label: "ROK Fast"   },
+  { id: "deepseek/deepseek-r1:free",                    label: "ROK Pro"    },
+  { id: "meta-llama/llama-3.2-11b-vision-instruct:free", label: "ROK Vision" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "qwen3:8b": "ROK Fast",
-  "qwen3:14b": "ROK Pro",
-  "llama3.2-vision": "ROK Vision"
+  "stepfun/step-3.5-flash:free":                   "ROK Fast",
+  "deepseek/deepseek-r1:free":                     "ROK Pro",
+  "meta-llama/llama-3.2-11b-vision-instruct:free": "ROK Vision",
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen3:8b": "Fast responses for quick questions, experiments, and everyday drafting.",
-  "qwen3:14b": "More thorough responses for longer writing and refinement.",
-  "llama3.2-vision": "Vision model for image understanding, screenshots, and visual Q and A."
+  "stepfun/step-3.5-flash:free":                   "Fast responses for quick questions, experiments, and everyday drafting.",
+  "deepseek/deepseek-r1:free":                     "Deep reasoning model for thorough analysis, long writing, and hard problems.",
+  "meta-llama/llama-3.2-11b-vision-instruct:free": "Vision model for image understanding, screenshots, and visual Q and A.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -420,7 +424,7 @@ function normalizeModelOptions(rawOptions) {
   if (!normalized.length) {
     normalized.push({
       id: DEFAULT_CHAT_MODEL,
-      label: "ROK Quaility"
+      label: "ROK Quality"
     });
   }
   return normalized;
@@ -5718,28 +5722,3 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
 }
 syncLayoutForViewport();
 showHomeScreen();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
