@@ -1,4 +1,4 @@
-const chat = document.getElementById("chat");
+﻿const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
@@ -130,7 +130,7 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "meta-llama/llama-3.1-8b-instruct:free";
+const DEFAULT_CHAT_MODEL = "stepfun/step-3.5-flash:free";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -146,16 +146,16 @@ const DEFAULT_USER_SETTINGS = {
   customSystemPrompt: ""
 };
 const SUPPORTED_MODEL_IDS = new Set([
-  "meta-llama/llama-3.1-8b-instruct:free",
+  "stepfun/step-3.5-flash:free",
 ]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "meta-llama/llama-3.1-8b-instruct:free", label: "ROK Hermes" },
+  { id: "stepfun/step-3.5-flash:free", label: "ROK Hermes" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "meta-llama/llama-3.1-8b-instruct:free": "ROK Hermes",
+  "stepfun/step-3.5-flash:free": "ROK Hermes",
 };
 const MODEL_DESCRIPTIONS = {
-  "meta-llama/llama-3.1-8b-instruct:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "stepfun/step-3.5-flash:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
