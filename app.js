@@ -151,19 +151,19 @@ const SUPPORTED_MODEL_IDS = new Set([
   "meta-llama/llama-3.2-11b-vision-instruct:free",
 ]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "stepfun/step-3.5-flash:free",                  label: "ROK Fast"   },
-  { id: "deepseek/deepseek-r1:free",                    label: "ROK Pro"    },
-  { id: "meta-llama/llama-3.2-11b-vision-instruct:free", label: "ROK Vision" },
+  { id: "stepfun/step-3.5-flash:free",                   label: "ROK Hermes" },
+  { id: "deepseek/deepseek-r1:free",                     label: "ROK Titan"  },
+  { id: "meta-llama/llama-3.2-11b-vision-instruct:free", label: "ROK Argus"  },
 ];
 const KNOWN_MODEL_LABELS = {
-  "stepfun/step-3.5-flash:free":                   "ROK Fast",
-  "deepseek/deepseek-r1:free":                     "ROK Pro",
-  "meta-llama/llama-3.2-11b-vision-instruct:free": "ROK Vision",
+  "stepfun/step-3.5-flash:free":                   "ROK Hermes",
+  "deepseek/deepseek-r1:free":                     "ROK Titan",
+  "meta-llama/llama-3.2-11b-vision-instruct:free": "ROK Argus",
 };
 const MODEL_DESCRIPTIONS = {
-  "stepfun/step-3.5-flash:free":                   "Fast responses for quick questions, experiments, and everyday drafting.",
-  "deepseek/deepseek-r1:free":                     "Deep reasoning model for thorough analysis, long writing, and hard problems.",
-  "meta-llama/llama-3.2-11b-vision-instruct:free": "Vision model for image understanding, screenshots, and visual Q and A.",
+  "stepfun/step-3.5-flash:free":                   "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "deepseek/deepseek-r1:free":                     "Titan — built for heavy lifting. Deep reasoning for analysis, long writing, and hard problems.",
+  "meta-llama/llama-3.2-11b-vision-instruct:free": "Argus — a hundred eyes. Image understanding, screenshots, and visual Q and A.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
