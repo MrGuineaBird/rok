@@ -1,4 +1,4 @@
-﻿const chat = document.getElementById("chat");
+const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
@@ -130,7 +130,7 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "stepfun/step-3.5-flash:free";
+const DEFAULT_CHAT_MODEL = "meta-llama/llama-3.1-8b-instruct:free";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -146,24 +146,16 @@ const DEFAULT_USER_SETTINGS = {
   customSystemPrompt: ""
 };
 const SUPPORTED_MODEL_IDS = new Set([
-  "stepfun/step-3.5-flash:free",
-  "deepseek/deepseek-r1:free",
-  "meta-llama/llama-3.2-11b-vision-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
 ]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "stepfun/step-3.5-flash:free",                   label: "ROK Hermes" },
-  { id: "deepseek/deepseek-r1:free",                     label: "ROK Titan"  },
-  { id: "meta-llama/llama-3.2-11b-vision-instruct:free", label: "ROK Argus"  },
+  { id: "meta-llama/llama-3.1-8b-instruct:free", label: "ROK Hermes" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "stepfun/step-3.5-flash:free":                   "ROK Hermes",
-  "deepseek/deepseek-r1:free":                     "ROK Titan",
-  "meta-llama/llama-3.2-11b-vision-instruct:free": "ROK Argus",
+  "meta-llama/llama-3.1-8b-instruct:free": "ROK Hermes",
 };
 const MODEL_DESCRIPTIONS = {
-  "stepfun/step-3.5-flash:free":                   "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
-  "deepseek/deepseek-r1:free":                     "Titan — built for heavy lifting. Deep reasoning for analysis, long writing, and hard problems.",
-  "meta-llama/llama-3.2-11b-vision-instruct:free": "Argus — a hundred eyes. Image understanding, screenshots, and visual Q and A.",
+  "meta-llama/llama-3.1-8b-instruct:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
