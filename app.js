@@ -146,16 +146,16 @@ const DEFAULT_USER_SETTINGS = {
   customSystemPrompt: ""
 };
 const SUPPORTED_MODEL_IDS = new Set([
-  "stepfun/step-3.5-flash:free",
+  "openai/gpt-oss-120b:free",
 ]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "stepfun/step-3.5-flash:free", label: "ROK Hermes" },
+  { id: "openai/gpt-oss-120b:free", label: "ROK Hermes" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "stepfun/step-3.5-flash:free": "ROK Hermes",
+  "openai/gpt-oss-120b:free": "ROK Hermes",
 };
 const MODEL_DESCRIPTIONS = {
-  "stepfun/step-3.5-flash:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+"openai/gpt-oss-120b:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
