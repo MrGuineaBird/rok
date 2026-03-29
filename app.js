@@ -235,6 +235,7 @@ const HOME_DEMO_SCENARIOS = [
 ];
 const SERVER_DOWN_MESSAGES = [
   // --- Original & General ---
+  // yes these are ai generated server down messages..cry about it
   "Server is currently down. Check back later.",
   "Uh oh, our servers seem to be down!",
   "Looks like ROK is on break. Check back later.",
@@ -347,6 +348,8 @@ let nextAllowedAt = 0;
 let cooldownTimer = null;
 let activeRequestController = null;
 let stopRequested = false;
+
+
 let hasShownReadyMessage = false;
 let homeDemoTimer = null;
 let homeDemoLastIndex = -1;
@@ -368,6 +371,7 @@ let isMobileLayout = false;
 let isMobileSidebarOpen = false;
 let mobileLayoutMediaQueryList = null;
 let desmosCalculator = null;
+
 let isMathChatDrawerOpen = false;
 let userSettings = { ...DEFAULT_USER_SETTINGS };
 let compactingBarElement = null;
@@ -394,6 +398,8 @@ function normalizeModelOptions(rawOptions) {
   const seen = new Set();
   const normalized = [];
 
+  
+  
   for (const item of candidates) {
     let id = "";
     let label = "";
@@ -421,6 +427,8 @@ function normalizeModelOptions(rawOptions) {
   }
   return normalized;
 }
+
+
 
 function resolveDefaultModelId(options, rawDefaultModel) {
   const candidates = Array.isArray(options) && options.length ? options : normalizeModelOptions([]);
@@ -456,6 +464,7 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
   MODEL_IDS = nextIds;
   DEFAULT_MODEL_ID = nextDefaultModelId;
 
+  
   renderModelSelectOptions();
   renderModelPanelOptions();
 
@@ -470,6 +479,8 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
     }
   }
 
+
+  
   if (didSessionModelsChange) {
     saveSessionsToStorage();
     saveCurrentSessionIdToStorage();
@@ -596,6 +607,8 @@ async function safeReadResponseText(response) {
   }
 }
 
+
+
 function extractTokenFromStreamPayload(payload) {
   const raw = String(payload || "").trim();
   if (!raw) {
@@ -686,6 +699,7 @@ function splitThinkingFromText(text = "") {
 
 function createThinkingPanel() {
   const shell = document.createElement("details");
+ 
   shell.className = "thinking-block is-streaming";
   shell.hidden = true;
   shell.open = false;
@@ -908,6 +922,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: controller.signal,
+    
       body: JSON.stringify({
         message: prompt,
         history: [],
@@ -1021,6 +1036,7 @@ function applyUserSettingsToRuntime(options = {}) {
     500
   );
   clientLimits.cooldownMs = normalizeClientLimit(
+  
     userSettings.cooldownMs,
     clientLimits.cooldownMs,
     0,
@@ -5696,6 +5712,7 @@ setLightningModeEnabled(loadLightningModeFromStorage(), { animate: false });
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
+
 renderModelSelectOptions();
 renderModelPanelOptions();
 initializeSessions();
