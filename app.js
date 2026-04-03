@@ -4991,7 +4991,14 @@ async function send() {
             return;
           }
           if (parsedPayload.status) {
-            handleStatusUpdate(parsedPayload.status);
+            if (parsedPayload.status === "Opening canvas...") {
+                handleStatusUpdate(parsedPayload.status);
+                if (!writeBackToWorkspace && typeof openCanvas === "function") {
+                    openCanvas();
+                }
+            } else {
+                handleStatusUpdate(parsedPayload.status);
+            }
           }
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
