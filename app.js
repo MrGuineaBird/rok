@@ -1,4 +1,4 @@
-﻿const chat = document.getElementById("chat");
+const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
@@ -115,12 +115,12 @@ const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/ap
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
-  historyLimit: 200,
-  maxHistoryMessages: 200,
-  maxAttachments: 5,
-  maxFileSizeBytes: 200 * 1024 * 1024,
-  maxFileChars: 12000,
-  maxResponseTokens: 600
+  historyLimit: 20,          // was 200 — large history balloons every request payload
+  maxHistoryMessages: 20,    // was 200
+  maxAttachments: 3,
+  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB — capped at 2MB
+  maxFileChars: 8000,        // was 12000
+  maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
 };
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
@@ -495,7 +495,6 @@ async function refreshModelCatalogFromServer() {
   try {
     const res = await fetchWithBanGuard(MODELS_URL, {
       method: "GET",
-      cache: "no-store",
       headers: {
         ...buildApiHeaders(false),
         Accept: "application/json"
@@ -1131,7 +1130,6 @@ async function refreshClientConfigFromServer() {
   try {
     const res = await fetchWithBanGuard(CLIENT_CONFIG_URL, {
       method: "GET",
-      cache: "no-store",
       headers: {
         ...buildApiHeaders(false),
         Accept: "application/json"
@@ -1976,6 +1974,13 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
   }
 
   if (!prompt && (!Array.isArray(attachedFiles) || attachedFiles.length === 0)) {
+    return fallbackIntent;
+  }
+
+  // Skip the /api/intent network call entirely when the workspace is not active.
+  // The regex fallback is accurate enough for plain chat and saves one full
+  // round-trip to the server on every message (halves request count on free tier).
+  if (!workspaceValue) {
     return fallbackIntent;
   }
 
