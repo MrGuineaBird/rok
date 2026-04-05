@@ -64,6 +64,10 @@ const savedChatsList = document.getElementById("savedChatsList");
 const cooldownEl = document.getElementById("cooldown");
 const appRoot = document.querySelector(".app");
 const banOverlay = document.getElementById("banOverlay");
+const thinkingBurnoutModal = document.getElementById("thinkingBurnoutModal");
+const burnoutCloseBtn = document.getElementById("burnoutCloseBtn");
+const burnoutOkBtn = document.getElementById("burnoutOkBtn");
+const burnoutResetLabel = document.getElementById("burnoutResetLabel");
 const serverDownScreen = document.getElementById("serverDownScreen");
 const serverDownMessage = document.getElementById("serverDownMessage");
 const serverDownMeta = document.getElementById("serverDownMeta");
@@ -1026,6 +1030,10 @@ function applyServerThinkingQuota(quota) {
   } else {
     refreshLightningButtonQuotaUI();
   }
+  // Hide modal if quota was reset (e.g. next day)
+  if (!serverThinkingQuota.exhausted) {
+    hideThinkingBurnoutModal();
+  }
 }
 
 function applyThinkingQuotaFromHeaders(response) {
@@ -1037,9 +1045,8 @@ function applyThinkingQuotaFromHeaders(response) {
   if (!isNaN(count) && !isNaN(limit)) {
     applyServerThinkingQuota({ count, limit, exhausted, reset_sec: resetSec });
     if (exhausted) {
-      showThinkingQuotaToast(
-        `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.  Lightning mode is now on.`
-      );
+      // Show the burnout modal — this is the first moment the user hits the limit
+      showThinkingBurnoutModal();
     }
   }
 }
@@ -1069,7 +1076,27 @@ function formatThinkingResetTime(ms) {
   return `${minutes}m`;
 }
 
+function showThinkingBurnoutModal() {
+  if (!thinkingBurnoutModal) return;
+  // Update the reset time label
+  const resetSec = getThinkingQuotaResetSec();
+  if (burnoutResetLabel) {
+    burnoutResetLabel.textContent = resetSec > 0
+      ? `Thinking recharges in ${formatThinkingResetTime(resetSec * 1000)}.`
+      : "";
+  }
+  thinkingBurnoutModal.hidden = false;
+  thinkingBurnoutModal.setAttribute("aria-hidden", "false");
+}
+
+function hideThinkingBurnoutModal() {
+  if (!thinkingBurnoutModal) return;
+  thinkingBurnoutModal.hidden = true;
+  thinkingBurnoutModal.setAttribute("aria-hidden", "true");
+}
+
 function showThinkingQuotaToast(message) {
+  // For non-limit-hit cases (e.g. click-blocked) — small inline toast
   let toast = document.getElementById("thinkingQuotaToast");
   if (!toast) {
     toast = document.createElement("div");
@@ -5598,6 +5625,19 @@ if (legalModal) {
     if (e.target === legalModal) {
       closeLegalModal();
     }
+  });
+}
+
+if (burnoutCloseBtn) {
+  burnoutCloseBtn.addEventListener("click", () => hideThinkingBurnoutModal());
+}
+if (burnoutOkBtn) {
+  burnoutOkBtn.addEventListener("click", () => hideThinkingBurnoutModal());
+}
+// Close burnout modal on backdrop click
+if (thinkingBurnoutModal) {
+  thinkingBurnoutModal.addEventListener("click", (e) => {
+    if (e.target === thinkingBurnoutModal) hideThinkingBurnoutModal();
   });
 }
 
