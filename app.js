@@ -1002,6 +1002,112 @@ function saveLightningModeToStorage(enabled) {
   }
 }
 
+// --- Thinking quota helpers ---
+// Quota is stored as { count: number, resetAt: timestamp }.
+// resetAt is set to now + 24h on the first thinking-enabled message of a window.
+
+// --- Server-side thinking quota (state comes from server, cannot be faked in localStorage) ---
+// Updated by refreshClientConfigFromServer() on boot and by applyThinkingQuotaFromHeaders()
+// after each chat response. The server enforces the real limit; this is UI-only.
+let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, updatedAt: 0 };
+
+function applyServerThinkingQuota(quota) {
+  if (!quota || typeof quota !== "object") return;
+  serverThinkingQuota = {
+    count:     typeof quota.count     === "number"  ? quota.count     : serverThinkingQuota.count,
+    limit:     typeof quota.limit     === "number"  ? quota.limit     : serverThinkingQuota.limit,
+    exhausted: typeof quota.exhausted === "boolean" ? quota.exhausted : serverThinkingQuota.exhausted,
+    resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverThinkingQuota.resetSec,
+    updatedAt: Date.now(),
+  };
+  // Sync the button state whenever quota data arrives
+  if (serverThinkingQuota.exhausted && !lightning_mode) {
+    setLightningModeEnabled(true, { animate: false });
+  } else {
+    refreshLightningButtonQuotaUI();
+  }
+}
+
+function applyThinkingQuotaFromHeaders(response) {
+  // Called after each /api/chat response to get the freshest quota state
+  const count     = parseInt(response.headers.get("X-Thinking-Count") || "", 10);
+  const limit     = parseInt(response.headers.get("X-Thinking-Limit") || "", 10);
+  const exhausted = (response.headers.get("X-Thinking-Exhausted") || "").toLowerCase() === "true";
+  const resetSec  = parseInt(response.headers.get("X-Thinking-Reset-Sec") || "0", 10);
+  if (!isNaN(count) && !isNaN(limit)) {
+    applyServerThinkingQuota({ count, limit, exhausted, reset_sec: resetSec });
+    if (exhausted) {
+      showThinkingQuotaToast(
+        `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.  Lightning mode is now on.`
+      );
+    }
+  }
+}
+
+function isThinkingQuotaExhausted() {
+  return serverThinkingQuota.exhausted;
+}
+
+function getThinkingQuotaRemaining() {
+  return Math.max(0, serverThinkingQuota.limit - serverThinkingQuota.count);
+}
+
+function getThinkingQuotaLimit() {
+  return serverThinkingQuota.limit;
+}
+
+function getThinkingQuotaResetSec() {
+  return serverThinkingQuota.resetSec;
+}
+
+function formatThinkingResetTime(ms) {
+  const totalMinutes = Math.ceil(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function showThinkingQuotaToast(message) {
+  let toast = document.getElementById("thinkingQuotaToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "thinkingQuotaToast";
+    toast.style.cssText = [
+      "position:fixed", "bottom:80px", "left:50%", "transform:translateX(-50%)",
+      "background:var(--surface-2,#2a2a2a)", "color:var(--text-1,#eee)",
+      "border:1px solid var(--border,#444)", "border-radius:8px",
+      "padding:10px 16px", "font-size:13px", "z-index:9999",
+      "max-width:340px", "text-align:center", "box-shadow:0 4px 16px rgba(0,0,0,0.3)",
+      "pointer-events:none", "opacity:0", "transition:opacity 0.2s"
+    ].join(";");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = "1";
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.opacity = "0"; }, 5000);
+}
+
+function refreshLightningButtonQuotaUI() {
+  if (!lightningToggleBtn) return;
+  const exhausted = isThinkingQuotaExhausted();
+  const remaining = getThinkingQuotaRemaining();
+  const limit     = getThinkingQuotaLimit();
+  const resetSec  = getThinkingQuotaResetSec();
+  if (exhausted) {
+    lightningToggleBtn.title    = `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`;
+    lightningToggleBtn.disabled = true;
+  } else {
+    lightningToggleBtn.title    = lightning_mode
+      ? `Click to enable Thinking mode (${remaining}/${limit} uses left today)`
+      : `Thinking mode on — ${remaining}/${limit} uses left today`;
+    lightningToggleBtn.disabled = false;
+  }
+}
+// --- End server-side thinking quota ---
+
 function getPreferredDefaultModelId() {
   const preferredConfigured = sanitizeModelId(userSettings.defaultModel);
   if (userSettings.rememberModel) {
@@ -1148,6 +1254,10 @@ async function refreshClientConfigFromServer() {
         : payload;
     if (!limits || typeof limits !== "object") return false;
     applyClientLimitsFromServer(limits);
+    // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
+    if (payload && typeof payload === "object" && payload.thinking_quota) {
+      applyServerThinkingQuota(payload.thinking_quota);
+    }
     applyUserSettingsToRuntime({ syncModelDefaults: false });
     refreshSendState();
     return true;
@@ -2545,6 +2655,7 @@ async function requestWorkspaceSuggestions() {
     });
 
     const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
+    const workspaceSuggestThinking = !lightning_mode;
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -2552,7 +2663,7 @@ async function requestWorkspaceSuggestions() {
         message: prompt,
         history: [],
         model: sessionModel,
-        enable_thinking: !lightning_mode
+        enable_thinking: workspaceSuggestThinking
       })
     });
     if (!res.ok) {
@@ -4319,6 +4430,8 @@ function setLightningModeEnabled(nextEnabled, options = {}) {
   } else {
     lightningToggleBtn.textContent = lightning_mode ? "⚡ Lightning On" : "⚡ Lightning Off";
   }
+  // Update title/disabled state based on server quota
+  refreshLightningButtonQuotaUI();
   if (lightningToggleIcon) {
     lightningToggleIcon.classList.toggle("is-filled", lightning_mode);
     lightningToggleIcon.classList.toggle("is-outline", !lightning_mode);
@@ -4833,6 +4946,7 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
+    const thinkingEnabledThisRequest = !lightning_mode;
     const requestBody = {
       message: messageForApi,
       workspace_context: workspaceContext,
@@ -4840,7 +4954,7 @@ async function send() {
       history: recentHistory,
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
-      enable_thinking: !lightning_mode
+      enable_thinking: thinkingEnabledThisRequest
     };
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -4858,6 +4972,8 @@ async function send() {
     if (contextCompactedHeader) {
       showCompactingBar();
     }
+    // Read server-enforced thinking quota from response headers and update UI
+    applyThinkingQuotaFromHeaders(res);
 
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
@@ -5344,6 +5460,16 @@ if (webToggleBtn) {
 if (lightningToggleBtn) {
   lightningToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
+    const turningOffLightning = lightning_mode; // user wants to enable thinking
+    if (turningOffLightning && isThinkingQuotaExhausted()) {
+      // Can't enable thinking — quota is server-enforced
+      const limit    = getThinkingQuotaLimit();
+      const resetSec = getThinkingQuotaResetSec();
+      showThinkingQuotaToast(
+        `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`
+      );
+      return;
+    }
     setLightningModeEnabled(!lightning_mode);
   });
 }
@@ -5720,6 +5846,8 @@ if (homeStartBtn) {
 autoResizeInput();
 setComposerTrayOpen(false);
 setWebSearchEnabled(false);
+// On boot: restore saved lightning preference. If the thinking quota is exhausted,
+// applyServerThinkingQuota() will force lightning on once refreshClientConfigFromServer() resolves.
 setLightningModeEnabled(loadLightningModeFromStorage(), { animate: false });
 applyUserSettingsToRuntime();
 refreshSendState();
