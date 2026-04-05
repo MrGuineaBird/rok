@@ -461,6 +461,24 @@ Change Scope: Short</p>
     </div>
   </section>
 
+  <!-- Thinking burnout modal — shown when the daily thinking quota is exhausted -->
+  <section id="thinkingBurnoutModal" class="burnout-modal" hidden aria-hidden="true">
+    <div class="burnout-card" role="dialog" aria-modal="true" aria-labelledby="burnoutTitle">
+      <div class="burnout-head">
+        <span class="burnout-badge">⚡ Thinking Limit Reached</span>
+        <button id="burnoutCloseBtn" class="burnout-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="burnout-emoji" aria-hidden="true">😮‍💨</div>
+      <h2 id="burnoutTitle" class="burnout-title">Uh oh! ROK is burnt out!</h2>
+      <p class="burnout-body">
+        Thinking is disabled for a little bit while he recharges!
+        You're still welcome to use ROK — he's just not going to think as hard.
+      </p>
+      <p id="burnoutResetLabel" class="burnout-reset"></p>
+      <button id="burnoutOkBtn" class="burnout-btn" type="button">Got it!</button>
+    </div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
         window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
