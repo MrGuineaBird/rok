@@ -637,10 +637,11 @@ function extractTokenFromStreamPayload(payload) {
   const done = Boolean(parsed.done);
   const thinking = typeof parsed.thinking === "string" ? parsed.thinking : "";
   const status = typeof parsed.status === "string" ? parsed.status : "";
+  const retry_after_sec = typeof parsed.retry_after_sec === "number" ? parsed.retry_after_sec : 0;
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, status, done };
+      return { token: value, thinking, status, done, retry_after_sec };
     }
   }
 
@@ -676,7 +677,7 @@ function extractTokenFromStreamPayload(payload) {
     }
   }
 
-  return { token: "", thinking, status, done };
+  return { token: "", thinking, status, done, retry_after_sec: 0 };
 }
 
 function splitThinkingFromText(text = "") {
@@ -5184,6 +5185,12 @@ async function send() {
           }
           if (parsedPayload.token) {
             consumeTaggedTokenChunk(parsedPayload.token);
+            if (parsedPayload.retry_after_sec) {
+              const retryAfterSec = parseInt(parsedPayload.retry_after_sec, 10) || 15;
+              nextAllowedAt = Date.now() + retryAfterSec * 1000;
+              startCooldownTimer();
+              refreshSendState();
+            }
           }
         }
       }
@@ -5209,6 +5216,12 @@ async function send() {
         }
         if (parsedPayload.token) {
           consumeTaggedTokenChunk(parsedPayload.token);
+          if (parsedPayload.retry_after_sec) {
+            const retryAfterSec = parseInt(parsedPayload.retry_after_sec, 10) || 15;
+            nextAllowedAt = Date.now() + retryAfterSec * 1000;
+            startCooldownTimer();
+            refreshSendState();
+          }
         }
         if (parsedPayload.done) {
           streamEnded = true;
@@ -5233,6 +5246,12 @@ async function send() {
       }
       if (parsedPayload.token) {
         consumeTaggedTokenChunk(parsedPayload.token);
+        if (parsedPayload.retry_after_sec) {
+          const retryAfterSec = parseInt(parsedPayload.retry_after_sec, 10) || 15;
+          nextAllowedAt = Date.now() + retryAfterSec * 1000;
+          startCooldownTimer();
+          refreshSendState();
+        }
       }
       if (parsedPayload.done) {
         streamEnded = true;
