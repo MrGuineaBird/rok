@@ -4827,10 +4827,35 @@ async function send() {
     if (!value) return;
     if (writeBackToWorkspace) return;
     convertTypingRowToBotMessage();
-    if (!thinkingPanel) return;
-    thinkingPanel.shell.hidden = false;
-    thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
-    setThinkingSummaryLabel(value);
+
+    // Show retry / status text in the thinking panel label
+    if (thinkingPanel) {
+      thinkingPanel.shell.hidden = false;
+      thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
+      setThinkingSummaryLabel(value);
+    }
+
+    // Also update the bubble so the user always sees the status,
+    // even if the thinking panel isn't visible yet
+    const isRetryStatus = value.toLowerCase().includes("retrying") ||
+                          value.toLowerCase().includes("busy");
+    if (bubble && isRetryStatus) {
+      bubble.setAttribute("data-retry-status", value);
+      // Show a subtle retry indicator inside the bubble
+      if (!bubble.querySelector(".retry-status-line")) {
+        const retryLine = document.createElement("span");
+        retryLine.className = "retry-status-line";
+        bubble.appendChild(retryLine);
+      }
+      const retryLine = bubble.querySelector(".retry-status-line");
+      if (retryLine) retryLine.textContent = `⟳ ${value}`;
+    } else if (bubble) {
+      // Clear retry indicator when a real answer starts
+      const existing = bubble.querySelector(".retry-status-line");
+      if (existing) existing.remove();
+      bubble.removeAttribute("data-retry-status");
+    }
+
     scrollToBottom();
   };
   const noteAnswerStarted = () => {
@@ -4838,6 +4863,12 @@ async function send() {
     answerStarted = true;
     if (thinkingPanel && !thinkingText.trim()) {
       setThinkingSummaryLabel("Thinking...");
+    }
+    // Clear any retry status indicator now that a real answer is arriving
+    if (bubble) {
+      const retryLine = bubble.querySelector(".retry-status-line");
+      if (retryLine) retryLine.remove();
+      bubble.removeAttribute("data-retry-status");
     }
     removeTypingIndicator();
     finalizeThinkingPanel(true);
