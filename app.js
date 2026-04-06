@@ -64,6 +64,10 @@ const savedChatsList = document.getElementById("savedChatsList");
 const cooldownEl = document.getElementById("cooldown");
 const appRoot = document.querySelector(".app");
 const banOverlay = document.getElementById("banOverlay");
+const thinkingBurnoutModal = document.getElementById("thinkingBurnoutModal");
+const burnoutCloseBtn = document.getElementById("burnoutCloseBtn");
+const burnoutOkBtn = document.getElementById("burnoutOkBtn");
+const burnoutResetLabel = document.getElementById("burnoutResetLabel");
 const serverDownScreen = document.getElementById("serverDownScreen");
 const serverDownMessage = document.getElementById("serverDownMessage");
 const serverDownMeta = document.getElementById("serverDownMeta");
@@ -115,12 +119,12 @@ const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/ap
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
-  historyLimit: 200,
-  maxHistoryMessages: 200,
-  maxAttachments: 5,
-  maxFileSizeBytes: 200 * 1024 * 1024,
-  maxFileChars: 12000,
-  maxResponseTokens: 600
+  historyLimit: 20,          // was 200 — large history balloons every request payload
+  maxHistoryMessages: 20,    // was 200
+  maxAttachments: 3,
+  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB — capped at 2MB
+  maxFileChars: 8000,        // was 12000
+  maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
 };
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
@@ -130,7 +134,7 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "qwen3.5:9b";
+const DEFAULT_CHAT_MODEL = "stepfun/step-3.5-flash:free";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -146,16 +150,16 @@ const DEFAULT_USER_SETTINGS = {
   customSystemPrompt: ""
 };
 const SUPPORTED_MODEL_IDS = new Set([
-  "qwen3.5:9b",
+  "stepfun/step-3.5-flash:free",
 ]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "qwen3.5:9b", label: "ROK Atlas" },
+  { id: "stepfun/step-3.5-flash:free", label: "ROK Hermes" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "qwen3.5:9b": "ROK Atlas",
+  "stepfun/step-3.5-flash:free": "ROK Hermes",
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen3.5:9b": "Atlas — deep and deliberate. Best for complex reasoning, long writing, and detailed code.",
+  "stepfun/step-3.5-flash:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -235,6 +239,7 @@ const HOME_DEMO_SCENARIOS = [
 ];
 const SERVER_DOWN_MESSAGES = [
   // --- Original & General ---
+  // yes these are ai generated server down messages..cry about it
   "Server is currently down. Check back later.",
   "Uh oh, our servers seem to be down!",
   "Looks like ROK is on break. Check back later.",
@@ -347,6 +352,8 @@ let nextAllowedAt = 0;
 let cooldownTimer = null;
 let activeRequestController = null;
 let stopRequested = false;
+
+
 let hasShownReadyMessage = false;
 let homeDemoTimer = null;
 let homeDemoLastIndex = -1;
@@ -368,6 +375,7 @@ let isMobileLayout = false;
 let isMobileSidebarOpen = false;
 let mobileLayoutMediaQueryList = null;
 let desmosCalculator = null;
+
 let isMathChatDrawerOpen = false;
 let userSettings = { ...DEFAULT_USER_SETTINGS };
 let compactingBarElement = null;
@@ -394,6 +402,8 @@ function normalizeModelOptions(rawOptions) {
   const seen = new Set();
   const normalized = [];
 
+  
+  
   for (const item of candidates) {
     let id = "";
     let label = "";
@@ -416,11 +426,13 @@ function normalizeModelOptions(rawOptions) {
   if (!normalized.length) {
     normalized.push({
       id: DEFAULT_CHAT_MODEL,
-      label: "ROK Hermes"
+      label: "ROK Quality"
     });
   }
   return normalized;
 }
+
+
 
 function resolveDefaultModelId(options, rawDefaultModel) {
   const candidates = Array.isArray(options) && options.length ? options : normalizeModelOptions([]);
@@ -456,6 +468,7 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
   MODEL_IDS = nextIds;
   DEFAULT_MODEL_ID = nextDefaultModelId;
 
+  
   renderModelSelectOptions();
   renderModelPanelOptions();
 
@@ -470,6 +483,8 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
     }
   }
 
+
+  
   if (didSessionModelsChange) {
     saveSessionsToStorage();
     saveCurrentSessionIdToStorage();
@@ -484,7 +499,6 @@ async function refreshModelCatalogFromServer() {
   try {
     const res = await fetchWithBanGuard(MODELS_URL, {
       method: "GET",
-      cache: "no-store",
       headers: {
         ...buildApiHeaders(false),
         Accept: "application/json"
@@ -596,6 +610,8 @@ async function safeReadResponseText(response) {
   }
 }
 
+
+
 function extractTokenFromStreamPayload(payload) {
   const raw = String(payload || "").trim();
   if (!raw) {
@@ -686,6 +702,7 @@ function splitThinkingFromText(text = "") {
 
 function createThinkingPanel() {
   const shell = document.createElement("details");
+ 
   shell.className = "thinking-block is-streaming";
   shell.hidden = true;
   shell.open = false;
@@ -908,6 +925,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: controller.signal,
+    
       body: JSON.stringify({
         message: prompt,
         history: [],
@@ -988,6 +1006,135 @@ function saveLightningModeToStorage(enabled) {
   }
 }
 
+// --- Thinking quota helpers ---
+// Quota is stored as { count: number, resetAt: timestamp }.
+// resetAt is set to now + 24h on the first thinking-enabled message of a window.
+
+// --- Server-side thinking quota (state comes from server, cannot be faked in localStorage) ---
+// Updated by refreshClientConfigFromServer() on boot and by applyThinkingQuotaFromHeaders()
+// after each chat response. The server enforces the real limit; this is UI-only.
+let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, updatedAt: 0 };
+
+function applyServerThinkingQuota(quota) {
+  if (!quota || typeof quota !== "object") return;
+  serverThinkingQuota = {
+    count:     typeof quota.count     === "number"  ? quota.count     : serverThinkingQuota.count,
+    limit:     typeof quota.limit     === "number"  ? quota.limit     : serverThinkingQuota.limit,
+    exhausted: typeof quota.exhausted === "boolean" ? quota.exhausted : serverThinkingQuota.exhausted,
+    resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverThinkingQuota.resetSec,
+    updatedAt: Date.now(),
+  };
+  // Sync the button state whenever quota data arrives
+  if (serverThinkingQuota.exhausted && !lightning_mode) {
+    setLightningModeEnabled(true, { animate: false });
+  } else {
+    refreshLightningButtonQuotaUI();
+  }
+  // Hide modal if quota was reset (e.g. next day)
+  if (!serverThinkingQuota.exhausted) {
+    hideThinkingBurnoutModal();
+  }
+}
+
+function applyThinkingQuotaFromHeaders(response) {
+  // Called after each /api/chat response to get the freshest quota state
+  const count     = parseInt(response.headers.get("X-Thinking-Count") || "", 10);
+  const limit     = parseInt(response.headers.get("X-Thinking-Limit") || "", 10);
+  const exhausted = (response.headers.get("X-Thinking-Exhausted") || "").toLowerCase() === "true";
+  const resetSec  = parseInt(response.headers.get("X-Thinking-Reset-Sec") || "0", 10);
+  if (!isNaN(count) && !isNaN(limit)) {
+    applyServerThinkingQuota({ count, limit, exhausted, reset_sec: resetSec });
+    if (exhausted) {
+      // Show the burnout modal — this is the first moment the user hits the limit
+      showThinkingBurnoutModal();
+    }
+  }
+}
+
+function isThinkingQuotaExhausted() {
+  return serverThinkingQuota.exhausted;
+}
+
+function getThinkingQuotaRemaining() {
+  return Math.max(0, serverThinkingQuota.limit - serverThinkingQuota.count);
+}
+
+function getThinkingQuotaLimit() {
+  return serverThinkingQuota.limit;
+}
+
+function getThinkingQuotaResetSec() {
+  return serverThinkingQuota.resetSec;
+}
+
+function formatThinkingResetTime(ms) {
+  const totalMinutes = Math.ceil(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function showThinkingBurnoutModal() {
+  if (!thinkingBurnoutModal) return;
+  // Update the reset time label
+  const resetSec = getThinkingQuotaResetSec();
+  if (burnoutResetLabel) {
+    burnoutResetLabel.textContent = resetSec > 0
+      ? `Thinking recharges in ${formatThinkingResetTime(resetSec * 1000)}.`
+      : "";
+  }
+  thinkingBurnoutModal.hidden = false;
+  thinkingBurnoutModal.setAttribute("aria-hidden", "false");
+}
+
+function hideThinkingBurnoutModal() {
+  if (!thinkingBurnoutModal) return;
+  thinkingBurnoutModal.hidden = true;
+  thinkingBurnoutModal.setAttribute("aria-hidden", "true");
+}
+
+function showThinkingQuotaToast(message) {
+  // For non-limit-hit cases (e.g. click-blocked) — small inline toast
+  let toast = document.getElementById("thinkingQuotaToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "thinkingQuotaToast";
+    toast.style.cssText = [
+      "position:fixed", "bottom:80px", "left:50%", "transform:translateX(-50%)",
+      "background:var(--surface-2,#2a2a2a)", "color:var(--text-1,#eee)",
+      "border:1px solid var(--border,#444)", "border-radius:8px",
+      "padding:10px 16px", "font-size:13px", "z-index:9999",
+      "max-width:340px", "text-align:center", "box-shadow:0 4px 16px rgba(0,0,0,0.3)",
+      "pointer-events:none", "opacity:0", "transition:opacity 0.2s"
+    ].join(";");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = "1";
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.opacity = "0"; }, 5000);
+}
+
+function refreshLightningButtonQuotaUI() {
+  if (!lightningToggleBtn) return;
+  const exhausted = isThinkingQuotaExhausted();
+  const remaining = getThinkingQuotaRemaining();
+  const limit     = getThinkingQuotaLimit();
+  const resetSec  = getThinkingQuotaResetSec();
+  if (exhausted) {
+    lightningToggleBtn.title    = `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`;
+    lightningToggleBtn.disabled = true;
+  } else {
+    lightningToggleBtn.title    = lightning_mode
+      ? `Click to enable Thinking mode (${remaining}/${limit} uses left today)`
+      : `Thinking mode on — ${remaining}/${limit} uses left today`;
+    lightningToggleBtn.disabled = false;
+  }
+}
+// --- End server-side thinking quota ---
+
 function getPreferredDefaultModelId() {
   const preferredConfigured = sanitizeModelId(userSettings.defaultModel);
   if (userSettings.rememberModel) {
@@ -1021,6 +1168,7 @@ function applyUserSettingsToRuntime(options = {}) {
     500
   );
   clientLimits.cooldownMs = normalizeClientLimit(
+  
     userSettings.cooldownMs,
     clientLimits.cooldownMs,
     0,
@@ -1115,7 +1263,6 @@ async function refreshClientConfigFromServer() {
   try {
     const res = await fetchWithBanGuard(CLIENT_CONFIG_URL, {
       method: "GET",
-      cache: "no-store",
       headers: {
         ...buildApiHeaders(false),
         Accept: "application/json"
@@ -1134,6 +1281,10 @@ async function refreshClientConfigFromServer() {
         : payload;
     if (!limits || typeof limits !== "object") return false;
     applyClientLimitsFromServer(limits);
+    // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
+    if (payload && typeof payload === "object" && payload.thinking_quota) {
+      applyServerThinkingQuota(payload.thinking_quota);
+    }
     applyUserSettingsToRuntime({ syncModelDefaults: false });
     refreshSendState();
     return true;
@@ -1963,6 +2114,13 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
     return fallbackIntent;
   }
 
+  // Skip the /api/intent network call entirely when the workspace is not active.
+  // The regex fallback is accurate enough for plain chat and saves one full
+  // round-trip to the server on every message (halves request count on free tier).
+  if (!workspaceValue) {
+    return fallbackIntent;
+  }
+
   try {
     const res = await fetchWithBanGuard(INTENT_URL, {
       method: "POST",
@@ -2524,6 +2682,7 @@ async function requestWorkspaceSuggestions() {
     });
 
     const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
+    const workspaceSuggestThinking = !lightning_mode;
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -2531,7 +2690,7 @@ async function requestWorkspaceSuggestions() {
         message: prompt,
         history: [],
         model: sessionModel,
-        enable_thinking: !lightning_mode
+        enable_thinking: workspaceSuggestThinking
       })
     });
     if (!res.ok) {
@@ -4298,6 +4457,8 @@ function setLightningModeEnabled(nextEnabled, options = {}) {
   } else {
     lightningToggleBtn.textContent = lightning_mode ? "⚡ Lightning On" : "⚡ Lightning Off";
   }
+  // Update title/disabled state based on server quota
+  refreshLightningButtonQuotaUI();
   if (lightningToggleIcon) {
     lightningToggleIcon.classList.toggle("is-filled", lightning_mode);
     lightningToggleIcon.classList.toggle("is-outline", !lightning_mode);
@@ -4642,6 +4803,9 @@ async function send() {
     if (!thinkingTitleResolved) {
       setThinkingSummaryLabel("Thinking...");
     }
+    if (complete) {
+      requestThinkingSummaryTitle();
+    }
   };
   const handleThinking = (chunk) => {
     markAssistantStreamStarted();
@@ -4663,10 +4827,35 @@ async function send() {
     if (!value) return;
     if (writeBackToWorkspace) return;
     convertTypingRowToBotMessage();
-    if (!thinkingPanel) return;
-    thinkingPanel.shell.hidden = false;
-    thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
-    setThinkingSummaryLabel(value);
+
+    // Show retry / status text in the thinking panel label
+    if (thinkingPanel) {
+      thinkingPanel.shell.hidden = false;
+      thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
+      setThinkingSummaryLabel(value);
+    }
+
+    // Also update the bubble so the user always sees the status,
+    // even if the thinking panel isn't visible yet
+    const isRetryStatus = value.toLowerCase().includes("retrying") ||
+                          value.toLowerCase().includes("busy");
+    if (bubble && isRetryStatus) {
+      bubble.setAttribute("data-retry-status", value);
+      // Show a subtle retry indicator inside the bubble
+      if (!bubble.querySelector(".retry-status-line")) {
+        const retryLine = document.createElement("span");
+        retryLine.className = "retry-status-line";
+        bubble.appendChild(retryLine);
+      }
+      const retryLine = bubble.querySelector(".retry-status-line");
+      if (retryLine) retryLine.textContent = `⟳ ${value}`;
+    } else if (bubble) {
+      // Clear retry indicator when a real answer starts
+      const existing = bubble.querySelector(".retry-status-line");
+      if (existing) existing.remove();
+      bubble.removeAttribute("data-retry-status");
+    }
+
     scrollToBottom();
   };
   const noteAnswerStarted = () => {
@@ -4674,6 +4863,12 @@ async function send() {
     answerStarted = true;
     if (thinkingPanel && !thinkingText.trim()) {
       setThinkingSummaryLabel("Thinking...");
+    }
+    // Clear any retry status indicator now that a real answer is arriving
+    if (bubble) {
+      const retryLine = bubble.querySelector(".retry-status-line");
+      if (retryLine) retryLine.remove();
+      bubble.removeAttribute("data-retry-status");
     }
     removeTypingIndicator();
     finalizeThinkingPanel(true);
@@ -4809,6 +5004,7 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
+    const thinkingEnabledThisRequest = !lightning_mode;
     const requestBody = {
       message: messageForApi,
       workspace_context: workspaceContext,
@@ -4816,7 +5012,7 @@ async function send() {
       history: recentHistory,
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
-      enable_thinking: !lightning_mode
+      enable_thinking: thinkingEnabledThisRequest
     };
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -4834,28 +5030,27 @@ async function send() {
     if (contextCompactedHeader) {
       showCompactingBar();
     }
+    // Read server-enforced thinking quota from response headers and update UI
+    applyThinkingQuotaFromHeaders(res);
 
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
       let errorBody = await safeReadResponseText(res);
-      let retryAfterSec = 0;
       if (errorBody) {
         try {
           const data = JSON.parse(errorBody);
           errorMessage = data.reply || data.error || errorMessage;
-          if (typeof data.retry_after_sec === "number") {
-            retryAfterSec = data.retry_after_sec;
-          }
         } catch {
           errorMessage = errorBody;
         }
       }
 
       if (res.status === 429) {
-        const headerVal = parseInt(res.headers.get("Retry-After") || "0", 10);
-        const waitSec = headerVal > 0 ? headerVal : retryAfterSec > 0 ? retryAfterSec : 15;
-        nextAllowedAt = Date.now() + waitSec * 1000;
-        throw new Error(`Rate limited — wait ${waitSec}s before sending again.`);
+        const retryAfterSec = parseInt(res.headers.get("Retry-After") || "15", 10);
+        nextAllowedAt = Date.now() + retryAfterSec * 1000;
+        startCooldownTimer();
+        refreshSendState();
+        throw new Error(errorMessage || `Rate limited — wait ${retryAfterSec}s before sending again.`);
       }
 
       if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
@@ -4919,7 +5114,6 @@ async function send() {
         history.push({ role: "assistant", content: reply });
         trimHistoryToLimit();
         syncCurrentSessionFromHistory();
-        requestThinkingSummaryTitle();
       }
 
       if (writeBackToWorkspace) {
@@ -4984,7 +5178,14 @@ async function send() {
             return;
           }
           if (parsedPayload.status) {
-            handleStatusUpdate(parsedPayload.status);
+            if (parsedPayload.status === "Opening canvas...") {
+                handleStatusUpdate(parsedPayload.status);
+                if (!writeBackToWorkspace && typeof openCanvas === "function") {
+                    openCanvas();
+                }
+            } else {
+                handleStatusUpdate(parsedPayload.status);
+            }
           }
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
@@ -5101,7 +5302,6 @@ async function send() {
       history.push({ role: "assistant", content: partialText });
       trimHistoryToLimit();
       syncCurrentSessionFromHistory();
-      requestThinkingSummaryTitle();
     }
 
     if (writeBackToWorkspace) {
@@ -5326,6 +5526,16 @@ if (webToggleBtn) {
 if (lightningToggleBtn) {
   lightningToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
+    const turningOffLightning = lightning_mode; // user wants to enable thinking
+    if (turningOffLightning && isThinkingQuotaExhausted()) {
+      // Can't enable thinking — quota is server-enforced
+      const limit    = getThinkingQuotaLimit();
+      const resetSec = getThinkingQuotaResetSec();
+      showThinkingQuotaToast(
+        `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`
+      );
+      return;
+    }
     setLightningModeEnabled(!lightning_mode);
   });
 }
@@ -5454,6 +5664,19 @@ if (legalModal) {
     if (e.target === legalModal) {
       closeLegalModal();
     }
+  });
+}
+
+if (burnoutCloseBtn) {
+  burnoutCloseBtn.addEventListener("click", () => hideThinkingBurnoutModal());
+}
+if (burnoutOkBtn) {
+  burnoutOkBtn.addEventListener("click", () => hideThinkingBurnoutModal());
+}
+// Close burnout modal on backdrop click
+if (thinkingBurnoutModal) {
+  thinkingBurnoutModal.addEventListener("click", (e) => {
+    if (e.target === thinkingBurnoutModal) hideThinkingBurnoutModal();
   });
 }
 
@@ -5701,11 +5924,14 @@ if (homeStartBtn) {
 
 autoResizeInput();
 setComposerTrayOpen(false);
-setWebSearchEnabled(true);
+setWebSearchEnabled(false);
+// On boot: restore saved lightning preference. If the thinking quota is exhausted,
+// applyServerThinkingQuota() will force lightning on once refreshClientConfigFromServer() resolves.
 setLightningModeEnabled(loadLightningModeFromStorage(), { animate: false });
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
+
 renderModelSelectOptions();
 renderModelPanelOptions();
 initializeSessions();
