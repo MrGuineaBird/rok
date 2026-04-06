@@ -134,7 +134,7 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "stepfun/step-3.5-flash:free";
+const DEFAULT_CHAT_MODEL = "qwen3.5:9b";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -149,17 +149,17 @@ const DEFAULT_USER_SETTINGS = {
   reduceMotion: false,
   customSystemPrompt: ""
 };
-const SUPPORTED_MODEL_IDS = new Set([
-  "stepfun/step-3.5-flash:free",
-]);
+// Model IDs are now sourced from the server via /api/models.
+// SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
+const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "stepfun/step-3.5-flash:free", label: "ROK Hermes" },
+  { id: "qwen3.5:9b", label: "ROK Hermes" },
 ];
 const KNOWN_MODEL_LABELS = {
-  "stepfun/step-3.5-flash:free": "ROK Hermes",
+  "qwen3.5:9b": "ROK Hermes",
 };
 const MODEL_DESCRIPTIONS = {
-  "stepfun/step-3.5-flash:free": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -393,7 +393,7 @@ function sanitizeModelId(rawModel) {
   let value = String(rawModel || "").trim().toLowerCase();
   if (value === "llava:latest") value = "llava-llama3";
   if (!value || value.length > 80) return "";
-  if (!/^[a-z0-9._:-]+$/.test(value)) return "";
+  if (!/^[a-z0-9._:\-/:]+$/.test(value)) return "";
   return value;
 }
 
@@ -414,7 +414,7 @@ function normalizeModelOptions(rawOptions) {
       id = sanitizeModelId(item.id || item.model || item.value);
       label = String(item.label || item.name || item.id || item.model || "").trim();
     }
-    if (!id || seen.has(id) || !SUPPORTED_MODEL_IDS.has(id)) continue;
+    if (!id || seen.has(id)) continue;
     seen.add(id);
     const displayLabel = KNOWN_MODEL_LABELS[id] || label || id;
     normalized.push({
@@ -5077,7 +5077,6 @@ async function send() {
     }
 
     const reader = res.body && res.body.getReader ? res.body.getReader() : null;
-    console.log("reader:", reader, "content-type:", contentType, "res.body:", res.body);
 
     if (!reader) {
       markAssistantStreamStarted();
