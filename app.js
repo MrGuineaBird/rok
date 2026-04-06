@@ -5286,7 +5286,17 @@ async function send() {
     finalizeThinkingPanel(Boolean(partialText), true);
 
     if (!partialText) {
-      partialText = "(No response)";
+      // The model may have answered entirely inside <think> tags with no
+      // separate answer — surface the thinking content rather than "(No response)".
+      if (thinkingText && thinkingText.trim()) {
+        partialText = thinkingText.trim();
+        thinkingText = "";
+        if (thinkingPanel) {
+          thinkingPanel.shell.hidden = true;
+        }
+      } else {
+        partialText = "(No response)";
+      }
     }
     removeTypingIndicator();
 
