@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ROK Pictionary</title>
+  <link rel="stylesheet" href="pictionary.css?v=1" />
+</head>
+<body>
+  <div class="pict-root">
+    <header class="pict-header">
+      <a class="pict-back" href="index.html">← ROK Home</a>
+      <h1 class="pict-title">ROK Pictionary</h1>
+      <p class="pict-tagline">Draw it. Beat the clock. Let the AI judge.</p>
+    </header>
+
+    <main class="pict-main">
+      <section class="pict-panel pict-prompt-panel" aria-live="polite">
+        <div class="pict-label">Your prompt</div>
+        <p id="pictPrompt" class="pict-prompt-text">Press “Start round” for a random prompt.</p>
+      </section>
+
+      <section class="pict-toolbar" aria-label="Round controls">
+        <div class="pict-timer-wrap">
+          <span class="pict-timer-label">Time left</span>
+          <span id="pictTimer" class="pict-timer" role="timer" aria-live="polite">2:00</span>
+        </div>
+        <div class="pict-actions">
+          <button id="pictStartBtn" type="button" class="pict-btn pict-btn-primary">Start round</button>
+          <button id="pictClearBtn" type="button" class="pict-btn" disabled>Clear canvas</button>
+        </div>
+      </section>
+
+      <section class="pict-canvas-wrap" aria-label="Drawing area">
+        <canvas id="pictCanvas" width="900" height="520" class="pict-canvas"></canvas>
+        <p id="pictCanvasHint" class="pict-hint">Drawing unlocks when the round starts.</p>
+      </section>
+
+      <section id="pictStatus" class="pict-status pict-status--idle" hidden>
+        <span class="pict-status-dot" aria-hidden="true"></span>
+        <span id="pictStatusText">Ready</span>
+      </section>
+
+      <section id="pictResults" class="pict-results" hidden>
+        <h2 class="pict-results-title">AI verdict</h2>
+        <div class="pict-results-grid">
+          <div class="pict-result-card">
+            <div class="pict-result-label">Guess</div>
+            <p id="pictResultGuess" class="pict-result-value">—</p>
+          </div>
+          <div class="pict-result-card pict-result-card--score">
+            <div class="pict-result-label">Score</div>
+            <p id="pictResultScore" class="pict-result-score">—</p>
+            <div class="pict-score-bar"><span id="pictScoreFill" class="pict-score-fill"></span></div>
+          </div>
+          <div class="pict-result-card pict-result-card--wide">
+            <div class="pict-result-label">Reaction</div>
+            <p id="pictResultReaction" class="pict-result-value">—</p>
+          </div>
+        </div>
+        <pre id="pictResultRaw" class="pict-raw" hidden></pre>
+        <button id="pictPlayAgainBtn" type="button" class="pict-btn pict-btn-primary">Play again</button>
+      </section>
+    </main>
+
+    <footer class="pict-footer">
+      <span>Powered by your ROK backend · Ollama Cloud vision</span>
+    </footer>
+  </div>
+  <script src="pictionary.js?v=1" defer></script>
+</body>
+</html>
