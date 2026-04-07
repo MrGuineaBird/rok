@@ -65,11 +65,26 @@
   var timerId = null;
   var lastPrompt = "";
 
-  /** Same host as this page by default; set <meta name="rok-api-root" content="https://rok.kyklos.online"> if needed. */
+  /**
+   * API host matches main ROK app (index.html / app.js): window.ROK_API_BASE → rokbackendreal.kyklos.online
+   * Fallback: meta name="rok-api-root", then rok.kyklos.online website → API subdomain, then same-origin (local dev).
+   */
   function getJudgeEndpoint() {
-    var meta = document.querySelector('meta[name="rok-api-root"]');
-    var root = meta && meta.getAttribute("content");
-    root = root && String(root).trim() ? String(root).replace(/\/$/, "") : "";
+    var root = "";
+    if (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") {
+      root = String(window.ROK_API_BASE).trim().replace(/\/+$/, "");
+    }
+    if (!root) {
+      var meta = document.querySelector('meta[name="rok-api-root"]');
+      var m = meta && meta.getAttribute("content");
+      root = m && String(m).trim() ? String(m).replace(/\/+$/, "") : "";
+    }
+    if (!root && typeof window.location !== "undefined") {
+      var host = (window.location.hostname || "").toLowerCase();
+      if (host === "rok.kyklos.online" || host === "www.rok.kyklos.online") {
+        root = "https://rokbackendreal.kyklos.online";
+      }
+    }
     if (!root && typeof window.location !== "undefined" && window.location.origin) {
       root = window.location.origin;
     }

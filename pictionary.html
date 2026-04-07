@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Optional: if this HTML is opened from disk or another host, set API origin: -->
-  <!-- <meta name="rok-api-root" content="https://rok.kyklos.online" /> -->
+  <!-- Website: rok.kyklos.online · API: rokbackendreal.kyklos.online (override with meta rok-api-root if needed) -->
   <title>ROK Pictionary</title>
   <link rel="stylesheet" href="pictionary.css?v=1" />
 </head>
@@ -69,6 +68,9 @@
       <span>Powered by your ROK backend · Ollama Cloud vision</span>
     </footer>
   </div>
+  <script>
+    window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
+  </script>
   <script src="pictionary.js?v=1" defer></script>
 </body>
 </html>
