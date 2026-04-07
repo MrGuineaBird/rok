@@ -65,6 +65,41 @@
   var timerId = null;
   var lastPrompt = "";
 
+  /** Same host as this page by default; set <meta name="rok-api-root" content="https://rok.kyklos.online"> if needed. */
+  function getJudgeEndpoint() {
+    var meta = document.querySelector('meta[name="rok-api-root"]');
+    var root = meta && meta.getAttribute("content");
+    root = root && String(root).trim() ? String(root).replace(/\/$/, "") : "";
+    if (!root && typeof window.location !== "undefined" && window.location.origin) {
+      root = window.location.origin;
+    }
+    return (root || "") + "/api/pictionary/judge";
+  }
+
+  /** Shrink + JPEG to avoid huge POST bodies (fixes HTTP/2 / proxy errors on Render). */
+  function compressCanvasForUpload(sourceCanvas) {
+    var maxSide = 768;
+    var w = sourceCanvas.width;
+    var h = sourceCanvas.height;
+    if (w < 1 || h < 1) {
+      return sourceCanvas.toDataURL("image/jpeg", 0.88);
+    }
+    var scale = 1;
+    if (w > maxSide || h > maxSide) {
+      scale = maxSide / Math.max(w, h);
+    }
+    var tw = Math.max(1, Math.round(w * scale));
+    var th = Math.max(1, Math.round(h * scale));
+    var off = document.createElement("canvas");
+    off.width = tw;
+    off.height = th;
+    var octx = off.getContext("2d");
+    octx.fillStyle = "#faf6f2";
+    octx.fillRect(0, 0, tw, th);
+    octx.drawImage(sourceCanvas, 0, 0, tw, th);
+    return off.toDataURL("image/jpeg", 0.88);
+  }
+
   function randomPrompt() {
     var i = Math.floor(Math.random() * PROMPTS.length);
     return PROMPTS[i];
@@ -149,7 +184,7 @@
     clearBtn.disabled = true;
     setTimerDisplay(0);
 
-    var dataUrl = canvas.toDataURL("image/png");
+    var dataUrl = compressCanvasForUpload(canvas);
     submitDrawing(dataUrl);
   }
 
@@ -157,22 +192,31 @@
     setStatus("busy", "Sending to AI…");
     resultsEl.hidden = true;
 
-    fetch("/api/pictionary/judge", {
+    var url = getJudgeEndpoint();
+    fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
         prompt: lastPrompt,
         image_base64: dataUrl,
       }),
     })
       .then(function (r) {
-        return r.json().then(function (j) {
+        return r.text().then(function (text) {
+          var j = null;
+          try {
+            j = text ? JSON.parse(text) : null;
+          } catch (e) {
+            j = { error: "HTTP " + r.status + " — " + (text ? text.slice(0, 200) : "empty body") };
+          }
           return { ok: r.ok, status: r.status, body: j };
         });
       })
       .then(function (res) {
-        if (!res.ok || !res.body.ok) {
-          var err = (res.body && res.body.error) || "Request failed";
+        if (!res.ok || !res.body || res.body.ok !== true) {
+          var err =
+            (res.body && (res.body.error || res.body.message)) ||
+            "Request failed (HTTP " + res.status + ")";
           throw new Error(err);
         }
         return res.body;
