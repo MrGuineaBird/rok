@@ -3,44 +3,6 @@
 
   var ROUND_SECONDS = 120;
 
-  var PROMPTS = [
-    "A dragon riding a skateboard",
-    "A penguin eating pizza on the moon",
-    "A robot having a picnic",
-    "A cat wearing sunglasses driving a bus",
-    "A volcano made of ice cream",
-    "A T-Rex playing basketball",
-    "A house floating with balloons",
-    "A snail winning a race against a rabbit",
-    "A UFO stealing a taco",
-    "A wizard cooking spaghetti",
-    "A giraffe in a submarine",
-    "A pineapple detective",
-    "A cloud that looks angry",
-    "A bicycle with square wheels",
-    "A fish reading a newspaper",
-    "A tree made of candy",
-    "A superhero who is a potato",
-    "A time machine made of cheese",
-    "A shark wearing a bow tie",
-    "A castle on a turtle's back",
-    "A musical note with legs",
-    "A cactus hugging a balloon",
-    "A moon juggling stars",
-    "A toaster as a spaceship",
-    "A banana slipping on a peel",
-    "A ghost at a birthday party",
-    "A lighthouse in the desert",
-    "A pencil fighting an eraser",
-    "A cup of coffee surfing",
-    "A dragonfly wearing a top hat",
-    "A snowman in a sauna",
-    "A rocket made of broccoli",
-    "A hedgehog as a chef",
-    "A rainbow bridge for ants",
-    "An owl doing yoga",
-  ];
-
   var canvas = document.getElementById("pictCanvas");
   var ctx = canvas.getContext("2d");
   var promptEl = document.getElementById("pictPrompt");
@@ -66,10 +28,9 @@
   var lastPrompt = "";
 
   /**
-   * API host matches main ROK app (index.html / app.js): window.ROK_API_BASE → rokbackendreal.kyklos.online
-   * Fallback: meta name="rok-api-root", then rok.kyklos.online website → API subdomain, then same-origin (local dev).
+   * API base (same rules as main ROK app.js / index.html ROK_API_BASE).
    */
-  function getJudgeEndpoint() {
+  function getApiBase() {
     var root = "";
     if (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") {
       root = String(window.ROK_API_BASE).trim().replace(/\/+$/, "");
@@ -88,7 +49,15 @@
     if (!root && typeof window.location !== "undefined" && window.location.origin) {
       root = window.location.origin;
     }
-    return (root || "") + "/api/pictionary/judge";
+    return root || "";
+  }
+
+  function getPromptEndpoint() {
+    return getApiBase() + "/api/pictionary/prompt";
+  }
+
+  function getJudgeEndpoint() {
+    return getApiBase() + "/api/pictionary/judge";
   }
 
   /** Shrink + JPEG to avoid huge POST bodies (fixes HTTP/2 / proxy errors on Render). */
@@ -115,9 +84,31 @@
     return off.toDataURL("image/jpeg", 0.88);
   }
 
-  function randomPrompt() {
-    var i = Math.floor(Math.random() * PROMPTS.length);
-    return PROMPTS[i];
+  function parseJsonResponse(r) {
+    return r.text().then(function (text) {
+      var j = null;
+      try {
+        j = text ? JSON.parse(text) : null;
+      } catch (e) {
+        j = { error: "HTTP " + r.status + " — " + (text ? text.slice(0, 200) : "empty body") };
+      }
+      return { ok: r.ok, status: r.status, body: j };
+    });
+  }
+
+  function fetchAiPrompt() {
+    return fetch(getPromptEndpoint(), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    }).then(parseJsonResponse).then(function (res) {
+      if (!res.ok || !res.body || res.body.ok !== true || !res.body.prompt) {
+        var err =
+          (res.body && (res.body.error || res.body.message)) ||
+          "Could not get a prompt (HTTP " + res.status + ")";
+        throw new Error(err);
+      }
+      return String(res.body.prompt).trim();
+    });
   }
 
   function formatTime(sec) {
@@ -267,15 +258,8 @@
       });
   }
 
-  function startRound() {
-    if (timerId) {
-      clearInterval(timerId);
-      timerId = null;
-    }
-    resultsEl.hidden = true;
-    rawEl.hidden = true;
-
-    lastPrompt = randomPrompt();
+  function beginRoundWithPrompt(promptText) {
+    lastPrompt = promptText;
     promptEl.textContent = lastPrompt;
 
     clearCanvas();
@@ -297,6 +281,34 @@
         endRound();
       }
     }, 1000);
+  }
+
+  function startRound() {
+    if (roundActive) return;
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+    resultsEl.hidden = true;
+    rawEl.hidden = true;
+
+    startBtn.disabled = true;
+    playAgainBtn.disabled = true;
+    setStatus("busy", "Asking the AI for a prompt…");
+    promptEl.textContent = "…";
+
+    fetchAiPrompt()
+      .then(function (text) {
+        beginRoundWithPrompt(text);
+      })
+      .catch(function (err) {
+        setStatus("idle", String(err && err.message ? err.message : "Could not get a prompt."));
+        promptEl.textContent = "Press Start round to try again — the AI will suggest what to draw.";
+        startBtn.disabled = false;
+      })
+      .then(function () {
+        playAgainBtn.disabled = false;
+      });
   }
 
   canvas.addEventListener("mousedown", startStroke);
