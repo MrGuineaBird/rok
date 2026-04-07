@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Website: rok.kyklos.online · API: rokbackendreal.kyklos.online (override with meta rok-api-root if needed) -->
   <title>ROK Pictionary</title>
-  <link rel="stylesheet" href="pictionary.css?v=1" />
+  <link rel="stylesheet" href="pictionary.css?v=2" />
 </head>
 <body>
   <div class="pict-root">
@@ -28,9 +28,48 @@
         </div>
         <div class="pict-actions">
           <button id="pictStartBtn" type="button" class="pict-btn pict-btn-primary">Start round</button>
-          <button id="pictClearBtn" type="button" class="pict-btn" disabled>Clear canvas</button>
         </div>
       </section>
+
+      <details class="pict-tools" id="pictToolsPanel">
+        <summary class="pict-tools-summary">
+          <span class="pict-tools-summary-label">Drawing tools</span>
+          <span class="pict-tools-summary-hint">color, width, eraser</span>
+        </summary>
+        <div class="pict-tools-body">
+          <div class="pict-tools-row pict-tools-row--modes" role="group" aria-label="Brush mode">
+            <span class="pict-tools-field-label">Mode</span>
+            <div class="pict-tools-segment">
+              <button type="button" id="pictModeDraw" class="pict-tools-mode pict-tools-mode--active" aria-pressed="true">Draw</button>
+              <button type="button" id="pictModeErase" class="pict-tools-mode" aria-pressed="false">Erase</button>
+            </div>
+          </div>
+          <div class="pict-tools-row">
+            <label class="pict-tools-field-label" for="pictColorPicker">Color</label>
+            <div class="pict-tools-color-row">
+              <input type="color" id="pictColorPicker" class="pict-color-input" value="#1a1a1a" title="Brush color" />
+              <div class="pict-color-presets" role="group" aria-label="Preset colors">
+                <button type="button" class="pict-swatch" data-color="#1a1a1a" style="--swatch:#1a1a1a" title="Black"></button>
+                <button type="button" class="pict-swatch" data-color="#8a1e1e" style="--swatch:#8a1e1e" title="Red"></button>
+                <button type="button" class="pict-swatch" data-color="#1e4a8c" style="--swatch:#1e4a8c" title="Blue"></button>
+                <button type="button" class="pict-swatch" data-color="#2d6a2d" style="--swatch:#2d6a2d" title="Green"></button>
+                <button type="button" class="pict-swatch" data-color="#6b2d8a" style="--swatch:#6b2d8a" title="Purple"></button>
+                <button type="button" class="pict-swatch" data-color="#b8860b" style="--swatch:#b8860b" title="Gold"></button>
+              </div>
+            </div>
+          </div>
+          <div class="pict-tools-row">
+            <label class="pict-tools-field-label" for="pictWidthRange">Line width</label>
+            <div class="pict-width-wrap">
+              <input type="range" id="pictWidthRange" class="pict-width-range" min="2" max="40" value="10" />
+              <span id="pictWidthValue" class="pict-width-value" aria-live="polite">10 px</span>
+            </div>
+          </div>
+          <div class="pict-tools-row pict-tools-row--actions">
+            <button id="pictClearBtn" type="button" class="pict-btn" disabled>Clear canvas</button>
+          </div>
+        </div>
+      </details>
 
       <section class="pict-canvas-wrap" aria-label="Drawing area">
         <canvas id="pictCanvas" width="900" height="520" class="pict-canvas"></canvas>
@@ -71,6 +110,6 @@
   <script>
     window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
   </script>
-  <script src="pictionary.js?v=2" defer></script>
+  <script src="pictionary.js?v=3" defer></script>
 </body>
 </html>

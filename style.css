@@ -3421,6 +3421,7 @@ body.settings-compact .attachment-list {
 }
 
 #homeScreen .hs-nav-brand {
+  flex-shrink: 0;
   padding: 0;
   margin: 0;
   border: 0;
@@ -3436,7 +3437,9 @@ body.settings-compact .attachment-list {
 }
 
 #homeScreen .hs-nav-links {
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;

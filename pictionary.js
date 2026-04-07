@@ -9,6 +9,12 @@
   var timerEl = document.getElementById("pictTimer");
   var startBtn = document.getElementById("pictStartBtn");
   var clearBtn = document.getElementById("pictClearBtn");
+  var toolsPanel = document.getElementById("pictToolsPanel");
+  var modeDrawBtn = document.getElementById("pictModeDraw");
+  var modeEraseBtn = document.getElementById("pictModeErase");
+  var colorPicker = document.getElementById("pictColorPicker");
+  var widthRange = document.getElementById("pictWidthRange");
+  var widthValueEl = document.getElementById("pictWidthValue");
   var hintEl = document.getElementById("pictCanvasHint");
   var statusEl = document.getElementById("pictStatus");
   var statusText = document.getElementById("pictStatusText");
@@ -26,6 +32,41 @@
   var secondsLeft = ROUND_SECONDS;
   var timerId = null;
   var lastPrompt = "";
+
+  var CANVAS_BG = "#faf6f2";
+  /** "draw" | "erase" */
+  var brushMode = "draw";
+
+  function syncWidthLabel() {
+    if (widthValueEl && widthRange) {
+      widthValueEl.textContent = widthRange.value + " px";
+    }
+  }
+
+  function setBrushMode(mode) {
+    brushMode = mode === "erase" ? "erase" : "draw";
+    var isErase = brushMode === "erase";
+    if (modeDrawBtn && modeEraseBtn) {
+      modeDrawBtn.classList.toggle("pict-tools-mode--active", !isErase);
+      modeDrawBtn.setAttribute("aria-pressed", !isErase ? "true" : "false");
+      modeEraseBtn.classList.toggle("pict-tools-mode--active", isErase);
+      modeEraseBtn.setAttribute("aria-pressed", isErase ? "true" : "false");
+    }
+    canvas.classList.toggle("pict-canvas--eraser", isErase);
+    if (toolsPanel) {
+      toolsPanel.classList.toggle("pict-tools--color-muted", isErase);
+    }
+  }
+
+  function currentStrokeColor() {
+    return brushMode === "erase" ? CANVAS_BG : colorPicker.value;
+  }
+
+  function currentLineWidth() {
+    var n = parseInt(widthRange.value, 10);
+    if (isNaN(n) || n < 1) n = 4;
+    return Math.max(1, n);
+  }
 
   /**
    * API base (same rules as main ROK app.js / index.html ROK_API_BASE).
@@ -123,7 +164,8 @@
   }
 
   function clearCanvas() {
-    ctx.fillStyle = "#faf6f2";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = CANVAS_BG;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
@@ -152,8 +194,9 @@
     if (!drawingEnabled || !drawing) return;
     e.preventDefault();
     var p = canvasCoords(e);
-    ctx.strokeStyle = "#1a1a1a";
-    ctx.lineWidth = Math.max(3, canvas.width / 200);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = currentStrokeColor();
+    ctx.lineWidth = currentLineWidth();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineTo(p.x, p.y);
@@ -328,12 +371,38 @@
     clearCanvas();
   });
 
+  modeDrawBtn.addEventListener("click", function () {
+    setBrushMode("draw");
+  });
+
+  modeEraseBtn.addEventListener("click", function () {
+    setBrushMode("erase");
+  });
+
+  colorPicker.addEventListener("input", function () {
+    setBrushMode("draw");
+  });
+
+  widthRange.addEventListener("input", syncWidthLabel);
+
+  document.querySelectorAll(".pict-swatch").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var c = btn.getAttribute("data-color");
+      if (c) {
+        colorPicker.value = c;
+        setBrushMode("draw");
+      }
+    });
+  });
+
   playAgainBtn.addEventListener("click", function () {
     if (roundActive) return;
     startRound();
   });
 
   function init() {
+    syncWidthLabel();
+    setBrushMode("draw");
     clearCanvas();
     canvas.classList.add("pict-canvas--locked");
     setTimerDisplay(ROUND_SECONDS);
