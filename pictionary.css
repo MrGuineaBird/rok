@@ -585,6 +585,10 @@ body {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
+.pict-modal[hidden] {
+  display: none !important;
+}
+
 .pict-modal-close {
   position: absolute;
   right: 10px;

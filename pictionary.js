@@ -454,6 +454,7 @@
     syncWidthLabel();
     setBrushMode("draw");
     clearCanvas();
+    hideVerdictModal();
     canvas.classList.add("pict-canvas--locked");
     setTimerDisplay(ROUND_SECONDS);
     setStatus("idle", "Press Start round when ready.");
