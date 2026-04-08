@@ -968,7 +968,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
         model: modelId || getCurrentSessionModel(),
         max_tokens: 24,
         skip_tools: true,
-        enable_thinking: !lightning_mode
+        enable_thinking: false
       })
     });
     return normalizeThinkingTitle(await readChatTextResponse(res));
@@ -1153,10 +1153,12 @@ let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, 
 
 function applyServerThinkingQuota(quota) {
   if (!quota || typeof quota !== "object") return;
+  const limitVal = typeof quota.limit === "number" ? quota.limit : serverThinkingQuota.limit;
+  const unlimited = limitVal <= 0;
   serverThinkingQuota = {
     count:     typeof quota.count     === "number"  ? quota.count     : serverThinkingQuota.count,
-    limit:     typeof quota.limit     === "number"  ? quota.limit     : serverThinkingQuota.limit,
-    exhausted: typeof quota.exhausted === "boolean" ? quota.exhausted : serverThinkingQuota.exhausted,
+    limit:     limitVal,
+    exhausted: unlimited ? false : (typeof quota.exhausted === "boolean" ? quota.exhausted : serverThinkingQuota.exhausted),
     resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverThinkingQuota.resetSec,
     updatedAt: Date.now(),
   };
@@ -1166,25 +1168,27 @@ function applyServerThinkingQuota(quota) {
   } else {
     refreshLightningButtonQuotaUI();
   }
-  // Hide modal if quota was reset (e.g. next day)
-  if (!serverThinkingQuota.exhausted) {
+  // Popup: show when limit is active and exhausted (config load + chat headers both use this path)
+  if (unlimited || !serverThinkingQuota.exhausted) {
     hideThinkingBurnoutModal();
+  } else if (limitVal > 0) {
+    showThinkingBurnoutModal();
   }
 }
 
 function applyThinkingQuotaFromHeaders(response) {
-  // Called after each /api/chat response to get the freshest quota state
+  // Called after each /api/chat response (requires Access-Control-Expose-Headers on server)
+  if (!response || !response.headers || response.headers.get("X-Thinking-Limit") == null) {
+    return;
+  }
   const count     = parseInt(response.headers.get("X-Thinking-Count") || "", 10);
   const limit     = parseInt(response.headers.get("X-Thinking-Limit") || "", 10);
   const exhausted = (response.headers.get("X-Thinking-Exhausted") || "").toLowerCase() === "true";
   const resetSec  = parseInt(response.headers.get("X-Thinking-Reset-Sec") || "0", 10);
-  if (!isNaN(count) && !isNaN(limit)) {
-    applyServerThinkingQuota({ count, limit, exhausted, reset_sec: resetSec });
-    if (exhausted) {
-      // Show the burnout modal — this is the first moment the user hits the limit
-      showThinkingBurnoutModal();
-    }
+  if (isNaN(count) || isNaN(limit)) {
+    return;
   }
+  applyServerThinkingQuota({ count, limit, exhausted, reset_sec: resetSec });
 }
 
 function isThinkingQuotaExhausted() {
@@ -1259,15 +1263,19 @@ function refreshLightningButtonQuotaUI() {
   const remaining = getThinkingQuotaRemaining();
   const limit     = getThinkingQuotaLimit();
   const resetSec  = getThinkingQuotaResetSec();
-  if (exhausted) {
-    lightningToggleBtn.title    = `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`;
-    lightningToggleBtn.disabled = true;
+  const unlimited = limit <= 0;
+  if (unlimited) {
+    lightningToggleBtn.title = lightning_mode
+      ? "Lightning mode — click to use full Thinking"
+      : "Thinking mode — click for Lightning (faster replies)";
+  } else if (exhausted) {
+    lightningToggleBtn.title = `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`;
   } else {
-    lightningToggleBtn.title    = lightning_mode
-      ? `Click to enable Thinking mode (${remaining}/${limit} uses left today)`
-      : `Thinking mode on — ${remaining}/${limit} uses left today`;
-    lightningToggleBtn.disabled = false;
+    lightningToggleBtn.title = lightning_mode
+      ? `Lightning on — click for Thinking (${remaining}/${limit} left today)`
+      : `Thinking on — ${remaining}/${limit} uses left today (click for Lightning)`;
   }
+  refreshSendState();
 }
 // --- End server-side thinking quota ---
 
@@ -4628,7 +4636,8 @@ function refreshSendState() {
     webToggleBtn.disabled = uiLocked;
   }
   if (lightningToggleBtn) {
-    lightningToggleBtn.disabled = uiLocked;
+    const quotaLocksLightningToggle = isThinkingQuotaExhausted() && lightning_mode;
+    lightningToggleBtn.disabled = uiLocked || quotaLocksLightningToggle;
   }
   if (fileInput) {
     fileInput.disabled = uiLocked;
