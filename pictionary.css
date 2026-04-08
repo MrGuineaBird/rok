@@ -556,3 +556,50 @@ body {
   font-size: 12px;
   color: #7a5555;
 }
+
+.pict-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.pict-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.pict-modal-card {
+  position: relative;
+  width: min(780px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  background: rgba(28, 12, 14, 0.97);
+  border: 1px solid rgba(190, 110, 110, 0.65);
+  border-radius: 14px;
+  padding: 20px 18px 22px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.pict-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(70, 24, 28, 0.95);
+  color: #ffdede;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pict-modal-close:hover {
+  background: rgba(110, 30, 36, 0.98);
+}

@@ -81,31 +81,36 @@
         <span id="pictStatusText">Ready</span>
       </section>
 
-      <section id="pictResults" class="pict-results" hidden>
-        <h2 class="pict-results-title">AI verdict</h2>
-        <div class="pict-results-grid">
-          <div class="pict-result-card">
-            <div class="pict-result-label">Guess</div>
-            <p id="pictResultGuess" class="pict-result-value">—</p>
-          </div>
-          <div class="pict-result-card pict-result-card--score">
-            <div class="pict-result-label">Score</div>
-            <p id="pictResultScore" class="pict-result-score">—</p>
-            <div class="pict-score-bar"><span id="pictScoreFill" class="pict-score-fill"></span></div>
-          </div>
-          <div class="pict-result-card pict-result-card--wide">
-            <div class="pict-result-label">Reaction</div>
-            <p id="pictResultReaction" class="pict-result-value">—</p>
-          </div>
-        </div>
-        <pre id="pictResultRaw" class="pict-raw" hidden></pre>
-        <button id="pictPlayAgainBtn" type="button" class="pict-btn pict-btn-primary">Play again</button>
-      </section>
+      <section id="pictResults" class="pict-results" hidden></section>
     </main>
 
     <footer class="pict-footer">
       <span>Powered by your ROK backend · Ollama Cloud vision</span>
     </footer>
+  </div>
+  <div id="pictVerdictModal" class="pict-modal" hidden>
+    <div id="pictVerdictBackdrop" class="pict-modal-backdrop"></div>
+    <section class="pict-modal-card" role="dialog" aria-modal="true" aria-labelledby="pictVerdictTitle">
+      <button id="pictModalCloseBtn" type="button" class="pict-modal-close" aria-label="Close verdict popup">×</button>
+      <h2 id="pictVerdictTitle" class="pict-results-title">AI verdict</h2>
+      <div class="pict-results-grid">
+        <div class="pict-result-card">
+          <div class="pict-result-label">Guess</div>
+          <p id="pictResultGuess" class="pict-result-value">—</p>
+        </div>
+        <div class="pict-result-card pict-result-card--score">
+          <div class="pict-result-label">Score</div>
+          <p id="pictResultScore" class="pict-result-score">—</p>
+          <div class="pict-score-bar"><span id="pictScoreFill" class="pict-score-fill"></span></div>
+        </div>
+        <div class="pict-result-card pict-result-card--wide">
+          <div class="pict-result-label">Reaction</div>
+          <p id="pictResultReaction" class="pict-result-value">—</p>
+        </div>
+      </div>
+      <pre id="pictResultRaw" class="pict-raw" hidden></pre>
+      <button id="pictPlayAgainBtn" type="button" class="pict-btn pict-btn-primary">Play again</button>
+    </section>
   </div>
   <script>
     window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";

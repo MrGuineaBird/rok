@@ -25,6 +25,9 @@
   var scoreFill = document.getElementById("pictScoreFill");
   var rawEl = document.getElementById("pictResultRaw");
   var playAgainBtn = document.getElementById("pictPlayAgainBtn");
+  var verdictModal = document.getElementById("pictVerdictModal");
+  var verdictBackdrop = document.getElementById("pictVerdictBackdrop");
+  var modalCloseBtn = document.getElementById("pictModalCloseBtn");
 
   var roundActive = false;
   var drawingEnabled = false;
@@ -32,10 +35,25 @@
   var secondsLeft = ROUND_SECONDS;
   var timerId = null;
   var lastPrompt = "";
+  var fetchingPrompt = false;
+  var promptRequestId = 0;
+  var promptAbortController = null;
 
   var CANVAS_BG = "#faf6f2";
   /** "draw" | "erase" */
   var brushMode = "draw";
+
+  function showVerdictModal() {
+    if (!verdictModal) return;
+    verdictModal.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function hideVerdictModal() {
+    if (!verdictModal) return;
+    verdictModal.hidden = true;
+    document.body.style.overflow = "";
+  }
 
   function syncWidthLabel() {
     if (widthValueEl && widthRange) {
@@ -137,10 +155,11 @@
     });
   }
 
-  function fetchAiPrompt() {
+  function fetchAiPrompt(signal) {
     return fetch(getPromptEndpoint(), {
       method: "GET",
       headers: { Accept: "application/json" },
+      signal: signal,
     }).then(parseJsonResponse).then(function (res) {
       if (!res.ok || !res.body || res.body.ok !== true || !res.body.prompt) {
         var err =
@@ -240,6 +259,7 @@
   function submitDrawing(dataUrl) {
     setStatus("busy", "Sending to AI…");
     resultsEl.hidden = true;
+    hideVerdictModal();
 
     var url = getJudgeEndpoint();
     fetch(url, {
@@ -288,6 +308,7 @@
           resultReaction.textContent = data.reaction || "—";
         }
         setStatus("idle", "Done");
+        showVerdictModal();
       })
       .catch(function (err) {
         resultsEl.hidden = false;
@@ -298,6 +319,7 @@
         resultReaction.textContent = "Something went wrong.";
         scoreFill.style.width = "0%";
         setStatus("idle", "Error");
+        showVerdictModal();
       });
   }
 
@@ -327,29 +349,44 @@
   }
 
   function startRound() {
-    if (roundActive) return;
+    if (roundActive || fetchingPrompt) return;
     if (timerId) {
       clearInterval(timerId);
       timerId = null;
     }
     resultsEl.hidden = true;
+    hideVerdictModal();
     rawEl.hidden = true;
 
     startBtn.disabled = true;
     playAgainBtn.disabled = true;
     setStatus("busy", "Asking the AI for a prompt…");
     promptEl.textContent = "…";
+    fetchingPrompt = true;
+    promptRequestId += 1;
+    var activeRequestId = promptRequestId;
+    if (promptAbortController && typeof promptAbortController.abort === "function") {
+      promptAbortController.abort();
+    }
+    promptAbortController =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
 
-    fetchAiPrompt()
+    fetchAiPrompt(promptAbortController ? promptAbortController.signal : undefined)
       .then(function (text) {
+        if (activeRequestId !== promptRequestId) return;
         beginRoundWithPrompt(text);
       })
       .catch(function (err) {
+        if (activeRequestId !== promptRequestId) return;
+        if (err && err.name === "AbortError") return;
         setStatus("idle", String(err && err.message ? err.message : "Could not get a prompt."));
         promptEl.textContent = "Press Start round to try again — the AI will suggest what to draw.";
         startBtn.disabled = false;
       })
       .then(function () {
+        if (activeRequestId !== promptRequestId) return;
+        fetchingPrompt = false;
+        promptAbortController = null;
         playAgainBtn.disabled = false;
       });
   }
@@ -397,7 +434,20 @@
 
   playAgainBtn.addEventListener("click", function () {
     if (roundActive) return;
+    hideVerdictModal();
     startRound();
+  });
+
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener("click", hideVerdictModal);
+  }
+  if (verdictBackdrop) {
+    verdictBackdrop.addEventListener("click", hideVerdictModal);
+  }
+  window.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      hideVerdictModal();
+    }
   });
 
   function init() {
