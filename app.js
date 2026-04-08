@@ -140,6 +140,8 @@ const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
+/** Bump this to force every browser to see the tour one more time after deploy. */
+const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "qwen3.5:9b";
 const DEFAULT_USER_SETTINGS = {
@@ -1020,12 +1022,15 @@ function savePreferredNameToStorage(rawName) {
 function loadOnboardingRecord() {
   try {
     const raw = localStorage.getItem(LOCAL_ONBOARDING_KEY);
-    if (!raw) return { completed: false };
+    if (!raw) return { completed: false, version: 0 };
     const p = JSON.parse(raw);
-    if (!p || typeof p !== "object") return { completed: false };
-    return { completed: p.completed === true, version: typeof p.version === "number" ? p.version : 1 };
+    if (!p || typeof p !== "object") return { completed: false, version: 0 };
+    return {
+      completed: p.completed === true,
+      version: typeof p.version === "number" ? p.version : 0,
+    };
   } catch {
-    return { completed: false };
+    return { completed: false, version: 0 };
   }
 }
 
@@ -1033,28 +1038,20 @@ function saveOnboardingCompletedRecord() {
   try {
     localStorage.setItem(
       LOCAL_ONBOARDING_KEY,
-      JSON.stringify({ completed: true, version: 1, completedAt: new Date().toISOString() })
+      JSON.stringify({
+        completed: true,
+        version: ONBOARDING_TOUR_VERSION,
+        completedAt: new Date().toISOString(),
+      })
     );
   } catch {
     // Ignore storage write failures.
   }
 }
 
-function hasExistingChatSessions() {
-  try {
-    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function isOnboardingCompleted() {
-  if (loadOnboardingRecord().completed) return true;
-  if (hasExistingChatSessions()) return true;
-  return false;
+  const rec = loadOnboardingRecord();
+  return rec.completed === true && rec.version === ONBOARDING_TOUR_VERSION;
 }
 
 let onboardingStepIndex = 0;
