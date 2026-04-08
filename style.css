@@ -5703,6 +5703,232 @@ button.stop-mode:hover {
   border-color: #8A5515;
 }
 
+/* ── First-run onboarding (get to know you) ───────────────────────── */
+.onboarding-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.onboarding-modal[hidden] {
+  display: none !important;
+}
+
+.onboarding-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 9, 14, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.onboarding-card {
+  position: relative;
+  z-index: 1;
+  width: min(440px, 100%);
+  max-height: min(88vh, 620px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 20px 18px;
+  border-radius: 18px;
+  border: 1px solid #4f2a2a;
+  background: linear-gradient(180deg, rgba(14, 21, 30, 0.99) 0%, rgba(10, 14, 22, 0.97) 100%);
+  box-shadow:
+    0 22px 56px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(226, 173, 173, 0.06);
+  animation: onboarding-pop 0.24s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+@keyframes onboarding-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.onboarding-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #5a2a2a;
+  background: rgba(209, 75, 75, 0.12);
+  color: #f4caca;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-close {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid #4d2a2a;
+  background: #271212;
+  color: #e6c4c4;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.onboarding-close:hover {
+  background: #351717;
+}
+
+.onboarding-progress {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.onboarding-dot.is-active {
+  background: rgba(209, 75, 75, 0.65);
+  border-color: rgba(255, 200, 200, 0.25);
+}
+
+.onboarding-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.onboarding-slide[hidden] {
+  display: none !important;
+}
+
+.onboarding-title {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f7d9d9;
+  line-height: 1.25;
+}
+
+.onboarding-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #c9a8a8;
+}
+
+.onboarding-text strong {
+  color: #e8d4d4;
+  font-weight: 600;
+}
+
+.onboarding-name-label {
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b88f8f;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.onboarding-name-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #4a2828;
+  background: rgba(8, 10, 16, 0.85);
+  color: #f5e8e8;
+  font-size: 16px;
+  outline: none;
+}
+
+.onboarding-name-input:focus {
+  border-color: rgba(209, 75, 75, 0.55);
+  box-shadow: 0 0 0 2px rgba(209, 75, 75, 0.15);
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(80, 40, 40, 0.35);
+}
+
+.onboarding-actions-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.onboarding-btn {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #4d2a2a;
+  background: #2a1515;
+  color: #e8d0d0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-btn.ghost {
+  background: transparent;
+  color: #b89090;
+  border-color: rgba(120, 70, 70, 0.45);
+}
+
+.onboarding-btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e0c8c8;
+}
+
+.onboarding-btn.primary {
+  border-color: #8a3030;
+  background: linear-gradient(135deg, #c43838 0%, #8a1e1e 100%);
+  color: #1a0505;
+}
+
+.onboarding-btn.primary:hover {
+  filter: brightness(1.06);
+}
+
+@media (max-width: 480px) {
+  .onboarding-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .onboarding-actions-spacer {
+    display: none;
+  }
+
+  .onboarding-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* ROK Pictionary — home entry (homescreen button only) */
 #homeScreen .hs-pictionary-cta {
   align-self: center;

@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=home87" />
+  <link rel="stylesheet" href="style.css?v=home88" />
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
   <meta name="google-site-verification" content="9AHzloNzCGXCnzi8LGMdIUoTnvdxaqkAsa_Ua7Qyka0" />
 </head>
@@ -447,6 +447,7 @@ Change Scope: Short</p>
             <li>We store chat sessions locally in your browser only, unless you delete them.</li>
             <li>Requests are sent to the configured AI endpoint to generate responses.</li>
             <li>We do not collect analytics or sell your data from this client.</li>
+            <li>An optional display name from onboarding is stored only in your browser with your other settings.</li>
             <li>You can clear local data at any time using the Clear button.</li>
           </ul>
           <p>ROK does not store any data on remote servers. ROK is a local-first application.</p>
@@ -460,6 +461,73 @@ Change Scope: Short</p>
           </ul>
           <p>Thanks to everyone testing and helping improve ROK.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- First-run: get to know you + quick tour (local storage only) -->
+  <section id="onboardingModal" class="onboarding-modal" hidden aria-hidden="true">
+    <div class="onboarding-backdrop"></div>
+    <div
+      class="onboarding-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboardingHeading"
+      aria-describedby="onboardingDesc"
+    >
+      <div class="onboarding-head">
+        <span class="onboarding-badge">Get to know you</span>
+        <button id="onboardingCloseBtn" type="button" class="onboarding-close" aria-label="Skip tour and close">✕</button>
+      </div>
+      <div id="onboardingProgress" class="onboarding-progress" aria-hidden="true">
+        <span class="onboarding-dot is-active" data-onb-dot="0"></span>
+        <span class="onboarding-dot" data-onb-dot="1"></span>
+        <span class="onboarding-dot" data-onb-dot="2"></span>
+        <span class="onboarding-dot" data-onb-dot="3"></span>
+      </div>
+      <div class="onboarding-body">
+        <div id="onboardingSlide0" class="onboarding-slide" data-onb-slide="0">
+          <h2 id="onboardingHeading" class="onboarding-title">Welcome to ROK</h2>
+          <p id="onboardingDesc" class="onboarding-text">
+            ROK is your private AI workspace for chat, long-form writing in the workspace, picking a model, and a built-in math graph.
+            This short tour shows where everything lives — then we’ll ask what to call you so ROK can respond naturally.
+          </p>
+        </div>
+        <div id="onboardingSlide1" class="onboarding-slide" hidden data-onb-slide="1">
+          <h2 class="onboarding-title">Sidebar &amp; chats</h2>
+          <p class="onboarding-text">
+            Use <strong>New chat</strong> to start fresh. Your recent conversations appear under <strong>Saved Chats</strong> — they stay in this browser only.
+            Tap the edge button to collapse the sidebar when you need more room.
+          </p>
+        </div>
+        <div id="onboardingSlide2" class="onboarding-slide" hidden data-onb-slide="2">
+          <h2 class="onboarding-title">Tabs &amp; workspace</h2>
+          <p class="onboarding-text">
+            Switch between <strong>Chat</strong>, <strong>ROK Workspace</strong> for drafting, <strong>Model</strong> to choose the AI model, and <strong>Math</strong> for the graphing calculator.
+            The workspace is great for stories, essays, and anything you want ROK to help revise or continue.
+          </p>
+        </div>
+        <div id="onboardingSlide3" class="onboarding-slide" hidden data-onb-slide="3">
+          <h2 class="onboarding-title">What should we call you?</h2>
+          <p class="onboarding-text">
+            ROK will use this name when it makes sense in replies. Stored only on this device; you can clear site data to remove it.
+          </p>
+          <label class="onboarding-name-label" for="onboardingNameInput">Your name (optional)</label>
+          <input
+            id="onboardingNameInput"
+            class="onboarding-name-input"
+            type="text"
+            maxlength="64"
+            autocomplete="nickname"
+            placeholder="e.g. Alex"
+          />
+        </div>
+      </div>
+      <div class="onboarding-actions">
+        <button id="onboardingBackBtn" type="button" class="onboarding-btn ghost" hidden>Back</button>
+        <div class="onboarding-actions-spacer"></div>
+        <button id="onboardingSkipBtn" type="button" class="onboarding-btn ghost">Skip tour</button>
+        <button id="onboardingNextBtn" type="button" class="onboarding-btn primary">Next</button>
       </div>
     </div>
   </section>
@@ -486,6 +554,6 @@ Change Scope: Short</p>
   <script>
         window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
   </script>
-<script type="module" src="app.js?v=home88"></script>
+<script type="module" src="app.js?v=home89"></script>
 </body>
 </html>

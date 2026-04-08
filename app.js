@@ -103,6 +103,12 @@ const homeDemoReply = document.getElementById("homeDemoReply");
 const homeDemoCards = document.getElementById("homeDemoCards");
 const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
+const onboardingModal = document.getElementById("onboardingModal");
+const onboardingCloseBtn = document.getElementById("onboardingCloseBtn");
+const onboardingBackBtn = document.getElementById("onboardingBackBtn");
+const onboardingNextBtn = document.getElementById("onboardingNextBtn");
+const onboardingSkipBtn = document.getElementById("onboardingSkipBtn");
+const onboardingNameInput = document.getElementById("onboardingNameInput");
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
 const runtimeApiBase =
@@ -133,6 +139,7 @@ const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
 const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
+const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "qwen3.5:9b";
 const DEFAULT_USER_SETTINGS = {
@@ -147,7 +154,8 @@ const DEFAULT_USER_SETTINGS = {
   accentColor: "#d14b4b",
   compactMode: false,
   reduceMotion: false,
-  customSystemPrompt: ""
+  customSystemPrompt: "",
+  preferredName: ""
 };
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
@@ -545,13 +553,39 @@ function getCustomSystemPromptHeaderValue() {
   }
 }
 
+function getMergedSystemPromptForApi() {
+  const custom = getCustomSystemPromptHeaderValue();
+  let name = "";
+  try {
+    const rawSettings = localStorage.getItem(USER_SETTINGS_KEY);
+    if (rawSettings) {
+      const parsed = JSON.parse(rawSettings);
+      if (parsed && typeof parsed === "object" && typeof parsed.preferredName === "string") {
+        name = parsed.preferredName.trim();
+      }
+    }
+  } catch {
+    name = "";
+  }
+  if (name.length > 64) {
+    name = name.slice(0, 64);
+  }
+  const identity = name
+    ? `User context: The user goes by "${name}". Address them by this name when it feels natural in conversation.`
+    : "";
+  if (custom && identity) {
+    return `${custom}\n\n${identity}`;
+  }
+  return custom || identity;
+}
+
 function buildApiHeaders(includeJson) {
   const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
-    const customSystemPrompt = getCustomSystemPromptHeaderValue();
-    if (customSystemPrompt) {
-      headers["X-Custom-System-Prompt"] = customSystemPrompt;
+    const systemPrompt = getMergedSystemPromptForApi();
+    if (systemPrompt) {
+      headers["X-Custom-System-Prompt"] = systemPrompt;
     }
   }
   return headers;
@@ -968,6 +1002,111 @@ function loadUserSettingsFromStorage() {
   }
 }
 
+function savePreferredNameToStorage(rawName) {
+  const name = String(rawName || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 64);
+  try {
+    const s = { ...loadUserSettingsFromStorage(), preferredName: name };
+    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(s));
+    userSettings = s;
+    applyUserSettingsToRuntime({ syncModelDefaults: false });
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function loadOnboardingRecord() {
+  try {
+    const raw = localStorage.getItem(LOCAL_ONBOARDING_KEY);
+    if (!raw) return { completed: false };
+    const p = JSON.parse(raw);
+    if (!p || typeof p !== "object") return { completed: false };
+    return { completed: p.completed === true, version: typeof p.version === "number" ? p.version : 1 };
+  } catch {
+    return { completed: false };
+  }
+}
+
+function saveOnboardingCompletedRecord() {
+  try {
+    localStorage.setItem(
+      LOCAL_ONBOARDING_KEY,
+      JSON.stringify({ completed: true, version: 1, completedAt: new Date().toISOString() })
+    );
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function hasExistingChatSessions() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function isOnboardingCompleted() {
+  if (loadOnboardingRecord().completed) return true;
+  if (hasExistingChatSessions()) return true;
+  return false;
+}
+
+let onboardingStepIndex = 0;
+const ONBOARDING_NAME_SLIDE = 3;
+
+function renderOnboardingStep() {
+  for (let i = 0; i <= 3; i += 1) {
+    const slide = document.getElementById(`onboardingSlide${i}`);
+    if (slide) slide.hidden = i !== onboardingStepIndex;
+  }
+  document.querySelectorAll("[data-onb-dot]").forEach((dot, i) => {
+    dot.classList.toggle("is-active", i === onboardingStepIndex);
+  });
+  if (onboardingBackBtn) {
+    onboardingBackBtn.hidden = onboardingStepIndex === 0;
+  }
+  if (onboardingNextBtn) {
+    onboardingNextBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Start chatting" : "Next";
+  }
+  if (onboardingSkipBtn) {
+    onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip tour";
+  }
+}
+
+function openOnboardingModal() {
+  if (!onboardingModal) return;
+  onboardingStepIndex = 0;
+  renderOnboardingStep();
+  onboardingModal.hidden = false;
+  onboardingModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function closeOnboardingModal() {
+  if (!onboardingModal) return;
+  onboardingModal.hidden = true;
+  onboardingModal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function enterAppFromHome() {
+  hideHomeScreen();
+  checkServerOnBoot();
+  renderWorkspaceUI({ focus: true });
+}
+
+function finishOnboardingAndEnter() {
+  saveOnboardingCompletedRecord();
+  closeOnboardingModal();
+  enterAppFromHome();
+}
+
 function loadLastModelFromStorage() {
   try {
     const raw = localStorage.getItem(LOCAL_LAST_MODEL_KEY);
@@ -1349,7 +1488,11 @@ function hideServerDownScreen() {
 
 function ensureReadyMessage() {
   if (hasShownReadyMessage) return;
-  addMessage("system", "ROK is ready. Ask me anything.");
+  const name = String(loadUserSettingsFromStorage().preferredName || "").trim();
+  const text = name
+    ? `Hi, ${name}. ROK is ready — ask me anything.`
+    : "ROK is ready. Ask me anything.";
+  addMessage("system", text);
   hasShownReadyMessage = true;
 }
 
@@ -5894,6 +6037,11 @@ document.addEventListener("pointerdown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (onboardingModal && !onboardingModal.hidden) {
+    savePreferredNameToStorage("");
+    finishOnboardingAndEnter();
+    return;
+  }
   if (composerTrayOpen) {
     setComposerTrayOpen(false);
   }
@@ -5925,9 +6073,60 @@ if (brandHomeBtn) {
 
 if (homeStartBtn) {
   homeStartBtn.addEventListener("click", () => {
-    hideHomeScreen();
-    checkServerOnBoot();
-    renderWorkspaceUI({ focus: true });
+    if (!isOnboardingCompleted()) {
+      openOnboardingModal();
+      return;
+    }
+    enterAppFromHome();
+  });
+}
+
+if (onboardingNextBtn) {
+  onboardingNextBtn.addEventListener("click", () => {
+    if (onboardingStepIndex < ONBOARDING_NAME_SLIDE) {
+      onboardingStepIndex += 1;
+      renderOnboardingStep();
+      if (onboardingStepIndex === ONBOARDING_NAME_SLIDE && onboardingNameInput) {
+        setTimeout(() => onboardingNameInput.focus(), 40);
+      }
+      return;
+    }
+    const raw = onboardingNameInput ? onboardingNameInput.value : "";
+    savePreferredNameToStorage(raw);
+    finishOnboardingAndEnter();
+  });
+}
+
+if (onboardingBackBtn) {
+  onboardingBackBtn.addEventListener("click", () => {
+    if (onboardingStepIndex <= 0) return;
+    onboardingStepIndex -= 1;
+    renderOnboardingStep();
+  });
+}
+
+if (onboardingSkipBtn) {
+  onboardingSkipBtn.addEventListener("click", () => {
+    savePreferredNameToStorage("");
+    finishOnboardingAndEnter();
+  });
+}
+
+if (onboardingCloseBtn) {
+  onboardingCloseBtn.addEventListener("click", () => {
+    savePreferredNameToStorage("");
+    finishOnboardingAndEnter();
+  });
+}
+
+if (onboardingNameInput) {
+  onboardingNameInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    if (onboardingModal && onboardingModal.hidden) return;
+    if (onboardingStepIndex !== ONBOARDING_NAME_SLIDE) return;
+    event.preventDefault();
+    savePreferredNameToStorage(onboardingNameInput.value);
+    finishOnboardingAndEnter();
   });
 }
 
