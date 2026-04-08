@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Website: rok.kyklos.online · API: rokbackendreal.kyklos.online (override with meta rok-api-root if needed) -->
   <title>ROK Pictionary</title>
-  <link rel="stylesheet" href="pictionary.css?v=2" />
+  <link rel="stylesheet" href="pictionary.css?v=3" />
 </head>
 <body>
   <div class="pict-root">
@@ -31,10 +31,10 @@
         </div>
       </section>
 
-      <details class="pict-tools" id="pictToolsPanel">
+      <details class="pict-tools" id="pictToolsPanel" open>
         <summary class="pict-tools-summary">
           <span class="pict-tools-summary-label">Drawing tools</span>
-          <span class="pict-tools-summary-hint">color, width, eraser</span>
+          <span class="pict-tools-summary-hint">Color · line width · eraser · clear — tap to fold</span>
         </summary>
         <div class="pict-tools-body">
           <div class="pict-tools-row pict-tools-row--modes" role="group" aria-label="Brush mode">
@@ -110,6 +110,6 @@
   <script>
     window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
   </script>
-  <script src="pictionary.js?v=3" defer></script>
+  <script src="pictionary.js?v=4" defer></script>
 </body>
 </html>
