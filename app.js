@@ -51,7 +51,11 @@ const homeScreen = document.getElementById("homeScreen");
 const homeStartBtn = document.getElementById("homeStartBtn");
 const clearBtn = document.getElementById("clearBtn");
 const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
-const modelSelect = document.getElementById("modelSelect");
+const composerModelPicker = document.getElementById("composerModelPicker");
+const modelPickerBtn = document.getElementById("modelPickerBtn");
+const modelPickerIcon = document.getElementById("modelPickerIcon");
+const modelPickerBtnText = document.getElementById("modelPickerBtnText");
+const modelPickerMenu = document.getElementById("modelPickerMenu");
 const newChatBtn = document.getElementById("newChatBtn");
 const currentSessionBtn = document.getElementById("currentSessionBtn");
 const savedChatsList = document.getElementById("savedChatsList");
@@ -156,23 +160,28 @@ const DEFAULT_USER_SETTINGS = {
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "gpt-oss:20b-cloud", label: "gpt-oss:20b-cloud" },
-  { id: "gpt-oss:120b-cloud", label: "gpt-oss:120b-cloud" }
+  { id: "gpt-oss:20b-cloud", label: "ROK Hermes" },
+  { id: "gpt-oss:120b-cloud", label: "ROK Titan" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
-  "gpt-oss:20b-cloud": "gpt-oss:20b-cloud",
-  "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
+  "gpt-oss:20b-cloud": "ROK Hermes",
+  "gpt-oss:120b-cloud": "ROK Titan",
   "kimi-k2.5:cloud": "kimi-k2.5:cloud"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
-  "gpt-oss:20b-cloud": "Faster cloud model with lighter reasoning depth.",
-  "gpt-oss:120b-cloud": "Largest cloud model — deeper reasoning when you need it."
+  "gpt-oss:20b-cloud": "ROK Hermes — fast cloud replies for everyday questions.",
+  "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
 const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
+/** Icons + labels for the composer model control (paths relative to index.html). */
+const COMPOSER_MODEL_ASSETS = {
+  "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
+  "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" }
+};
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
@@ -393,6 +402,7 @@ let compactingBarElement = null;
 let compactingBarTimer = null;
 let composerTrayOpen = false;
 let webSearchEnabled = false;
+let modelPickerOpen = false;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -1976,14 +1986,49 @@ function getComposerSelectableModels() {
   }));
 }
 
-function renderModelSelectOptions() {
-  if (!modelSelect) return;
+function setModelPickerOpen(nextOpen) {
+  modelPickerOpen = Boolean(nextOpen);
+  if (modelPickerMenu) {
+    modelPickerMenu.hidden = !modelPickerOpen;
+  }
+  if (modelPickerBtn) {
+    modelPickerBtn.setAttribute("aria-expanded", modelPickerOpen ? "true" : "false");
+  }
+}
+
+function refreshComposerModelPicker() {
+  if (!modelPickerMenu || !modelPickerBtn) return;
+  const sessionModel = getCurrentSessionModel();
   const rows = getComposerSelectableModels();
-  modelSelect.innerHTML = rows.map((item) => {
-    const safeValue = escapeHtml(item.id);
-    const safeLabel = escapeHtml(item.label);
-    return `<option value="${safeValue}">${safeLabel}</option>`;
-  }).join("");
+  modelPickerMenu.innerHTML = rows
+    .map((item) => {
+      const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+      const safeId = escapeHtml(item.id);
+      const active = item.id === sessionModel;
+      const iconHtml = meta.icon
+        ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="24" height="24" alt="${escapeHtml(meta.alt || meta.label)}" />`
+        : "";
+      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}">${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span></button>`;
+    })
+    .join("");
+
+  const item = rows.find((r) => r.id === sessionModel) || rows[0];
+  if (item) {
+    const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+    if (modelPickerBtnText) {
+      modelPickerBtnText.textContent = meta.label;
+    }
+    if (modelPickerIcon) {
+      if (meta.icon) {
+        modelPickerIcon.src = meta.icon;
+        modelPickerIcon.alt = meta.alt || meta.label || "";
+      }
+    }
+  }
+}
+
+function renderModelSelectOptions() {
+  refreshComposerModelPicker();
 }
 
 function getModelLabelById(modelId) {
@@ -1999,11 +2044,7 @@ function getCurrentSessionModel() {
 }
 
 function syncModelSelectorWithCurrentSession() {
-  if (!modelSelect) return;
-  const sessionModel = getCurrentSessionModel();
-  if (modelSelect.value !== sessionModel) {
-    modelSelect.value = sessionModel;
-  }
+  refreshComposerModelPicker();
 }
 
 function syncModelPanelWithCurrentSession() {
@@ -4542,11 +4583,12 @@ function refreshSendState() {
   if (fileInput) {
     fileInput.disabled = uiLocked;
   }
-  if (modelSelect) {
-    modelSelect.disabled = uiLocked;
+  if (modelPickerBtn) {
+    modelPickerBtn.disabled = uiLocked;
   }
   if (uiLocked) {
     setComposerTrayOpen(false);
+    setModelPickerOpen(false);
   }
 
   if (cooldownActive) {
@@ -5837,9 +5879,24 @@ if (savedChatsList) {
   });
 }
 
-if (modelSelect) {
-  modelSelect.addEventListener("change", () => {
-    setCurrentSessionModel(modelSelect.value);
+if (modelPickerBtn && modelPickerMenu) {
+  modelPickerBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (modelPickerBtn.disabled) return;
+    if (composerTrayOpen) {
+      setComposerTrayOpen(false);
+    }
+    setModelPickerOpen(!modelPickerOpen);
+  });
+  modelPickerMenu.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const opt = target.closest("[data-model-id]");
+    if (!(opt instanceof HTMLElement)) return;
+    const modelId = opt.getAttribute("data-model-id");
+    if (!modelId) return;
+    setCurrentSessionModel(modelId);
+    setModelPickerOpen(false);
   });
 }
 
@@ -5895,6 +5952,9 @@ document.addEventListener("pointerdown", (event) => {
       setComposerTrayOpen(false);
     }
   }
+  if (modelPickerOpen && target instanceof Node && composerModelPicker && !composerModelPicker.contains(target)) {
+    setModelPickerOpen(false);
+  }
 
   if (!isMobileLayout || !isMobileSidebarOpen) return;
   if (!(target instanceof Node)) return;
@@ -5912,6 +5972,9 @@ document.addEventListener("keydown", (event) => {
   }
   if (composerTrayOpen) {
     setComposerTrayOpen(false);
+  }
+  if (modelPickerOpen) {
+    setModelPickerOpen(false);
   }
   closeMobileSidebarIfNeeded();
 });

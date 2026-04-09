@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=home89" />
+  <link rel="stylesheet" href="style.css?v=home91" />
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
   <meta name="google-site-verification" content="9AHzloNzCGXCnzi8LGMdIUoTnvdxaqkAsa_Ua7Qyka0" />
 </head>
@@ -286,26 +286,52 @@ Change Scope: Short</p>
 
       <div class="composer-wrap">
         <div class="composer">
-          <textarea id="input" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
-          <div id="composerToolbox" class="composer-toolbox">
-            <button
-              id="composerPlusBtn"
-              class="ghost composer-plus-btn"
-              type="button"
-              aria-label="Open composer tools"
-              aria-expanded="false"
-              aria-controls="composerTray"
-            >
-              +
-            </button>
-            <div id="composerTray" class="composer-tray" hidden>
-              <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
-              <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
+          <div class="composer-field">
+            <textarea id="input" class="composer-field-textarea" rows="1" placeholder="Message ROK..." autocomplete="off"></textarea>
+            <div class="composer-field-rail">
+              <div id="composerToolbox" class="composer-toolbox">
+                <button
+                  id="composerPlusBtn"
+                  class="ghost composer-plus-btn"
+                  type="button"
+                  aria-label="Open composer tools"
+                  aria-expanded="false"
+                  aria-controls="composerTray"
+                >
+                  +
+                </button>
+                <div id="composerTray" class="composer-tray" hidden>
+                  <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
+                  <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
+                </div>
+              </div>
+              <div class="composer-model-inline">
+                <span id="modelSelectLabel" class="composer-model-label">Model</span>
+                <div id="composerModelPicker" class="composer-model-picker">
+                  <button
+                    type="button"
+                    id="modelPickerBtn"
+                    class="composer-model-picker-btn"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="modelPickerMenu"
+                    aria-labelledby="modelSelectLabel modelPickerBtnText"
+                  >
+                    <img
+                      id="modelPickerIcon"
+                      class="composer-model-picker-icon"
+                      src="rokhermes.png"
+                      width="22"
+                      height="22"
+                      alt=""
+                    />
+                    <span id="modelPickerBtnText" class="composer-model-picker-text">ROK Hermes</span>
+                    <span class="composer-model-picker-chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="modelPickerMenu" class="composer-model-picker-menu" role="listbox" hidden></div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="composer-model-control">
-            <span id="modelSelectLabel" class="composer-model-label">Model</span>
-            <select id="modelSelect" class="composer-model-select" aria-labelledby="modelSelectLabel"></select>
           </div>
           <button id="sendBtn" type="button">Send</button>
         </div>
