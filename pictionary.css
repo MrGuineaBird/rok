@@ -13,7 +13,7 @@ body {
 }
 
 .pict-root {
-  max-width: 960px;
+  max-width: min(1200px, 100%);
   margin: 0 auto;
   padding: 24px 18px 40px;
 }
@@ -55,6 +55,41 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Canvas left, prompt + tools + status right — fits one viewport width on typical desktops */
+.pict-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 18px;
+  align-items: start;
+}
+
+.pict-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pict-side .pict-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.pict-side .pict-actions {
+  width: 100%;
+}
+
+.pict-side .pict-actions .pict-btn {
+  width: 100%;
+}
+
+@media (max-width: 840px) {
+  .pict-workspace {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pict-panel {
