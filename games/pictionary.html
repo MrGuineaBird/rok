@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Website: rok.kyklos.online · API: rokbackendreal.kyklos.online (override with meta rok-api-root if needed) -->
+  <title>ROK Pictionary · ROK Games</title>
+  <link rel="stylesheet" href="pictionary.css?v=6" />
+</head>
+<body>
+  <div class="pict-root">
+    <header class="pict-header">
+      <a class="pict-back" href="index.html">← ROK Games</a>
+      <h1 class="pict-title">ROK Pictionary</h1>
+      <p class="pict-tagline">Draw it. Beat the clock. Let the AI judge.</p>
+    </header>
+
+    <main class="pict-main">
+      <div class="pict-workspace">
+        <section class="pict-canvas-wrap" aria-label="Drawing area">
+          <canvas id="pictCanvas" width="900" height="520" class="pict-canvas"></canvas>
+          <p id="pictCanvasHint" class="pict-hint">Drawing unlocks when the round starts.</p>
+        </section>
+
+        <aside class="pict-side" aria-label="Prompt and drawing tools">
+          <section class="pict-panel pict-prompt-panel" aria-live="polite">
+            <div class="pict-label">Your prompt</div>
+            <p id="pictPrompt" class="pict-prompt-text">Press “Start round” — the AI will tell you what to draw.</p>
+          </section>
+
+          <section class="pict-toolbar" aria-label="Round controls">
+            <div class="pict-timer-wrap">
+              <span class="pict-timer-label">Time left</span>
+              <span id="pictTimer" class="pict-timer" role="timer" aria-live="polite">2:00</span>
+            </div>
+            <div class="pict-actions">
+              <button id="pictStartBtn" type="button" class="pict-btn pict-btn-primary">Start round</button>
+            </div>
+          </section>
+
+          <details class="pict-tools" id="pictToolsPanel" open>
+            <summary class="pict-tools-summary">
+              <span class="pict-tools-summary-label">Drawing tools</span>
+              <span class="pict-tools-summary-hint">Color · line width · eraser · clear — tap to fold</span>
+            </summary>
+            <div class="pict-tools-body">
+              <div class="pict-tools-row pict-tools-row--modes" role="group" aria-label="Brush mode">
+                <span class="pict-tools-field-label">Mode</span>
+                <div class="pict-tools-segment">
+                  <button type="button" id="pictModeDraw" class="pict-tools-mode pict-tools-mode--active" aria-pressed="true">Draw</button>
+                  <button type="button" id="pictModeErase" class="pict-tools-mode" aria-pressed="false">Erase</button>
+                </div>
+              </div>
+              <div class="pict-tools-row">
+                <label class="pict-tools-field-label" for="pictColorPicker">Color</label>
+                <div class="pict-tools-color-row">
+                  <input type="color" id="pictColorPicker" class="pict-color-input" value="#1a1a1a" title="Brush color" />
+                  <div class="pict-color-presets" role="group" aria-label="Preset colors">
+                    <button type="button" class="pict-swatch" data-color="#1a1a1a" style="--swatch:#1a1a1a" title="Black"></button>
+                    <button type="button" class="pict-swatch" data-color="#8a1e1e" style="--swatch:#8a1e1e" title="Red"></button>
+                    <button type="button" class="pict-swatch" data-color="#1e4a8c" style="--swatch:#1e4a8c" title="Blue"></button>
+                    <button type="button" class="pict-swatch" data-color="#2d6a2d" style="--swatch:#2d6a2d" title="Green"></button>
+                    <button type="button" class="pict-swatch" data-color="#6b2d8a" style="--swatch:#6b2d8a" title="Purple"></button>
+                    <button type="button" class="pict-swatch" data-color="#b8860b" style="--swatch:#b8860b" title="Gold"></button>
+                  </div>
+                </div>
+              </div>
+              <div class="pict-tools-row">
+                <label class="pict-tools-field-label" for="pictWidthRange">Line width</label>
+                <div class="pict-width-wrap">
+                  <input type="range" id="pictWidthRange" class="pict-width-range" min="2" max="40" value="10" />
+                  <span id="pictWidthValue" class="pict-width-value" aria-live="polite">10 px</span>
+                </div>
+              </div>
+              <div class="pict-tools-row pict-tools-row--actions">
+                <button id="pictClearBtn" type="button" class="pict-btn" disabled>Clear canvas</button>
+              </div>
+            </div>
+          </details>
+
+          <section id="pictStatus" class="pict-status pict-status--idle" hidden>
+            <span class="pict-status-dot" aria-hidden="true"></span>
+            <span id="pictStatusText">Ready</span>
+          </section>
+
+          <section id="pictResults" class="pict-results" hidden></section>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="pict-footer">
+      <span>Powered by your ROK backend · Ollama Cloud vision</span>
+    </footer>
+  </div>
+  <div id="pictVerdictModal" class="pict-modal" hidden>
+    <div id="pictVerdictBackdrop" class="pict-modal-backdrop"></div>
+    <section class="pict-modal-card" role="dialog" aria-modal="true" aria-labelledby="pictVerdictTitle">
+      <button id="pictModalCloseBtn" type="button" class="pict-modal-close" aria-label="Close verdict popup">×</button>
+      <h2 id="pictVerdictTitle" class="pict-results-title">AI verdict</h2>
+      <div class="pict-results-grid">
+        <div class="pict-result-card">
+          <div class="pict-result-label">Guess</div>
+          <p id="pictResultGuess" class="pict-result-value">—</p>
+        </div>
+        <div class="pict-result-card pict-result-card--score">
+          <div class="pict-result-label">Score</div>
+          <p id="pictResultScore" class="pict-result-score">—</p>
+          <div class="pict-score-bar"><span id="pictScoreFill" class="pict-score-fill"></span></div>
+        </div>
+        <div class="pict-result-card pict-result-card--wide">
+          <div class="pict-result-label">Reaction</div>
+          <p id="pictResultReaction" class="pict-result-value">—</p>
+        </div>
+      </div>
+      <pre id="pictResultRaw" class="pict-raw" hidden></pre>
+      <button id="pictPlayAgainBtn" type="button" class="pict-btn pict-btn-primary">Play again</button>
+    </section>
+  </div>
+  <script>
+    window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
+  </script>
+  <script src="pictionary.js?v=6" defer></script>
+</body>
+</html>

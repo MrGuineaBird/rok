@@ -1,0 +1,117 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  background: radial-gradient(1200px 800px at 50% -10%, #1a1528 0%, #0d0607 45%, #070304 100%);
+  color: #e8e6f0;
+}
+
+.rg-root {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 20px 48px;
+}
+
+.rg-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.rg-back {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: #a898d8;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rg-back:hover {
+  color: #e8e0ff;
+  text-decoration: underline;
+}
+
+.rg-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  letter-spacing: 0.04em;
+  color: #f5f0ff;
+  text-shadow: 0 2px 18px rgba(100, 60, 180, 0.35);
+}
+
+.rg-tagline {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #9a8ab8;
+}
+
+.rg-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+
+@media (min-width: 560px) {
+  .rg-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.rg-card {
+  margin: 0;
+}
+
+.rg-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 22px 20px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(28, 22, 40, 0.75);
+  border: 1px solid rgba(140, 110, 200, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+
+.rg-card-link:hover {
+  border-color: rgba(180, 150, 255, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.rg-card-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #8a78b0;
+}
+
+.rg-card-name {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f0e8ff;
+}
+
+.rg-card-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #b8a8d8;
+}
+
+.rg-footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: #6a5a80;
+}
