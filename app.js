@@ -2,7 +2,6 @@ const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
-const modelPanel = document.getElementById("modelPanel");
 const mathPanel = document.getElementById("mathPanel");
 const mathChatToggleBtn = document.getElementById("mathChatToggleBtn");
 const mathChatDrawer = document.getElementById("mathChatDrawer");
@@ -18,8 +17,6 @@ const workspaceDocSaveState = document.getElementById("workspaceDocSaveState");
 const workspaceCopyBtn = document.getElementById("workspaceCopyBtn");
 const workspaceDownloadBtn = document.getElementById("workspaceDownloadBtn");
 const workspaceImproveBtn = document.getElementById("workspaceImproveBtn");
-const modelPanelCurrent = document.getElementById("modelPanelCurrent");
-const modelOptionList = document.getElementById("modelOptionList");
 const workspaceAssistantPanel = document.getElementById("workspaceAssistantPanel");
 const workspaceAssistantToggle = document.getElementById("workspaceAssistantToggle");
 const workspaceAssistantBody = document.getElementById("workspaceAssistantBody");
@@ -47,9 +44,6 @@ const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
-const lightningToggleBtn = document.getElementById("lightningToggleBtn");
-const lightningToggleIcon = lightningToggleBtn ? lightningToggleBtn.querySelector(".lightning-icon") : null;
-const lightningToggleLabel = lightningToggleBtn ? lightningToggleBtn.querySelector(".lightning-label") : null;
 const fileInput = document.getElementById("fileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
@@ -136,7 +130,6 @@ const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
 const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
-const LOCAL_LIGHTNING_MODE_KEY = "rok.lightningMode.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
@@ -163,15 +156,23 @@ const DEFAULT_USER_SETTINGS = {
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "qwen3.5:9b", label: "ROK Hermes" },
+  { id: "gpt-oss:20b-cloud", label: "gpt-oss:20b-cloud" },
+  { id: "gpt-oss:120b-cloud", label: "gpt-oss:120b-cloud" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
+  "gpt-oss:20b-cloud": "gpt-oss:20b-cloud",
+  "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
+  "kimi-k2.5:cloud": "kimi-k2.5:cloud"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "gpt-oss:20b-cloud": "Faster cloud model with lighter reasoning depth.",
+  "gpt-oss:120b-cloud": "Largest cloud model — deeper reasoning when you need it."
 };
-const WORKSPACE_TAB_KEYS = ["chat", "workspace", "model", "math"];
+const WORKSPACE_TAB_KEYS = ["chat", "workspace", "math"];
+/** Text chat models shown in the composer (vision model is server-selected when images are attached). */
+const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
@@ -392,7 +393,6 @@ let compactingBarElement = null;
 let compactingBarTimer = null;
 let composerTrayOpen = false;
 let webSearchEnabled = false;
-let lightning_mode = false;
 
 const hasMarked = typeof marked !== "undefined";
 if (hasMarked) {
@@ -480,7 +480,6 @@ function setModelCatalog(rawOptions, rawDefaultModel) {
 
   
   renderModelSelectOptions();
-  renderModelPanelOptions();
 
   let didSessionModelsChange = false;
   for (const session of sessions) {
@@ -1128,22 +1127,6 @@ function saveLastModelToStorage(modelId) {
   }
 }
 
-function loadLightningModeFromStorage() {
-  try {
-    return localStorage.getItem(LOCAL_LIGHTNING_MODE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function saveLightningModeToStorage(enabled) {
-  try {
-    localStorage.setItem(LOCAL_LIGHTNING_MODE_KEY, enabled ? "1" : "0");
-  } catch {
-    // Ignore storage write failures.
-  }
-}
-
 // --- Thinking quota helpers ---
 // Quota is stored as { count: number, resetAt: timestamp }.
 // resetAt is set to now + 24h on the first thinking-enabled message of a window.
@@ -1164,12 +1147,7 @@ function applyServerThinkingQuota(quota) {
     resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverThinkingQuota.resetSec,
     updatedAt: Date.now(),
   };
-  // Sync the button state whenever quota data arrives
-  if (serverThinkingQuota.exhausted && !lightning_mode) {
-    setLightningModeEnabled(true, { animate: false });
-  } else {
-    refreshLightningButtonQuotaUI();
-  }
+  refreshSendState();
   // Popup: show when limit is active and exhausted (config load + chat headers both use this path)
   if (unlimited || !serverThinkingQuota.exhausted) {
     hideThinkingBurnoutModal();
@@ -1259,26 +1237,6 @@ function showThinkingQuotaToast(message) {
   toast._hideTimer = setTimeout(() => { toast.style.opacity = "0"; }, 5000);
 }
 
-function refreshLightningButtonQuotaUI() {
-  if (!lightningToggleBtn) return;
-  const exhausted = isThinkingQuotaExhausted();
-  const remaining = getThinkingQuotaRemaining();
-  const limit     = getThinkingQuotaLimit();
-  const resetSec  = getThinkingQuotaResetSec();
-  const unlimited = limit <= 0;
-  if (unlimited) {
-    lightningToggleBtn.title = lightning_mode
-      ? "Lightning mode — click to use full Thinking"
-      : "Thinking mode — click for Lightning (faster replies)";
-  } else if (exhausted) {
-    lightningToggleBtn.title = `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`;
-  } else {
-    lightningToggleBtn.title = lightning_mode
-      ? `Lightning on — click for Thinking (${remaining}/${limit} left today)`
-      : `Thinking on — ${remaining}/${limit} uses left today (click for Lightning)`;
-  }
-  refreshSendState();
-}
 // --- End server-side thinking quota ---
 
 function getPreferredDefaultModelId() {
@@ -1639,9 +1597,6 @@ function showHomeScreen() {
   if (workspacePanel) {
     workspacePanel.hidden = true;
   }
-  if (modelPanel) {
-    modelPanel.hidden = true;
-  }
   if (workspaceAssistantPanel) {
     workspaceAssistantPanel.hidden = true;
   }
@@ -1917,7 +1872,10 @@ function ensureSessionWorkspace(session) {
 function normalizeSessionModel(rawModel) {
   const candidate = sanitizeModelId(rawModel);
   if (candidate && MODEL_IDS.has(candidate)) {
-    return candidate;
+    if (COMPOSER_TEXT_MODEL_ORDER.includes(candidate)) {
+      return candidate;
+    }
+    return DEFAULT_MODEL_ID;
   }
   return DEFAULT_MODEL_ID;
 }
@@ -2005,31 +1963,27 @@ function updateWorkspaceTabButtons(activeTab) {
   });
 }
 
+function getComposerSelectableModels() {
+  const fromCatalog = MODEL_OPTIONS.filter((item) => COMPOSER_TEXT_MODEL_ORDER.includes(item.id));
+  if (fromCatalog.length) {
+    return [...fromCatalog].sort(
+      (a, b) => COMPOSER_TEXT_MODEL_ORDER.indexOf(a.id) - COMPOSER_TEXT_MODEL_ORDER.indexOf(b.id)
+    );
+  }
+  return COMPOSER_TEXT_MODEL_ORDER.map((id) => ({
+    id,
+    label: KNOWN_MODEL_LABELS[id] || id
+  }));
+}
+
 function renderModelSelectOptions() {
   if (!modelSelect) return;
-  modelSelect.innerHTML = MODEL_OPTIONS.map((item) => {
+  const rows = getComposerSelectableModels();
+  modelSelect.innerHTML = rows.map((item) => {
     const safeValue = escapeHtml(item.id);
     const safeLabel = escapeHtml(item.label);
     return `<option value="${safeValue}">${safeLabel}</option>`;
   }).join("");
-}
-
-function renderModelPanelOptions() {
-  if (!modelOptionList) return;
-  const sessionModel = getCurrentSessionModel();
-
-  modelOptionList.innerHTML = MODEL_OPTIONS.map((item) => {
-    const isActive = item.id === sessionModel;
-    const safeId = escapeHtml(item.id);
-    const safeLabel = escapeHtml(item.label);
-    const safeDescription = escapeHtml(MODEL_DESCRIPTIONS[item.id] || "AI model available for this workspace.");
-    return `<button class="model-option-btn${isActive ? " is-active" : ""}" type="button" data-model-option="${safeId}" role="radio" aria-checked="${isActive ? "true" : "false"}"><span class="model-option-top"><span class="model-option-name">${safeLabel}</span>${isActive ? '<span class="model-option-badge">Selected</span>' : ""}</span><p class="model-option-desc">${safeDescription}</p></button>`;
-  }).join("");
-
-  if (modelPanelCurrent) {
-    const active = MODEL_OPTIONS.find((item) => item.id === sessionModel);
-    modelPanelCurrent.textContent = `Current model: ${active ? active.label : sessionModel}`;
-  }
 }
 
 function getModelLabelById(modelId) {
@@ -2053,7 +2007,8 @@ function syncModelSelectorWithCurrentSession() {
 }
 
 function syncModelPanelWithCurrentSession() {
-  renderModelPanelOptions();
+  renderModelSelectOptions();
+  syncModelSelectorWithCurrentSession();
 }
 
 function setCurrentSessionModel(rawModel) {
@@ -2832,7 +2787,6 @@ async function requestWorkspaceSuggestions() {
     });
 
     const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
-    const workspaceSuggestThinking = !lightning_mode;
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -2840,7 +2794,7 @@ async function requestWorkspaceSuggestions() {
         message: prompt,
         history: [],
         model: sessionModel,
-        enable_thinking: workspaceSuggestThinking
+        enable_thinking: true
       })
     });
     if (!res.ok) {
@@ -2970,9 +2924,11 @@ function renderWorkspaceUI(options = {}) {
   syncModelSelectorWithCurrentSession();
   syncModelPanelWithCurrentSession();
   const workspace = current.workspace;
+  if (workspace.activeTab === "model") {
+    workspace.activeTab = "chat";
+  }
   const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
   const isWorkspaceTab = activeTab === "workspace";
-  const isModelTab = activeTab === "model";
   const isMathTab = activeTab === "math";
 
   if (mainPanel) {
@@ -2986,11 +2942,8 @@ function renderWorkspaceUI(options = {}) {
     workspaceSidebarTabs.hidden = false;
   }
   chat.hidden = activeTab !== "chat";
-  composerWrap.hidden = isModelTab || isMathTab;
+  composerWrap.hidden = isMathTab;
   workspacePanel.hidden = !isWorkspaceTab;
-  if (modelPanel) {
-    modelPanel.hidden = !isModelTab;
-  }
   if (mathPanel) {
     mathPanel.hidden = !isMathTab;
   }
@@ -3025,15 +2978,6 @@ function renderWorkspaceUI(options = {}) {
       workspaceEditor.focus();
     }
     refreshWorkspaceDocumentToolbarState();
-  } else if (isModelTab) {
-    if (focus && modelOptionList) {
-      const activeOption = modelOptionList.querySelector(".model-option-btn.is-active");
-      const fallbackOption = modelOptionList.querySelector(".model-option-btn");
-      const target = activeOption instanceof HTMLElement ? activeOption : fallbackOption;
-      if (target instanceof HTMLElement) {
-        target.focus();
-      }
-    }
   } else if (isMathTab) {
     if (focus && isMathChatDrawerOpen && mathChatInput) {
       mathChatInput.focus();
@@ -3129,19 +3073,6 @@ function clearActiveWorkspaceTab() {
   const current = getWorkspaceCurrentSession();
   if (!current) return false;
   const workspace = current.workspace;
-
-  if (workspace.activeTab === "model") {
-    const nextModel = normalizeSessionModel(DEFAULT_MODEL_ID);
-    current.model = nextModel;
-    current.updatedAt = Date.now();
-    syncCurrentSessionFromHistory();
-    if (modelPanelCurrent) {
-      modelPanelCurrent.textContent = `Current model: ${getModelLabelById(nextModel)}`;
-    }
-    renderWorkspaceUI({ focus: true });
-    refreshWorkspaceDocumentToolbarState();
-    return true;
-  }
 
   if (workspace.activeTab !== "workspace") return false;
 
@@ -4594,35 +4525,6 @@ function setWebSearchEnabled(nextEnabled) {
   webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
 }
 
-function setLightningModeEnabled(nextEnabled, options = {}) {
-  const { animate = true } = options;
-  const wasEnabled = lightning_mode;
-  lightning_mode = Boolean(nextEnabled);
-  saveLightningModeToStorage(lightning_mode);
-  if (!lightningToggleBtn) return;
-  lightningToggleBtn.setAttribute("aria-pressed", lightning_mode ? "true" : "false");
-  lightningToggleBtn.classList.toggle("is-active", lightning_mode);
-  if (lightningToggleLabel) {
-    lightningToggleLabel.textContent = lightning_mode ? "Lightning On" : "Lightning Off";
-  } else {
-    lightningToggleBtn.textContent = lightning_mode ? "⚡ Lightning On" : "⚡ Lightning Off";
-  }
-  // Update title/disabled state based on server quota
-  refreshLightningButtonQuotaUI();
-  if (lightningToggleIcon) {
-    lightningToggleIcon.classList.toggle("is-filled", lightning_mode);
-    lightningToggleIcon.classList.toggle("is-outline", !lightning_mode);
-    if (lightning_mode && !wasEnabled && animate) {
-      lightningToggleIcon.classList.remove("is-spinning");
-      // Force reflow so the animation retriggers on consecutive enables.
-      void lightningToggleIcon.offsetWidth;
-      lightningToggleIcon.classList.add("is-spinning");
-    } else if (!lightning_mode) {
-      lightningToggleIcon.classList.remove("is-spinning");
-    }
-  }
-}
-
 function refreshSendState() {
   const cooldownActive = Date.now() < nextAllowedAt;
   const uiLocked = isSending || isIntentClassificationLoading;
@@ -4636,10 +4538,6 @@ function refreshSendState() {
   }
   if (webToggleBtn) {
     webToggleBtn.disabled = uiLocked;
-  }
-  if (lightningToggleBtn) {
-    const quotaLocksLightningToggle = isThinkingQuotaExhausted() && lightning_mode;
-    lightningToggleBtn.disabled = uiLocked || quotaLocksLightningToggle;
   }
   if (fileInput) {
     fileInput.disabled = uiLocked;
@@ -5155,7 +5053,6 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
-    const thinkingEnabledThisRequest = !lightning_mode;
     const requestBody = {
       message: messageForApi,
       workspace_context: workspaceContext,
@@ -5163,7 +5060,7 @@ async function send() {
       history: recentHistory,
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
-      enable_thinking: thinkingEnabledThisRequest
+      enable_thinking: true
     };
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -5683,31 +5580,6 @@ if (webToggleBtn) {
   });
 }
 
-if (lightningToggleBtn) {
-  lightningToggleBtn.addEventListener("click", () => {
-    if (isSending || isIntentClassificationLoading) return;
-    const turningOffLightning = lightning_mode; // user wants to enable thinking
-    if (turningOffLightning && isThinkingQuotaExhausted()) {
-      // Can't enable thinking — quota is server-enforced
-      const limit    = getThinkingQuotaLimit();
-      const resetSec = getThinkingQuotaResetSec();
-      showThinkingQuotaToast(
-        `Thinking limit reached (${limit}/day). Resets in ${formatThinkingResetTime(resetSec * 1000)}.`
-      );
-      return;
-    }
-    setLightningModeEnabled(!lightning_mode);
-  });
-}
-
-if (lightningToggleIcon) {
-  lightningToggleIcon.addEventListener("animationend", (event) => {
-    if (event.animationName === "lightning-spin") {
-      lightningToggleIcon.classList.remove("is-spinning");
-    }
-  });
-}
-
 if (attachmentList) {
   attachmentList.addEventListener("click", (e) => {
     const target = e.target;
@@ -5971,18 +5843,6 @@ if (modelSelect) {
   });
 }
 
-if (modelOptionList) {
-  modelOptionList.addEventListener("click", (e) => {
-    const target = e.target;
-    if (!(target instanceof Element)) return;
-    const optionBtn = target.closest("[data-model-option]");
-    if (!(optionBtn instanceof Element)) return;
-    const modelId = optionBtn.getAttribute("data-model-option");
-    if (!modelId) return;
-    setCurrentSessionModel(modelId);
-  });
-}
-
 function bindWorkspaceTabClickEvents(tabContainer) {
   if (!tabContainer) return;
   tabContainer.addEventListener("click", (e) => {
@@ -6141,15 +6001,11 @@ if (onboardingNameInput) {
 autoResizeInput();
 setComposerTrayOpen(false);
 setWebSearchEnabled(false);
-// On boot: restore saved lightning preference. If the thinking quota is exhausted,
-// applyServerThinkingQuota() will force lightning on once refreshClientConfigFromServer() resolves.
-setLightningModeEnabled(loadLightningModeFromStorage(), { animate: false });
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
 
 renderModelSelectOptions();
-renderModelPanelOptions();
 initializeSessions();
 refreshWorkspaceDocumentToolbarState();
 bootstrapServerSession();

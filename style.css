@@ -3380,13 +3380,54 @@ body.settings-compact .attachment-list {
   font-size: 12px;
 }
 
-@keyframes lightning-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.composer-model-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  align-self: flex-end;
+  padding-bottom: 2px;
+}
+
+.composer-model-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #b8b8b8;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.composer-model-select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  max-width: min(200px, 38vw);
+  padding: 8px 28px 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #3d2a2a;
+  background: #120808
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23b8b8b8' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  color: #e8dede;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.composer-model-select:hover {
+  border-color: #5a3a3a;
+}
+
+.composer-model-select:focus {
+  outline: none;
+  border-color: #754242;
+  box-shadow: 0 0 0 1px rgba(209, 75, 75, 0.35);
+}
+
+.composer-model-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Legacy home-screen skin (map hs-* layout to old UI look) */
@@ -3710,47 +3751,6 @@ body.settings-compact .attachment-list {
 
 #homeScreen .hs-footer {
   order: 3;
-}
-
-#lightningToggleBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-#lightningToggleBtn .lightning-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 14px;
-  transition: none;
-}
-
-#lightningToggleBtn .lightning-icon.is-outline {
-  color: #7a7a7a;
-  opacity: 0.6;
-}
-
-#lightningToggleBtn .lightning-icon.is-filled {
-  color: #f7d34a;
-  -webkit-text-stroke: 0;
-  text-stroke: 0;
-  opacity: 1;
-}
-
-@supports (-webkit-text-stroke: 1px #000) {
-  #lightningToggleBtn .lightning-icon.is-outline {
-    color: transparent;
-    -webkit-text-stroke: 1px #7a7a7a;
-    text-stroke: 1px #7a7a7a;
-    opacity: 0.85;
-  }
-}
-
-#lightningToggleBtn .lightning-icon.is-spinning {
-  animation: lightning-spin 0.6s ease-out;
 }
 
 .composer-tray-btn.is-active {
