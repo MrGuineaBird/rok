@@ -5654,17 +5654,20 @@ button.stop-mode:hover {
 }
 
 .burnout-emoji {
-  margin: 4px 0 2px;
+  margin: 8px 0 6px;
   line-height: 0;
+  flex-shrink: 0;
 }
 
 .burnout-emoji-img {
   display: block;
-  width: 52px;
+  width: min(200px, 72vw);
+  max-width: 100%;
   height: auto;
-  max-height: 64px;
+  max-height: min(220px, 40vh);
   object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgba(255,160,50,0.18));
+  image-rendering: auto;
+  filter: drop-shadow(0 4px 14px rgba(255, 160, 50, 0.22));
 }
 
 .burnout-title {

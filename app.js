@@ -627,7 +627,9 @@ function showBanOverlay() {
 }
 
 async function fetchWithBanGuard(url, options) {
-  const requestOptions = { ...(options || {}) };
+  const base = options || {};
+  // Cross-origin API calls must include cookies so the server session (and thinking quota) survives refresh.
+  const requestOptions = { ...base, credentials: base.credentials ?? "include" };
   const response = await fetch(url, requestOptions);
   if (response && response.status === 403 && isBanGuardPath(url)) {
     showBanOverlay();
