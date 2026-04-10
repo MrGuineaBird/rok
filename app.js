@@ -137,6 +137,7 @@ const LOCAL_SIDEBAR_COLLAPSED_KEY = "rok.sidebarCollapsed.v1";
 const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
+const LOCAL_TITAN_LOCK_UNTIL_KEY = "rok.titanLockUntil.v1";
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
@@ -182,6 +183,10 @@ const COMPOSER_MODEL_ASSETS = {
   "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
   "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" }
 };
+const HERMES_MODEL_ID = "gpt-oss:20b-cloud";
+const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
+const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
+let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
@@ -1145,9 +1150,65 @@ function saveLastModelToStorage(modelId) {
 // Updated by refreshClientConfigFromServer() on boot and by applyThinkingQuotaFromHeaders()
 // after each chat response. The server enforces the real limit; this is UI-only.
 let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, updatedAt: 0 };
+let titanLockUntil = 0;
+
+function loadTitanLockUntilFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_TITAN_LOCK_UNTIL_KEY);
+    if (!raw) return 0;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= Date.now()) return 0;
+    return parsed;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function saveTitanLockUntilToStorage(value) {
+  try {
+    if (value > Date.now()) {
+      localStorage.setItem(LOCAL_TITAN_LOCK_UNTIL_KEY, String(Math.floor(value)));
+    } else {
+      localStorage.removeItem(LOCAL_TITAN_LOCK_UNTIL_KEY);
+    }
+  } catch (_) {
+    // Ignore storage write failures.
+  }
+}
+
+function setTitanLockUntil(value) {
+  titanLockUntil = Math.max(0, Number(value) || 0);
+  saveTitanLockUntilToStorage(titanLockUntil);
+}
+
+function getTitanLockRemainingMs() {
+  return Math.max(0, titanLockUntil - Date.now());
+}
+titanLockUntil = loadTitanLockUntilFromStorage();
+
+function isTitanQuotaLocked() {
+  const remainingMs = getTitanLockRemainingMs();
+  if (remainingMs <= 0 && titanLockUntil > 0) {
+    setTitanLockUntil(0);
+    return false;
+  }
+  return remainingMs > 0;
+}
+
+function forceHermesIfTitanLocked(notify = false) {
+  if (!isTitanQuotaLocked()) return;
+  if (getCurrentSessionModel() !== TITAN_MODEL_ID) return;
+  setCurrentSessionModel(HERMES_MODEL_ID);
+  if (notify) {
+    const remainingMs = getTitanLockRemainingMs();
+    const resetMsg = remainingMs > 0 ? ` Titan unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
+    addMessage("system", `ROK Titan is temporarily locked after reaching its message limit. You can use ROK Hermes until reset.${resetMsg}`);
+  }
+}
 
 function applyServerThinkingQuota(quota) {
   if (!quota || typeof quota !== "object") return;
+  const wasExhausted = Boolean(serverThinkingQuota.exhausted);
   const limitVal = typeof quota.limit === "number" ? quota.limit : serverThinkingQuota.limit;
   const unlimited = limitVal <= 0;
   serverThinkingQuota = {
@@ -1157,13 +1218,18 @@ function applyServerThinkingQuota(quota) {
     resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverThinkingQuota.resetSec,
     updatedAt: Date.now(),
   };
+  const isExhausted = Boolean(serverThinkingQuota.exhausted);
+  if (!wasExhausted && isExhausted && limitVal > 0) {
+    setTitanLockUntil(Date.now() + titanLockWindowMs);
+  }
   refreshSendState();
   // Popup: show when limit is active and exhausted (config load + chat headers both use this path)
-  if (unlimited || !serverThinkingQuota.exhausted) {
+  if (unlimited || !isTitanQuotaLocked()) {
     hideThinkingBurnoutModal();
-  } else if (limitVal > 0) {
+  } else if (limitVal > 0 || isTitanQuotaLocked()) {
     showThinkingBurnoutModal();
   }
+  forceHermesIfTitanLocked(true);
 }
 
 function applyThinkingQuotaFromHeaders(response) {
@@ -1209,11 +1275,11 @@ function formatThinkingResetTime(ms) {
 function showThinkingBurnoutModal() {
   if (!thinkingBurnoutModal) return;
   // Update the reset time label
-  const resetSec = getThinkingQuotaResetSec();
+  const remainingMs = getTitanLockRemainingMs();
   if (burnoutResetLabel) {
-    burnoutResetLabel.textContent = resetSec > 0
-      ? `Thinking recharges in ${formatThinkingResetTime(resetSec * 1000)}.`
-      : "";
+    burnoutResetLabel.textContent = remainingMs > 0
+      ? `ROK Titan unlocks in ${formatThinkingResetTime(remainingMs)}. During this cooldown, only ROK Hermes is available.`
+      : "ROK Titan is temporarily locked. During this cooldown, only ROK Hermes is available.";
   }
   thinkingBurnoutModal.hidden = false;
   thinkingBurnoutModal.setAttribute("aria-hidden", "false");
@@ -1395,6 +1461,12 @@ async function refreshClientConfigFromServer() {
         : payload;
     if (!limits || typeof limits !== "object") return false;
     applyClientLimitsFromServer(limits);
+    if (payload && typeof payload === "object" && payload.thinking_policy && typeof payload.thinking_policy === "object") {
+      const lockSec = Number(payload.thinking_policy.titan_lock_window_sec);
+      if (Number.isFinite(lockSec) && lockSec > 0) {
+        titanLockWindowMs = Math.max(60_000, Math.floor(lockSec * 1000));
+      }
+    }
     // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
     if (payload && typeof payload === "object" && payload.thinking_quota) {
       applyServerThinkingQuota(payload.thinking_quota);
@@ -2000,15 +2072,18 @@ function refreshComposerModelPicker() {
   if (!modelPickerMenu || !modelPickerBtn) return;
   const sessionModel = getCurrentSessionModel();
   const rows = getComposerSelectableModels();
+  const titanLocked = isTitanQuotaLocked();
   modelPickerMenu.innerHTML = rows
     .map((item) => {
       const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
       const safeId = escapeHtml(item.id);
       const active = item.id === sessionModel;
+      const locked = titanLocked && item.id === TITAN_MODEL_ID;
       const iconHtml = meta.icon
-        ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="24" height="24" alt="${escapeHtml(meta.alt || meta.label)}" />`
+        ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
         : "";
-      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}">${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span></button>`;
+      const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
+      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? " disabled title=\"Temporarily locked. Use ROK Hermes until reset.\"" : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
     })
     .join("");
 
@@ -2057,7 +2132,12 @@ function setCurrentSessionModel(rawModel) {
   const current = getSessionById(currentSessionId);
   if (!current) return;
 
-  const nextModel = normalizeSessionModel(rawModel);
+  const requestedModel = normalizeSessionModel(rawModel);
+  const nextModel = isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID ? HERMES_MODEL_ID : requestedModel;
+  if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
+    showThinkingBurnoutModal();
+    showThinkingQuotaToast("ROK Titan is temporarily locked. Use ROK Hermes until the reset window ends.");
+  }
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
     syncModelPanelWithCurrentSession();
@@ -4743,6 +4823,13 @@ async function send() {
     refreshSendState();
     return;
   }
+  if (sessionModel === TITAN_MODEL_ID && isTitanQuotaLocked()) {
+    forceHermesIfTitanLocked(false);
+    showThinkingBurnoutModal();
+    showThinkingQuotaToast("ROK Titan is temporarily locked. Use ROK Hermes during the cooldown.");
+    refreshComposerModelPicker();
+    return;
+  }
 
   let displayText = text;
   if (!displayText) {
@@ -5893,6 +5980,7 @@ if (modelPickerBtn && modelPickerMenu) {
     if (!(target instanceof Element)) return;
     const opt = target.closest("[data-model-id]");
     if (!(opt instanceof HTMLElement)) return;
+    if (opt.disabled) return;
     const modelId = opt.getAttribute("data-model-id");
     if (!modelId) return;
     setCurrentSessionModel(modelId);
