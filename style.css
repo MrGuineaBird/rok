@@ -2721,7 +2721,7 @@ body.settings-compact .attachment-list {
   z-index: 0;
 }
 
-/* â”€â”€ NAV â”€â”€ */
+/* ── NAV ── */
 .hs-nav {
   position: relative;
   z-index: 10;
@@ -2770,7 +2770,7 @@ body.settings-compact .attachment-list {
   background: rgba(255,255,255,0.06);
 }
 
-/* â”€â”€ HERO â”€â”€ */
+/* ── HERO ── */
 .hs-hero {
   position: relative;
   z-index: 2;
@@ -2910,7 +2910,7 @@ body.settings-compact .attachment-list {
   background: rgba(180, 25, 25, 0.1);
 }
 
-/* â”€â”€ FOOTER â”€â”€ */
+/* ── FOOTER ── */
 .hs-footer {
   position: relative;
   z-index: 2;
@@ -3220,7 +3220,7 @@ body.settings-compact .attachment-list {
   color: var(--muted);
 }
 
-/* Typing indicator â€” clean 3-dot bounce */
+/* Typing indicator — clean 3-dot bounce */
 .typing-dots {
   display: inline-flex;
   align-items: center;
@@ -3885,7 +3885,7 @@ body.settings-compact .attachment-list {
 }
 
 #homeScreen .hs-nav-link[href*="docs"]::after {
-  content: "â†’";
+  content: "→";
   margin-left: 6px;
   font-size: 12px;
 }
@@ -5771,7 +5771,7 @@ button.stop-mode:hover {
   align-items: center;
 }
 
-/* â”€â”€ Thinking burnout modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Thinking burnout modal ─────────────────────────────────────────── */
 .burnout-modal {
   position: fixed;
   inset: 0;
@@ -5913,7 +5913,7 @@ button.stop-mode:hover {
   border-color: #8A5515;
 }
 
-/* â”€â”€ First-run onboarding (get to know you) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── First-run onboarding (get to know you) ───────────────────────── */
 .onboarding-modal {
   position: fixed;
   inset: 0;
@@ -6139,7 +6139,7 @@ button.stop-mode:hover {
   }
 }
 
-/* ROK Pictionary â€” home entry (homescreen button only) */
+/* ROK Pictionary — home entry (homescreen button only) */
 #homeScreen .hs-pictionary-cta {
   align-self: center;
   margin-top: 14px;

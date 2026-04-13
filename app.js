@@ -123,10 +123,10 @@ const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/ap
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
-  historyLimit: 20,          // was 200 â€” large history balloons every request payload
+  historyLimit: 20,          // was 200 — large history balloons every request payload
   maxHistoryMessages: 20,    // was 200
   maxAttachments: 3,
-  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
+  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB — capped at 2MB
   maxFileChars: 8000,        // was 12000
   maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
 };
@@ -176,10 +176,10 @@ const KNOWN_MODEL_LABELS = {
   "glm-5.1:cloud": "ROK Daedalus"
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen3.5:9b": "Hermes â€” swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
-  "gpt-oss:20b-cloud": "ROK Hermes â€” fast cloud replies for everyday questions.",
-  "gpt-oss:120b-cloud": "ROK Titan â€” largest cloud model for deeper reasoning.",
-  "glm-5.1:cloud": "ROK Daedalus â€” specialized cloud model with its own daily message limit."
+  "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "gpt-oss:20b-cloud": "ROK Hermes — fast cloud replies for everyday questions.",
+  "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning.",
+  "glm-5.1:cloud": "ROK Daedalus — specialized cloud model with its own daily message limit."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
@@ -305,22 +305,22 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently out of office.",
   "Looks like ROK took a wrong turn at the last router.",
   "ROK is currently off the grid.",
-  "Weâ€™re giving ROK a quick tune-up.",
+  "We’re giving ROK a quick tune-up.",
   "ROK is undergoing a little spring cleaning.",
-  "ROKâ€™s gears are jammed, but weâ€™re fixing them now.",
+  "ROK’s gears are jammed, but we’re fixing them now.",
   "ROK is installing some fresh batteries.",
   "Just polishing the ROK. Back online momentarily.",
-  "ROK is playing hide and seek. (Itâ€™s winning).",
-  "ROK is currently in â€˜Do Not Disturbâ€™ mode.",
+  "ROK is playing hide and seek. (It’s winning).",
+  "ROK is currently in ‘Do Not Disturb’ mode.",
   "Waiting for ROK to wake up...",
   "ROK: Gone fishing. Back shortly.",
   "ROK is taking a breather.",
-  "ROK hit a snag! Weâ€™re working on it.",
+  "ROK hit a snag! We’re working on it.",
   "Something tripped ROK up. Hang tight.",
   "ROK is currently speechless.",
   "ROK ran into a bit of a hiccup.",
   "ROK is currently counting sheep.",
-  "Itâ€™s not you, itâ€™s ROK. We need a moment.",
+  "It’s not you, it’s ROK. We need a moment.",
   "ROK is playing hard to get. Try again!",
   "ROK is out for a jog. Back soon.",
   "ROK is currently meditating. Namaste.",
@@ -364,7 +364,7 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently communicating with alien lifeforms. Back soon.",
   "ROK is currently caught in a time warp. Please hold on.",
   "ROK is currently experiencing a solar flare. Please wait for it to pass.",
-  "ROK is currently orbiting a black hole. Itâ€™s a bit slow right now.",
+  "ROK is currently orbiting a black hole. It’s a bit slow right now.",
   "ROK is currently on a mission to Mars. Communication delay expected.",
 
   // --- Construction Theme ---
@@ -433,7 +433,9 @@ function sanitizeModelId(rawModel) {
 }
 
 function normalizeModelOptions(rawOptions) {
-  const candidates = Array.isArray(rawOptions) && rawOptions.length ? rawOptions : DEFAULT_MODEL_OPTIONS;
+  const candidates = Array.isArray(rawOptions) && rawOptions.length
+    ? [...rawOptions, ...DEFAULT_MODEL_OPTIONS]
+    : DEFAULT_MODEL_OPTIONS;
   const seen = new Set();
   const normalized = [];
 
@@ -778,7 +780,7 @@ function createThinkingPanel() {
   const summaryIcon = document.createElement("span");
   summaryIcon.className = "thinking-summary-icon";
   summaryIcon.setAttribute("aria-hidden", "true");
-  summaryIcon.textContent = "â—·";
+  summaryIcon.textContent = "◷";
 
   const summaryLabel = document.createElement("span");
   summaryLabel.className = "thinking-summary-label";
@@ -787,7 +789,7 @@ function createThinkingPanel() {
   const summaryArrow = document.createElement("span");
   summaryArrow.className = "thinking-summary-arrow";
   summaryArrow.setAttribute("aria-hidden", "true");
-  summaryArrow.textContent = "â€º";
+  summaryArrow.textContent = "›";
 
   summaryMain.appendChild(summaryIcon);
   summaryMain.appendChild(summaryLabel);
@@ -1404,7 +1406,7 @@ function applyServerThinkingQuota(quota) {
     updatedAt: Date.now(),
   };
   const isExhausted = Boolean(serverThinkingQuota.exhausted);
-  // Only act on the transition (not-exhausted â†’ exhausted), never on repeat calls
+  // Only act on the transition (not-exhausted → exhausted), never on repeat calls
   const justExhausted = !wasExhausted && isExhausted && limitVal > 0;
   if (justExhausted) {
     setTitanLockUntil(Date.now() + titanLockWindowMs);
@@ -1480,7 +1482,7 @@ function hideThinkingBurnoutModal() {
 }
 
 function showThinkingQuotaToast(message) {
-  // For non-limit-hit cases (e.g. click-blocked) â€” small inline toast
+  // For non-limit-hit cases (e.g. click-blocked) — small inline toast
   let toast = document.getElementById("thinkingQuotaToast");
   if (!toast) {
     toast = document.createElement("div");
@@ -1659,7 +1661,7 @@ async function refreshClientConfigFromServer() {
         daedalusLockWindowMs = Math.max(60_000, Math.floor(daedLockSec * 1000));
       }
     }
-    // Apply server-provided thinking quota (authoritative â€” replaces any stale UI state)
+    // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
     if (payload && typeof payload === "object" && payload.thinking_quota) {
       applyServerThinkingQuota(payload.thinking_quota);
     }
@@ -1733,7 +1735,7 @@ function ensureReadyMessage() {
   if (hasShownReadyMessage) return;
   const name = String(loadUserSettingsFromStorage().preferredName || "").trim();
   const text = name
-    ? `Hi, ${name}. ROK is ready â€” ask me anything.`
+    ? `Hi, ${name}. ROK is ready — ask me anything.`
     : "ROK is ready. Ask me anything.";
   addMessage("system", text);
   hasShownReadyMessage = true;
@@ -5243,7 +5245,7 @@ async function send() {
         bubble.appendChild(retryLine);
       }
       const retryLine = bubble.querySelector(".retry-status-line");
-      if (retryLine) retryLine.textContent = `âŸ³ ${value}`;
+      if (retryLine) retryLine.textContent = `⟳ ${value}`;
     } else if (bubble) {
       // Clear retry indicator when a real answer starts
       const existing = bubble.querySelector(".retry-status-line");
@@ -5426,7 +5428,7 @@ async function send() {
     }
     // Read server-enforced thinking quota from response headers and update UI
     applyThinkingQuotaFromHeaders(res);
-    // Read Daedalus quota headers (independent of Titan â€” exhausting one doesn't lock the other)
+    // Read Daedalus quota headers (independent of Titan — exhausting one doesn't lock the other)
     applyDaedalusQuotaFromHeaders(res);
 
     if (!res.ok || contentType.includes("text/html")) {
@@ -5446,7 +5448,7 @@ async function send() {
         nextAllowedAt = Date.now() + retryAfterSec * 1000;
         startCooldownTimer();
         refreshSendState();
-        throw new Error(errorMessage || `Rate limited â€” wait ${retryAfterSec}s before sending again.`);
+        throw new Error(errorMessage || `Rate limited — wait ${retryAfterSec}s before sending again.`);
       }
 
       if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
@@ -5683,7 +5685,7 @@ async function send() {
 
     if (!partialText) {
       // The model may have answered entirely inside <think> tags with no
-      // separate answer â€” surface the thinking content rather than "(No response)".
+      // separate answer — surface the thinking content rather than "(No response)".
       if (thinkingText && thinkingText.trim()) {
         partialText = thinkingText.trim();
         thinkingText = "";
