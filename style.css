@@ -2721,7 +2721,7 @@ body.settings-compact .attachment-list {
   z-index: 0;
 }
 
-/* ── NAV ── */
+/* â”€â”€ NAV â”€â”€ */
 .hs-nav {
   position: relative;
   z-index: 10;
@@ -2770,7 +2770,7 @@ body.settings-compact .attachment-list {
   background: rgba(255,255,255,0.06);
 }
 
-/* ── HERO ── */
+/* â”€â”€ HERO â”€â”€ */
 .hs-hero {
   position: relative;
   z-index: 2;
@@ -2910,7 +2910,7 @@ body.settings-compact .attachment-list {
   background: rgba(180, 25, 25, 0.1);
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .hs-footer {
   position: relative;
   z-index: 2;
@@ -3220,7 +3220,7 @@ body.settings-compact .attachment-list {
   color: var(--muted);
 }
 
-/* Typing indicator — clean 3-dot bounce */
+/* Typing indicator â€” clean 3-dot bounce */
 .typing-dots {
   display: inline-flex;
   align-items: center;
@@ -3471,7 +3471,7 @@ body.settings-compact .attachment-list {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  max-width: min(200px, 42vw);
+  max-width: min(228px, 46vw);
   padding: 6px 28px 6px 8px;
   border-radius: 10px;
   border: 1px solid rgba(90, 50, 50, 0.55);
@@ -3536,7 +3536,7 @@ body.settings-compact .attachment-list {
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
-  min-width: min(232px, 88vw);
+  min-width: min(248px, 90vw);
   padding: 6px;
   border-radius: 12px;
   border: 1px solid #4f2a2a;
@@ -3605,6 +3605,10 @@ body.settings-compact .attachment-list {
 .composer-model-picker-option-label {
   flex: 1;
   min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 540px) {
@@ -3881,7 +3885,7 @@ body.settings-compact .attachment-list {
 }
 
 #homeScreen .hs-nav-link[href*="docs"]::after {
-  content: "→";
+  content: "â†’";
   margin-left: 6px;
   font-size: 12px;
 }
@@ -5767,7 +5771,7 @@ button.stop-mode:hover {
   align-items: center;
 }
 
-/* ── Thinking burnout modal ─────────────────────────────────────────── */
+/* â”€â”€ Thinking burnout modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .burnout-modal {
   position: fixed;
   inset: 0;
@@ -5909,7 +5913,7 @@ button.stop-mode:hover {
   border-color: #8A5515;
 }
 
-/* ── First-run onboarding (get to know you) ───────────────────────── */
+/* â”€â”€ First-run onboarding (get to know you) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .onboarding-modal {
   position: fixed;
   inset: 0;
@@ -6135,7 +6139,7 @@ button.stop-mode:hover {
   }
 }
 
-/* ROK Pictionary — home entry (homescreen button only) */
+/* ROK Pictionary â€” home entry (homescreen button only) */
 #homeScreen .hs-pictionary-cta {
   align-self: center;
   margin-top: 14px;

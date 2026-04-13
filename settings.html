@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -693,9 +693,9 @@
           </div>
           <div class="setting-control">
             <select class="setting-select" id="defaultModel">
-              <option value="qwen3:8b">ROK Fast</option>
-              <option value="qwen3:14b">ROK Pro</option>
-              <option value="llama3.2-vision">ROK Vision</option>
+              <option value="gpt-oss:20b-cloud">ROK Hermes</option>
+              <option value="gpt-oss:120b-cloud">ROK Titan</option>
+              <option value="glm-5.1:cloud">ROK Daedalus</option>
             </select>
           </div>
         </div>
@@ -906,12 +906,15 @@
 
 <script>
   const SETTINGS_KEY = "rok.settings.v1";
-  const SUPPORTED_MODEL_IDS = new Set(["qwen3:8b", "qwen3:14b", "llama3.2-vision"]);
+  const SUPPORTED_MODEL_IDS = new Set(["gpt-oss:20b-cloud", "gpt-oss:120b-cloud", "glm-5.1:cloud"]);
   const LEGACY_MODEL_ALIASES = {
-    "mistral:latest": "qwen3:14b",
-    "qwen2.5:latest": "qwen3:8b",
-    "llava:latest": "llama3.2-vision",
-    "llava-llama3": "llama3.2-vision",
+    "mistral:latest": "gpt-oss:120b-cloud",
+    "qwen3:14b": "gpt-oss:120b-cloud",
+    "qwen2.5:latest": "gpt-oss:20b-cloud",
+    "qwen3:8b": "gpt-oss:20b-cloud",
+    "qwen3.5:9b": "gpt-oss:20b-cloud",
+    "llava:latest": "gpt-oss:20b-cloud",
+    "llava-llama3": "gpt-oss:20b-cloud",
   };
 
   const DEFAULTS = {
@@ -919,7 +922,7 @@
     accentColor: "#d14b4b",
     compactMode: false,
     reduceMotion: false,
-    defaultModel: "qwen3:8b",
+    defaultModel: "gpt-oss:20b-cloud",
     rememberModel: true,
     showModelBadge: false,
     maxTokens: 600,
