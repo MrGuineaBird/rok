@@ -138,6 +138,9 @@ const USER_SETTINGS_KEY = "rok.settings.v1";
 const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
 const LOCAL_TITAN_LOCK_UNTIL_KEY = "rok.titanLockUntil.v1";
+const LOCAL_DAEDALUS_LOCK_UNTIL_KEY = "rok.daedalusLockUntil.v1";
+const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
+const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
@@ -168,12 +171,14 @@ const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
   "gpt-oss:20b-cloud": "ROK Hermes",
   "gpt-oss:120b-cloud": "ROK Titan",
-  "kimi-k2.5:cloud": "kimi-k2.5:cloud"
+  "kimi-k2.5:cloud": "kimi-k2.5:cloud",
+  "glm-5.1:cloud": "ROK Daedalus"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
   "gpt-oss:20b-cloud": "ROK Hermes — fast cloud replies for everyday questions.",
-  "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning."
+  "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning.",
+  "glm-5.1:cloud": "ROK Daedalus — specialized cloud model with its own daily message limit."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
@@ -181,12 +186,16 @@ const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
   "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
-  "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" }
+  "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
+  "glm-5.1:cloud": { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
 };
 const HERMES_MODEL_ID = "gpt-oss:20b-cloud";
 const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
+const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
+const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
+let daedalusLockWindowMs = DEFAULT_DAEDALUS_LOCK_WINDOW_MS;
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
 const WORKSPACE_APPLY_PREVIEW_CHARS = 320;
 const WORKSPACE_CHAT_LEADIN_PATTERN =
@@ -1114,10 +1123,92 @@ function enterAppFromHome() {
   renderWorkspaceUI({ focus: true });
 }
 
+// --- Terms of Service gate ---
+function hasTosBeenAccepted() {
+  try {
+    const raw = localStorage.getItem(LOCAL_TOS_ACCEPTED_KEY);
+    if (!raw) return false;
+    const p = JSON.parse(raw);
+    return p && p.accepted === true && p.version === TOS_VERSION;
+  } catch {
+    return false;
+  }
+}
+
+function saveTosAccepted() {
+  try {
+    localStorage.setItem(LOCAL_TOS_ACCEPTED_KEY, JSON.stringify({
+      accepted: true,
+      version: TOS_VERSION,
+      acceptedAt: new Date().toISOString(),
+    }));
+  } catch {}
+}
+
+function showTosModal(onAccept) {
+  let overlay = document.getElementById("tosModal");
+  if (overlay) overlay.remove();
+  overlay = document.createElement("div");
+  overlay.id = "tosModal";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "tosModalTitle");
+  overlay.style.cssText = [
+    "position:fixed", "inset:0", "background:rgba(0,0,0,0.82)", "z-index:99999",
+    "display:flex", "align-items:center", "justify-content:center", "padding:16px"
+  ].join(";");
+  overlay.innerHTML = `
+    <div style="background:var(--surface-1,#1c1c1e);border:1px solid var(--border,#333);border-radius:14px;max-width:500px;width:100%;padding:32px 28px;color:var(--text-1,#eee);box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+      <h2 id="tosModalTitle" style="margin:0 0 8px;font-size:20px;font-weight:700;letter-spacing:-0.3px">Welcome to ROK</h2>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:var(--accent,#d14b4b);text-transform:uppercase;letter-spacing:.06em">Terms of Service</p>
+      <div style="margin:14px 0 22px;font-size:14px;line-height:1.7;color:var(--text-2,#aaa);max-height:220px;overflow-y:auto;padding-right:4px">
+        <p style="margin:0 0 10px">By using ROK you agree to the following:</p>
+        <ul style="margin:0 0 10px;padding-left:20px">
+          <li style="margin-bottom:6px">ROK is provided as-is by ROKTEAM without warranties of any kind.</li>
+          <li style="margin-bottom:6px">You will not use ROK to generate harmful, abusive, or illegal content.</li>
+          <li style="margin-bottom:6px">ROK's responses are AI-generated and may be inaccurate. Do not rely on them for medical, legal, or financial decisions.</li>
+          <li style="margin-bottom:6px">You take full responsibility for how you use ROK's outputs.</li>
+          <li style="margin-bottom:6px">ROK may log anonymized usage data to improve the service.</li>
+          <li style="margin-bottom:6px">These terms may be updated. Continued use constitutes acceptance.</li>
+        </ul>
+        <p style="margin:0">ROK is intended for general-purpose use. Model availability is subject to daily limits and may vary.</p>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="tosDeclineBtn" style="padding:10px 20px;border-radius:8px;border:1px solid var(--border,#444);background:transparent;color:var(--text-2,#aaa);cursor:pointer;font-size:14px;font-weight:500">Decline</button>
+        <button id="tosAcceptBtn" style="padding:10px 22px;border-radius:8px;border:none;background:var(--accent,#d14b4b);color:#fff;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.01em">I Agree</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById("tosAcceptBtn").addEventListener("click", () => {
+    saveTosAccepted();
+    overlay.remove();
+    if (typeof onAccept === "function") onAccept();
+  });
+
+  document.getElementById("tosDeclineBtn").addEventListener("click", () => {
+    // Replace content with a polite decline message
+    const inner = overlay.querySelector("div");
+    if (inner) {
+      inner.innerHTML = `
+        <h2 style="margin:0 0 14px;font-size:18px;font-weight:700;color:var(--text-1,#eee)">Terms not accepted</h2>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:var(--text-2,#aaa)">You must accept the Terms of Service to use ROK. Please close this tab or refresh and try again.</p>`;
+    }
+  });
+}
+
+function enterAppWithTosCheck() {
+  if (hasTosBeenAccepted()) {
+    enterAppFromHome();
+  } else {
+    showTosModal(() => enterAppFromHome());
+  }
+}
+
 function finishOnboardingAndEnter() {
   saveOnboardingCompletedRecord();
   closeOnboardingModal();
-  enterAppFromHome();
+  enterAppWithTosCheck();
 }
 
 function loadLastModelFromStorage() {
@@ -1151,6 +1242,10 @@ function saveLastModelToStorage(modelId) {
 // after each chat response. The server enforces the real limit; this is UI-only.
 let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, updatedAt: 0 };
 let titanLockUntil = 0;
+
+// --- Daedalus quota (completely independent of Titan) ---
+let serverDaedalusQuota = { count: 0, limit: 20, exhausted: false, resetSec: 0, updatedAt: 0 };
+let daedalusLockUntil = 0;
 
 function loadTitanLockUntilFromStorage() {
   try {
@@ -1195,11 +1290,100 @@ function isTitanQuotaLocked() {
   return remainingMs > 0;
 }
 
+// --- Daedalus lock helpers (independent of Titan) ---
+function loadDaedalusLockUntilFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_DAEDALUS_LOCK_UNTIL_KEY);
+    if (!raw) return 0;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= Date.now()) return 0;
+    return parsed;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function saveDaedalusLockUntilToStorage(value) {
+  try {
+    if (value > Date.now()) {
+      localStorage.setItem(LOCAL_DAEDALUS_LOCK_UNTIL_KEY, String(Math.floor(value)));
+    } else {
+      localStorage.removeItem(LOCAL_DAEDALUS_LOCK_UNTIL_KEY);
+    }
+  } catch (_) {}
+}
+
+function setDaedalusLockUntil(value) {
+  daedalusLockUntil = Math.max(0, Number(value) || 0);
+  saveDaedalusLockUntilToStorage(daedalusLockUntil);
+}
+
+function getDaedalusLockRemainingMs() {
+  return Math.max(0, daedalusLockUntil - Date.now());
+}
+
+daedalusLockUntil = loadDaedalusLockUntilFromStorage();
+
+function isDaedalusQuotaLocked() {
+  const remainingMs = getDaedalusLockRemainingMs();
+  if (remainingMs <= 0 && daedalusLockUntil > 0) {
+    setDaedalusLockUntil(0);
+    return false;
+  }
+  return remainingMs > 0;
+}
+
+function forceHermesIfDaedalusLocked(notify = false) {
+  if (!isDaedalusQuotaLocked()) return;
+  if (getCurrentSessionModel() !== DAEDALUS_MODEL_ID) return;
+  setCurrentSessionModel(HERMES_MODEL_ID);
+  if (notify && !isHomeScreenVisible()) {
+    const remainingMs = getDaedalusLockRemainingMs();
+    const resetMsg = remainingMs > 0 ? ` Daedalus unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
+    addMessage("system", `ROK Daedalus has reached its daily limit. Switched to ROK Hermes.${resetMsg}`);
+  }
+}
+
+function applyDaedalusQuota(quota) {
+  if (!quota || typeof quota !== "object") return;
+  const wasExhausted = Boolean(serverDaedalusQuota.exhausted);
+  const limitVal = typeof quota.limit === "number" ? quota.limit : serverDaedalusQuota.limit;
+  const unlimited = limitVal <= 0;
+  serverDaedalusQuota = {
+    count:     typeof quota.count     === "number"  ? quota.count     : serverDaedalusQuota.count,
+    limit:     limitVal,
+    exhausted: unlimited ? false : (typeof quota.exhausted === "boolean" ? quota.exhausted : serverDaedalusQuota.exhausted),
+    resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverDaedalusQuota.resetSec,
+    updatedAt: Date.now(),
+  };
+  const isExhausted = Boolean(serverDaedalusQuota.exhausted);
+  // Only act on the transition moment, never on repeat config refreshes
+  const justExhausted = !wasExhausted && isExhausted && limitVal > 0;
+  if (justExhausted) {
+    setDaedalusLockUntil(Date.now() + daedalusLockWindowMs);
+  }
+  refreshSendState();
+  // Notify + switch model only on transition, and only when in chat
+  forceHermesIfDaedalusLocked(justExhausted);
+}
+
+function applyDaedalusQuotaFromHeaders(response) {
+  if (!response || !response.headers || response.headers.get("X-Daedalus-Limit") == null) return;
+  const count     = parseInt(response.headers.get("X-Daedalus-Count") || "", 10);
+  const limit     = parseInt(response.headers.get("X-Daedalus-Limit") || "", 10);
+  const exhausted = (response.headers.get("X-Daedalus-Exhausted") || "").toLowerCase() === "true";
+  const resetSec  = parseInt(response.headers.get("X-Daedalus-Reset-Sec") || "0", 10);
+  const lockSec   = parseInt(response.headers.get("X-Daedalus-Lock-Sec") || "0", 10);
+  if (isNaN(count) || isNaN(limit)) return;
+  if (lockSec > 0) daedalusLockWindowMs = Math.max(60_000, lockSec * 1000);
+  applyDaedalusQuota({ count, limit, exhausted, reset_sec: resetSec });
+}
+
 function forceHermesIfTitanLocked(notify = false) {
   if (!isTitanQuotaLocked()) return;
   if (getCurrentSessionModel() !== TITAN_MODEL_ID) return;
   setCurrentSessionModel(HERMES_MODEL_ID);
-  if (notify) {
+  if (notify && !isHomeScreenVisible()) {
     const remainingMs = getTitanLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Titan unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
     addMessage("system", `ROK Titan is temporarily locked after reaching its message limit. You can use ROK Hermes until reset.${resetMsg}`);
@@ -1219,17 +1403,20 @@ function applyServerThinkingQuota(quota) {
     updatedAt: Date.now(),
   };
   const isExhausted = Boolean(serverThinkingQuota.exhausted);
-  if (!wasExhausted && isExhausted && limitVal > 0) {
+  // Only act on the transition (not-exhausted → exhausted), never on repeat calls
+  const justExhausted = !wasExhausted && isExhausted && limitVal > 0;
+  if (justExhausted) {
     setTitanLockUntil(Date.now() + titanLockWindowMs);
   }
   refreshSendState();
-  // Popup: show when limit is active and exhausted (config load + chat headers both use this path)
+  // Show the burnout modal only on the transition moment, and only when in chat (not home screen)
   if (unlimited || !isTitanQuotaLocked()) {
     hideThinkingBurnoutModal();
-  } else if (limitVal > 0 || isTitanQuotaLocked()) {
+  } else if (justExhausted && !isHomeScreenVisible()) {
     showThinkingBurnoutModal();
   }
-  forceHermesIfTitanLocked(true);
+  // Notify + switch model only on transition
+  forceHermesIfTitanLocked(justExhausted);
 }
 
 function applyThinkingQuotaFromHeaders(response) {
@@ -1466,10 +1653,18 @@ async function refreshClientConfigFromServer() {
       if (Number.isFinite(lockSec) && lockSec > 0) {
         titanLockWindowMs = Math.max(60_000, Math.floor(lockSec * 1000));
       }
+      const daedLockSec = Number(payload.thinking_policy.daedalus_lock_window_sec);
+      if (Number.isFinite(daedLockSec) && daedLockSec > 0) {
+        daedalusLockWindowMs = Math.max(60_000, Math.floor(daedLockSec * 1000));
+      }
     }
     // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
     if (payload && typeof payload === "object" && payload.thinking_quota) {
       applyServerThinkingQuota(payload.thinking_quota);
+    }
+    // Apply Daedalus quota (completely independent of Titan)
+    if (payload && typeof payload === "object" && payload.daedalus_quota) {
+      applyDaedalusQuota(payload.daedalus_quota);
     }
     applyUserSettingsToRuntime({ syncModelDefaults: false });
     refreshSendState();
@@ -2073,17 +2268,23 @@ function refreshComposerModelPicker() {
   const sessionModel = getCurrentSessionModel();
   const rows = getComposerSelectableModels();
   const titanLocked = isTitanQuotaLocked();
+  const daedalusLocked = isDaedalusQuotaLocked();
   modelPickerMenu.innerHTML = rows
     .map((item) => {
       const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
       const safeId = escapeHtml(item.id);
       const active = item.id === sessionModel;
-      const locked = titanLocked && item.id === TITAN_MODEL_ID;
+      const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
+      const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
+        ? "Temporarily locked. Use ROK Hermes until reset."
+        : daedalusLocked && item.id === DAEDALUS_MODEL_ID
+        ? "Daily limit reached. Use ROK Hermes until reset."
+        : "";
       const iconHtml = meta.icon
         ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
         : "";
       const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
-      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? " disabled title=\"Temporarily locked. Use ROK Hermes until reset.\"" : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? ` disabled title="${escapeHtml(lockTitle)}"` : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
     })
     .join("");
 
@@ -2133,10 +2334,17 @@ function setCurrentSessionModel(rawModel) {
   if (!current) return;
 
   const requestedModel = normalizeSessionModel(rawModel);
-  const nextModel = isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID ? HERMES_MODEL_ID : requestedModel;
+  // Block locked models: redirect to Hermes if Titan or Daedalus is locked
+  let nextModel = requestedModel;
   if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
+    nextModel = HERMES_MODEL_ID;
     showThinkingBurnoutModal();
     showThinkingQuotaToast("ROK Titan is temporarily locked. Use ROK Hermes until the reset window ends.");
+  } else if (isDaedalusQuotaLocked() && requestedModel === DAEDALUS_MODEL_ID) {
+    nextModel = HERMES_MODEL_ID;
+    const remainingMs = getDaedalusLockRemainingMs();
+    const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
+    showThinkingQuotaToast(`ROK Daedalus daily limit reached. Use ROK Hermes.${resetMsg}`);
   }
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
@@ -4830,6 +5038,14 @@ async function send() {
     refreshComposerModelPicker();
     return;
   }
+  if (sessionModel === DAEDALUS_MODEL_ID && isDaedalusQuotaLocked()) {
+    forceHermesIfDaedalusLocked(false);
+    const remainingMs = getDaedalusLockRemainingMs();
+    const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
+    showThinkingQuotaToast(`ROK Daedalus daily limit reached. Switched to ROK Hermes.${resetMsg}`);
+    refreshComposerModelPicker();
+    return;
+  }
 
   let displayText = text;
   if (!displayText) {
@@ -5209,6 +5425,8 @@ async function send() {
     }
     // Read server-enforced thinking quota from response headers and update UI
     applyThinkingQuotaFromHeaders(res);
+    // Read Daedalus quota headers (independent of Titan — exhausting one doesn't lock the other)
+    applyDaedalusQuotaFromHeaders(res);
 
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
@@ -6096,7 +6314,7 @@ if (homeStartBtn) {
       openOnboardingModal();
       return;
     }
-    enterAppFromHome();
+    enterAppWithTosCheck();
   });
 }
 
