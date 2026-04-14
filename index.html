@@ -26,6 +26,7 @@
         <nav id="workspaceSidebarTabs" class="workspace-tabs workspace-tabs-sidebar" hidden aria-label="Workspace tabs">
           <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
           <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
+          <button class="workspace-tab" type="button" data-workspace-tab="sandbox" role="tab" aria-selected="false">Sandbox</button>
           <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
         </nav>
       </div>
@@ -152,11 +153,12 @@
       <nav id="workspaceTabs" class="workspace-tabs workspace-tabs-top" hidden aria-label="Workspace tabs">
         <button class="workspace-tab active" type="button" data-workspace-tab="chat" role="tab" aria-selected="true">Chat</button>
         <button class="workspace-tab" type="button" data-workspace-tab="workspace" role="tab" aria-selected="false">ROK Workspace</button>
+        <button class="workspace-tab" type="button" data-workspace-tab="sandbox" role="tab" aria-selected="false">Sandbox</button>
         <button class="workspace-tab" type="button" data-workspace-tab="math" role="tab" aria-selected="false">Math</button>
       </nav>
 
       <section id="workspacePanel" class="workspace-panel" hidden data-tab="chat">
-        <div class="workspace-document-shell">
+        <div id="workspaceDocumentShell" class="workspace-document-shell">
           <div class="workspace-panel-head">
             <div id="workspacePanelTitle" class="workspace-panel-title">ROK Workspace</div>
             <div class="workspace-panel-hint">Type here. Use Improve, Copy, or Download from the toolbar while you write.</div>
@@ -180,6 +182,73 @@
             spellcheck="true"
           ></textarea>
         </div>
+        <section id="sandboxPanel" class="sandbox-shell" hidden aria-live="polite">
+          <aside class="sandbox-files-shell">
+            <div class="workspace-panel-head sandbox-files-head">
+              <div class="workspace-panel-title">Virtual Workspace</div>
+              <div class="workspace-panel-hint">Upload or create code files for ROK to inspect and edit like a coding sandbox.</div>
+              <div class="workspace-panel-actions">
+                <button id="sandboxUploadBtn" class="workspace-mini-btn ghost" type="button">Upload</button>
+                <button id="sandboxNewFileBtn" class="workspace-mini-btn ghost" type="button">New File</button>
+              </div>
+            </div>
+            <div id="sandboxFilesList" class="sandbox-files-list"></div>
+          </aside>
+          <section class="sandbox-main-shell">
+            <div class="workspace-panel-head">
+              <div id="sandboxCurrentFileLabel" class="workspace-panel-title">Select a file</div>
+              <div class="workspace-panel-hint">
+                Switch the model from the composer picker, ask for a feature in chat, and ROK will return structured JSON file edits for this virtual workspace.
+              </div>
+              <div class="workspace-panel-tools">
+                <div class="workspace-panel-stats" aria-live="polite">
+                  <span id="sandboxFileCount" class="workspace-doc-chip">0 files</span>
+                  <span id="sandboxChangeCount" class="workspace-doc-chip">No AI changes</span>
+                  <span id="sandboxStatusChip" class="workspace-doc-chip" data-tone="idle">Idle</span>
+                </div>
+                <div class="workspace-panel-actions">
+                  <button id="sandboxSaveBtn" class="workspace-mini-btn ghost" type="button">Save</button>
+                  <button id="sandboxDeleteBtn" class="workspace-mini-btn ghost" type="button">Delete</button>
+                  <button id="sandboxAnalyzeBtn" class="workspace-mini-btn ghost" type="button">Analyze</button>
+                  <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply AI Changes</button>
+                </div>
+              </div>
+            </div>
+            <label class="sandbox-field-label" for="sandboxFilePathInput">File path</label>
+            <input
+              id="sandboxFilePathInput"
+              class="sandbox-file-path-input"
+              type="text"
+              placeholder="src/app.js"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <textarea
+              id="sandboxFileEditor"
+              class="sandbox-file-editor"
+              placeholder="Select a file or create one to start editing."
+              spellcheck="false"
+            ></textarea>
+            <section class="sandbox-analysis-shell">
+              <div class="sandbox-analysis-head">
+                <div>
+                  <div class="workspace-panel-title">AI File Plan</div>
+                  <div class="workspace-panel-hint">
+                    Structured JSON changes from Hermes, Titan, or Daedalus appear here with file-by-file actions and setup notes.
+                  </div>
+                </div>
+                <button id="sandboxClearAnalysisBtn" class="workspace-mini-btn ghost" type="button">Clear</button>
+              </div>
+              <div id="sandboxChangeList" class="sandbox-change-list">
+                <div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in Sandbox.</div>
+              </div>
+              <pre id="sandboxJsonPreview" class="sandbox-json-preview">No structured JSON yet.</pre>
+              <div class="sandbox-setup-note">
+                Setup: add files, pick a model from the chat composer, open Sandbox, and ask ROK what to build. The selected model will inspect this virtual workspace and propose file-by-file JSON edits you can apply.
+              </div>
+            </section>
+          </section>
+        </section>
         <section id="workspaceAssistantPanel" class="workspace-assistant is-collapsed" aria-live="polite">
           <div class="workspace-assistant-head">
             <button
@@ -355,6 +424,13 @@ Change Scope: Short</p>
           accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.png,.jpg,.jpeg,.gif,.webp,.bmp,text/*,image/*"
           multiple
         />
+        <input
+          id="sandboxFileInput"
+          class="file-input"
+          type="file"
+          accept=".txt,.md,.csv,.json,.js,.ts,.tsx,.jsx,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.sh,.yml,.yaml,.toml,.xml,.svg,.sql,text/*"
+          multiple
+        />
         <div id="attachmentList" class="attachment-list" aria-live="polite"></div>
         <div class="composer-meta">
           <div class="composer-hint">ROK is currently in beta! Check important info.</div>
@@ -516,8 +592,8 @@ Change Scope: Short</p>
         <div id="onboardingSlide0" class="onboarding-slide" data-onb-slide="0">
           <h2 id="onboardingHeading" class="onboarding-title">Welcome to ROK</h2>
           <p id="onboardingDesc" class="onboarding-text">
-            ROK is your private AI workspace for chat, long-form writing in the workspace, picking a model, and a built-in math graph.
-            This short tour shows where everything lives — then we’ll ask what to call you so ROK can respond naturally.
+            ROK is your private AI workspace for chat, long-form writing, a virtual Sandbox for coding, model switching, and a built-in math graph.
+            This short tour shows where everything lives, then we'll ask what to call you so ROK can respond naturally.
           </p>
         </div>
         <div id="onboardingSlide1" class="onboarding-slide" hidden data-onb-slide="1">
@@ -530,8 +606,8 @@ Change Scope: Short</p>
         <div id="onboardingSlide2" class="onboarding-slide" hidden data-onb-slide="2">
           <h2 class="onboarding-title">Tabs &amp; workspace</h2>
           <p class="onboarding-text">
-            Switch between <strong>Chat</strong>, <strong>ROK Workspace</strong> for drafting, <strong>Model</strong> to choose the AI model, and <strong>Math</strong> for the graphing calculator.
-            The workspace is great for stories, essays, and anything you want ROK to help revise or continue.
+            Switch between <strong>Chat</strong>, <strong>ROK Workspace</strong> for drafting, <strong>Sandbox</strong> for file-based coding, and <strong>Math</strong> for the graphing calculator.
+            Use the model picker in the composer to swap between Hermes, Titan, and Daedalus while you work.
           </p>
         </div>
         <div id="onboardingSlide3" class="onboarding-slide" hidden data-onb-slide="3">

@@ -10,6 +10,7 @@ const mathChatMessages = document.getElementById("mathChatMessages");
 const mathChatInput = document.getElementById("mathChatInput");
 const mathChatSendBtn = document.getElementById("mathChatSendBtn");
 const workspacePanelTitle = document.getElementById("workspacePanelTitle");
+const workspaceDocumentShell = document.getElementById("workspaceDocumentShell");
 const workspaceEditor = document.getElementById("workspaceEditor");
 const workspaceDocWordCount = document.getElementById("workspaceDocWordCount");
 const workspaceDocReadTime = document.getElementById("workspaceDocReadTime");
@@ -17,6 +18,23 @@ const workspaceDocSaveState = document.getElementById("workspaceDocSaveState");
 const workspaceCopyBtn = document.getElementById("workspaceCopyBtn");
 const workspaceDownloadBtn = document.getElementById("workspaceDownloadBtn");
 const workspaceImproveBtn = document.getElementById("workspaceImproveBtn");
+const sandboxPanel = document.getElementById("sandboxPanel");
+const sandboxFilesList = document.getElementById("sandboxFilesList");
+const sandboxCurrentFileLabel = document.getElementById("sandboxCurrentFileLabel");
+const sandboxFileCount = document.getElementById("sandboxFileCount");
+const sandboxChangeCount = document.getElementById("sandboxChangeCount");
+const sandboxStatusChip = document.getElementById("sandboxStatusChip");
+const sandboxUploadBtn = document.getElementById("sandboxUploadBtn");
+const sandboxNewFileBtn = document.getElementById("sandboxNewFileBtn");
+const sandboxSaveBtn = document.getElementById("sandboxSaveBtn");
+const sandboxDeleteBtn = document.getElementById("sandboxDeleteBtn");
+const sandboxAnalyzeBtn = document.getElementById("sandboxAnalyzeBtn");
+const sandboxApplyBtn = document.getElementById("sandboxApplyBtn");
+const sandboxClearAnalysisBtn = document.getElementById("sandboxClearAnalysisBtn");
+const sandboxFilePathInput = document.getElementById("sandboxFilePathInput");
+const sandboxFileEditor = document.getElementById("sandboxFileEditor");
+const sandboxChangeList = document.getElementById("sandboxChangeList");
+const sandboxJsonPreview = document.getElementById("sandboxJsonPreview");
 const workspaceAssistantPanel = document.getElementById("workspaceAssistantPanel");
 const workspaceAssistantToggle = document.getElementById("workspaceAssistantToggle");
 const workspaceAssistantBody = document.getElementById("workspaceAssistantBody");
@@ -45,6 +63,7 @@ const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
 const fileInput = document.getElementById("fileInput");
+const sandboxFileInput = document.getElementById("sandboxFileInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
@@ -181,7 +200,7 @@ const MODEL_DESCRIPTIONS = {
   "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning.",
   "glm-5.1:cloud": "ROK Daedalus — specialized cloud model with its own daily message limit."
 };
-const WORKSPACE_TAB_KEYS = ["chat", "workspace", "math"];
+const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
 const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud", "glm-5.1:cloud"];
 /** Icons + labels for the composer model control (paths relative to index.html). */
@@ -195,6 +214,9 @@ const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
 const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
+const SANDBOX_DEFAULT_PROMPT = "Analyze this sandbox and propose the next file-by-file code changes.";
+const SANDBOX_MAX_FILES = 48;
+const SANDBOX_MAX_FILE_CHARS = 24_000;
 let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
 let daedalusLockWindowMs = DEFAULT_DAEDALUS_LOCK_WINDOW_MS;
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -404,6 +426,10 @@ let isWorkspaceSuggestionLoading = false;
 let isIntentClassificationLoading = false;
 let workspaceAssistantFadeTimer = null;
 let workspaceDocSaveStateTimer = null;
+let sandboxDraftFileId = "";
+let sandboxDraftPath = "";
+let sandboxDraftContent = "";
+let sandboxDraftDirty = false;
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
 let isMobileLayout = false;
@@ -2091,7 +2117,7 @@ function normalizeWorkspaceAssistantMemory(rawMemory) {
     statusText: typeof rawMemory.statusText === "string" && rawMemory.statusText.trim()
       ? rawMemory.statusText.trim()
       : fallback.statusText,
-    suggestions:
+      suggestions:
       rawMemory.suggestions && typeof rawMemory.suggestions === "object"
         ? {
             clarity: Array.isArray(rawMemory.suggestions.clarity) ? rawMemory.suggestions.clarity.slice(0, 5) : [],
@@ -2102,11 +2128,151 @@ function normalizeWorkspaceAssistantMemory(rawMemory) {
   };
 }
 
+function makeSandboxFileId() {
+  return `f-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeSandboxFilePath(rawPath) {
+  return String(rawPath || "")
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+/, "")
+    .trim();
+}
+
+function createDefaultSandboxAnalysis() {
+  return {
+    raw: "",
+    summary: "",
+    setupSteps: [],
+    files: [],
+    lastPrompt: "",
+    model: "",
+    createdAt: 0
+  };
+}
+
+function normalizeSandboxPlanFile(rawFile) {
+  if (!rawFile || typeof rawFile !== "object") return null;
+  const path = normalizeSandboxFilePath(rawFile.path || rawFile.file || rawFile.name);
+  if (!path) return null;
+  const rawAction = String(rawFile.action || rawFile.op || rawFile.type || "").trim().toLowerCase();
+  let action = rawAction;
+  if (action === "remove") action = "delete";
+  if (action === "new") action = "create";
+  if (!["create", "update", "delete"].includes(action)) {
+    action = "update";
+  }
+  return {
+    path,
+    action,
+    reason: typeof rawFile.reason === "string" && rawFile.reason.trim() ? rawFile.reason.trim() : "AI proposed a file change.",
+    language: typeof rawFile.language === "string" && rawFile.language.trim() ? rawFile.language.trim() : "",
+    content: action === "delete" ? "" : String(rawFile.content || rawFile.contents || rawFile.code || "")
+  };
+}
+
+function normalizeSandboxAnalysis(rawAnalysis) {
+  const fallback = createDefaultSandboxAnalysis();
+  if (!rawAnalysis || typeof rawAnalysis !== "object") {
+    return fallback;
+  }
+  const rawFiles = Array.isArray(rawAnalysis.files)
+    ? rawAnalysis.files
+    : Array.isArray(rawAnalysis.changes)
+    ? rawAnalysis.changes
+    : [];
+  const files = rawFiles
+    .map((item) => normalizeSandboxPlanFile(item))
+    .filter(Boolean);
+  const rawSetupSteps = Array.isArray(rawAnalysis.setupSteps)
+    ? rawAnalysis.setupSteps
+    : Array.isArray(rawAnalysis.setup_steps)
+    ? rawAnalysis.setup_steps
+    : [];
+  return {
+    raw: typeof rawAnalysis.raw === "string" ? rawAnalysis.raw : fallback.raw,
+    summary: typeof rawAnalysis.summary === "string" && rawAnalysis.summary.trim()
+      ? rawAnalysis.summary.trim()
+      : fallback.summary,
+    setupSteps: rawSetupSteps
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .slice(0, 12),
+    files,
+    lastPrompt: typeof rawAnalysis.lastPrompt === "string" ? rawAnalysis.lastPrompt : fallback.lastPrompt,
+    model: typeof rawAnalysis.model === "string" ? rawAnalysis.model : fallback.model,
+    createdAt: Number.isFinite(Number(rawAnalysis.createdAt)) ? Number(rawAnalysis.createdAt) : fallback.createdAt
+  };
+}
+
+function createSandboxFile(path = "", content = "") {
+  return {
+    id: makeSandboxFileId(),
+    path: normalizeSandboxFilePath(path) || `sandbox/untitled-${Date.now()}.txt`,
+    content: String(content || ""),
+    updatedAt: Date.now()
+  };
+}
+
+function normalizeSandboxFile(rawFile, index = 0) {
+  const fallback = createSandboxFile(`sandbox/untitled-${index + 1}.txt`, "");
+  if (!rawFile || typeof rawFile !== "object") {
+    return fallback;
+  }
+  return {
+    id: typeof rawFile.id === "string" && rawFile.id.trim() ? rawFile.id.trim() : fallback.id,
+    path: normalizeSandboxFilePath(rawFile.path) || fallback.path,
+    content: typeof rawFile.content === "string" ? rawFile.content : String(rawFile.content || ""),
+    updatedAt: Number.isFinite(Number(rawFile.updatedAt)) ? Number(rawFile.updatedAt) : fallback.updatedAt
+  };
+}
+
+function createDefaultSandbox() {
+  return {
+    files: [],
+    selectedFileId: "",
+    analysis: createDefaultSandboxAnalysis(),
+    statusText: "Idle"
+  };
+}
+
+function normalizeSandbox(rawSandbox) {
+  const fallback = createDefaultSandbox();
+  if (!rawSandbox || typeof rawSandbox !== "object") {
+    return fallback;
+  }
+  const seenPaths = new Set();
+  const files = Array.isArray(rawSandbox.files)
+    ? rawSandbox.files
+        .map((item, index) => normalizeSandboxFile(item, index))
+        .filter((item) => {
+          const key = item.path.toLowerCase();
+          if (seenPaths.has(key)) return false;
+          seenPaths.add(key);
+          return true;
+        })
+    : [];
+  const selectedFileId =
+    typeof rawSandbox.selectedFileId === "string" && files.some((item) => item.id === rawSandbox.selectedFileId)
+      ? rawSandbox.selectedFileId
+      : files[0]?.id || "";
+  return {
+    files,
+    selectedFileId,
+    analysis: normalizeSandboxAnalysis(rawSandbox.analysis),
+    statusText: typeof rawSandbox.statusText === "string" && rawSandbox.statusText.trim()
+      ? rawSandbox.statusText.trim()
+      : fallback.statusText
+  };
+}
+
 function createDefaultWorkspace() {
   return {
     activeTab: "chat",
     content: "",
-    assistantMemory: createDefaultWorkspaceAssistantMemory()
+    assistantMemory: createDefaultWorkspaceAssistantMemory(),
+    sandbox: createDefaultSandbox()
   };
 }
 
@@ -2137,7 +2303,8 @@ function normalizeWorkspace(rawWorkspace) {
   return {
     activeTab,
     content: String(content || ""),
-    assistantMemory: normalizeWorkspaceAssistantMemory(rawWorkspace.assistantMemory)
+    assistantMemory: normalizeWorkspaceAssistantMemory(rawWorkspace.assistantMemory),
+    sandbox: normalizeSandbox(rawWorkspace.sandbox)
   };
 }
 
@@ -2183,6 +2350,26 @@ function isWorkspaceSessionActive() {
   return current.workspace.activeTab === "workspace";
 }
 
+function isSandboxSessionActive() {
+  const current = getWorkspaceCurrentSession();
+  if (!current) return false;
+  return current.workspace.activeTab === "sandbox";
+}
+
+function getCurrentSandboxState() {
+  const current = getWorkspaceCurrentSession();
+  if (!current) {
+    return createDefaultSandbox();
+  }
+  current.workspace.sandbox = normalizeSandbox(current.workspace.sandbox);
+  return current.workspace.sandbox;
+}
+
+function getSelectedSandboxFile(sandbox = getCurrentSandboxState()) {
+  if (!sandbox || !Array.isArray(sandbox.files)) return null;
+  return sandbox.files.find((item) => item.id === sandbox.selectedFileId) || sandbox.files[0] || null;
+}
+
 function getLastAssistantMessageText() {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const item = history[i];
@@ -2218,11 +2405,289 @@ function queueWorkspaceSave() {
 }
 
 function storeWorkspaceDraftsFromWindows() {
-  if (!workspaceEditor) return;
   const current = getWorkspaceCurrentSession();
   if (!current) return;
-  current.workspace.content = workspaceEditor.value || "";
+  if (workspaceEditor) {
+    current.workspace.content = workspaceEditor.value || "";
+  }
+  saveSandboxDraftToState({ silent: true, skipRender: true });
   refreshWorkspaceDocumentToolbarState();
+}
+
+function countLines(text = "") {
+  if (!text) return 0;
+  return String(text).split(/\r?\n/).length;
+}
+
+function setSandboxStatus(statusText, tone = "idle", options = {}) {
+  const { save = true } = options;
+  const sandbox = getCurrentSandboxState();
+  sandbox.statusText = String(statusText || "").trim() || "Idle";
+  if (sandboxStatusChip) {
+    sandboxStatusChip.textContent = sandbox.statusText;
+    sandboxStatusChip.dataset.tone = tone;
+  }
+  if (save) {
+    syncCurrentSessionFromHistory();
+  }
+}
+
+function loadSandboxDraftFromSelectedFile(force = false) {
+  const selectedFile = getSelectedSandboxFile();
+  const nextId = selectedFile ? selectedFile.id : "";
+  if (!force && sandboxDraftDirty && sandboxDraftFileId === nextId) {
+    return;
+  }
+  sandboxDraftFileId = nextId;
+  sandboxDraftPath = selectedFile ? selectedFile.path : "";
+  sandboxDraftContent = selectedFile ? selectedFile.content : "";
+  sandboxDraftDirty = false;
+}
+
+function markSandboxDraftDirty() {
+  sandboxDraftDirty = true;
+  if (sandboxStatusChip) {
+    sandboxStatusChip.textContent = "Unsaved";
+    sandboxStatusChip.dataset.tone = "idle";
+  }
+}
+
+function saveSandboxDraftToState(options = {}) {
+  const { silent = false, skipRender = false } = options;
+  const sandbox = getCurrentSandboxState();
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  if (!selectedFile) {
+    sandboxDraftDirty = false;
+    return false;
+  }
+
+  const nextPath = normalizeSandboxFilePath(sandboxFilePathInput ? sandboxFilePathInput.value : sandboxDraftPath);
+  const nextContent = sandboxFileEditor ? sandboxFileEditor.value : sandboxDraftContent;
+  if (!nextPath) {
+    if (!silent) {
+      setSandboxStatus("A file path is required.", "error");
+    }
+    return false;
+  }
+  const duplicate = sandbox.files.find((item) => item.id !== selectedFile.id && item.path.toLowerCase() === nextPath.toLowerCase());
+  if (duplicate) {
+    if (!silent) {
+      setSandboxStatus("That file path already exists.", "error");
+    }
+    return false;
+  }
+
+  selectedFile.path = nextPath;
+  selectedFile.content = String(nextContent || "");
+  selectedFile.updatedAt = Date.now();
+  sandbox.selectedFileId = selectedFile.id;
+  sandboxDraftFileId = selectedFile.id;
+  sandboxDraftPath = selectedFile.path;
+  sandboxDraftContent = selectedFile.content;
+  sandboxDraftDirty = false;
+  sandbox.statusText = selectedFile.content.trim() ? "Saved" : "Empty";
+  syncCurrentSessionFromHistory();
+  if (!skipRender) {
+    renderSandboxUI();
+  }
+  return true;
+}
+
+function getNextSandboxUntitledPath(files = []) {
+  const usedPaths = new Set((files || []).map((item) => String(item.path || "").toLowerCase()));
+  for (let i = 1; i <= 999; i += 1) {
+    const candidate = `sandbox/untitled-${i}.txt`;
+    if (!usedPaths.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+  return `sandbox/untitled-${Date.now()}.txt`;
+}
+
+function selectSandboxFile(fileId, options = {}) {
+  const { force = false } = options;
+  const sandbox = getCurrentSandboxState();
+  if (!force && sandboxDraftDirty && !saveSandboxDraftToState({ silent: false })) {
+    renderSandboxUI();
+    return;
+  }
+  sandbox.selectedFileId = fileId;
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+}
+
+function createSandboxFileFromEditor(path = "", content = "") {
+  if (sandboxDraftDirty && !saveSandboxDraftToState({ silent: false, skipRender: true })) {
+    renderSandboxUI();
+    return;
+  }
+  const sandbox = getCurrentSandboxState();
+  const file = createSandboxFile(path || getNextSandboxUntitledPath(sandbox.files), content);
+  sandbox.files.push(file);
+  sandbox.selectedFileId = file.id;
+  sandbox.statusText = "New file ready";
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+  if (sandboxFilePathInput) {
+    sandboxFilePathInput.focus();
+    sandboxFilePathInput.select();
+  }
+}
+
+function deleteSelectedSandboxFile() {
+  const sandbox = getCurrentSandboxState();
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  if (!selectedFile) return;
+  sandbox.files = sandbox.files.filter((item) => item.id !== selectedFile.id);
+  sandbox.selectedFileId = sandbox.files[0]?.id || "";
+  sandboxDraftFileId = "";
+  sandboxDraftPath = "";
+  sandboxDraftContent = "";
+  sandboxDraftDirty = false;
+  sandbox.statusText = sandbox.files.length ? "File deleted" : "Workspace empty";
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+}
+
+function clearSandboxAnalysis() {
+  const sandbox = getCurrentSandboxState();
+  sandbox.analysis = createDefaultSandboxAnalysis();
+  sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
+  syncCurrentSessionFromHistory();
+  renderSandboxUI();
+}
+
+function applySandboxAnalysis() {
+  const sandbox = getCurrentSandboxState();
+  const plan = normalizeSandboxAnalysis(sandbox.analysis);
+  if (!plan.files.length) {
+    setSandboxStatus("No AI file changes to apply.", "idle");
+    renderSandboxUI();
+    return;
+  }
+
+  const fileMap = new Map(sandbox.files.map((item) => [item.path.toLowerCase(), item]));
+  for (const change of plan.files) {
+    const key = change.path.toLowerCase();
+    if (change.action === "delete") {
+      fileMap.delete(key);
+      continue;
+    }
+    const existing = fileMap.get(key);
+    if (existing) {
+      existing.content = change.content;
+      existing.updatedAt = Date.now();
+    } else {
+      fileMap.set(key, createSandboxFile(change.path, change.content));
+    }
+  }
+
+  sandbox.files = Array.from(fileMap.values());
+  sandbox.selectedFileId = sandbox.files.find((item) => plan.files.some((change) => change.action !== "delete" && change.path === item.path))?.id
+    || sandbox.files[0]?.id
+    || "";
+  sandbox.statusText = `Applied ${plan.files.length} AI change${plan.files.length === 1 ? "" : "s"}`;
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+}
+
+function renderSandboxAnalysisUI(analysis) {
+  if (!sandboxChangeList || !sandboxJsonPreview) return;
+  const files = Array.isArray(analysis.files) ? analysis.files : [];
+  const setupSteps = Array.isArray(analysis.setupSteps) ? analysis.setupSteps : [];
+  if (!files.length && !analysis.summary && !setupSteps.length) {
+    sandboxChangeList.innerHTML = '<div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in Sandbox.</div>';
+    sandboxJsonPreview.textContent = "No structured JSON yet.";
+    return;
+  }
+
+  const summaryHtml = analysis.summary
+    ? `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">Summary</span><span class="sandbox-change-action" data-action="update">Plan</span></div><p class="sandbox-change-reason">${escapeHtml(analysis.summary)}</p></div>`
+    : "";
+  const setupHtml = setupSteps.length
+    ? `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">Setup</span><span class="sandbox-change-action" data-action="create">Steps</span></div><p class="sandbox-change-reason">${setupSteps.map((item) => escapeHtml(item)).join("<br>")}</p></div>`
+    : "";
+  const fileCards = files
+    .map((change) => {
+      const content = String(change.content || "");
+      const lineCount = countLines(content);
+      const charCount = content.length;
+      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} • ${escapeHtml(lineCount.toLocaleString())} lines • ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
+    })
+    .join("");
+  sandboxChangeList.innerHTML = `${summaryHtml}${setupHtml}${fileCards}` || '<div class="sandbox-empty-state">No AI file changes yet.</div>';
+  sandboxJsonPreview.textContent = analysis.raw || "No structured JSON yet.";
+}
+
+function renderSandboxUI() {
+  if (!sandboxPanel) return;
+  const sandbox = getCurrentSandboxState();
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  if (!selectedFile) {
+    sandbox.selectedFileId = "";
+  } else if (sandbox.selectedFileId !== selectedFile.id) {
+    sandbox.selectedFileId = selectedFile.id;
+  }
+
+  if (!sandboxDraftDirty || sandboxDraftFileId !== (selectedFile ? selectedFile.id : "")) {
+    loadSandboxDraftFromSelectedFile(true);
+  }
+
+  if (sandboxFilesList) {
+    const filesHtml = [...sandbox.files]
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((file) => {
+        const isActive = file.id === sandbox.selectedFileId ? " is-active" : "";
+        const lineLabel = `${countLines(file.content).toLocaleString()} lines`;
+        return `<button type="button" class="sandbox-file-btn${isActive}" data-sandbox-file-id="${escapeHtml(file.id)}"><span class="sandbox-file-path">${escapeHtml(file.path)}</span><span class="sandbox-file-meta">${escapeHtml(lineLabel)}</span></button>`;
+      })
+      .join("");
+    sandboxFilesList.innerHTML = filesHtml || '<div class="sandbox-empty-state">No files yet. Upload files or create a new one to start coding.</div>';
+  }
+
+  if (sandboxCurrentFileLabel) {
+    sandboxCurrentFileLabel.textContent = selectedFile ? selectedFile.path : "Select a file";
+  }
+  if (sandboxFileCount) {
+    sandboxFileCount.textContent = `${sandbox.files.length.toLocaleString()} file${sandbox.files.length === 1 ? "" : "s"}`;
+  }
+  if (sandboxChangeCount) {
+    const planFiles = sandbox.analysis && Array.isArray(sandbox.analysis.files) ? sandbox.analysis.files.length : 0;
+    sandboxChangeCount.textContent = planFiles ? `${planFiles} AI change${planFiles === 1 ? "" : "s"}` : "No AI changes";
+  }
+  if (sandboxStatusChip) {
+    const tone = sandbox.statusText.toLowerCase().includes("error")
+      || sandbox.statusText.toLowerCase().includes("required")
+      || sandbox.statusText.toLowerCase().includes("exists")
+      ? "error"
+      : sandbox.statusText === "Saved"
+      ? "saved"
+      : "idle";
+    sandboxStatusChip.textContent = sandbox.statusText || "Idle";
+    sandboxStatusChip.dataset.tone = tone;
+  }
+  if (sandboxFilePathInput) {
+    sandboxFilePathInput.value = selectedFile ? sandboxDraftPath : "";
+    sandboxFilePathInput.disabled = !selectedFile;
+  }
+  if (sandboxFileEditor) {
+    sandboxFileEditor.value = selectedFile ? sandboxDraftContent : "";
+    sandboxFileEditor.disabled = !selectedFile;
+  }
+  if (sandboxSaveBtn) {
+    sandboxSaveBtn.disabled = !selectedFile;
+  }
+  if (sandboxDeleteBtn) {
+    sandboxDeleteBtn.disabled = !selectedFile;
+  }
+  if (sandboxApplyBtn) {
+    sandboxApplyBtn.disabled = !(sandbox.analysis && Array.isArray(sandbox.analysis.files) && sandbox.analysis.files.length);
+  }
+  renderSandboxAnalysisUI(normalizeSandboxAnalysis(sandbox.analysis));
 }
 
 function getWorkspaceTabContainers() {
@@ -3261,6 +3726,7 @@ function renderWorkspaceUI(options = {}) {
   }
   const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
   const isWorkspaceTab = activeTab === "workspace";
+  const isSandboxTab = activeTab === "sandbox";
   const isMathTab = activeTab === "math";
 
   if (mainPanel) {
@@ -3275,17 +3741,29 @@ function renderWorkspaceUI(options = {}) {
   }
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isMathTab;
-  workspacePanel.hidden = !isWorkspaceTab;
+  workspacePanel.hidden = !(isWorkspaceTab || isSandboxTab);
   if (mathPanel) {
     mathPanel.hidden = !isMathTab;
   }
   workspacePanel.dataset.tab = activeTab || "chat";
+  if (workspaceDocumentShell) {
+    workspaceDocumentShell.hidden = !isWorkspaceTab;
+  }
+  if (sandboxPanel) {
+    sandboxPanel.hidden = !isSandboxTab;
+  }
   if (workspaceAssistantPanel) {
     workspaceAssistantPanel.hidden = !isWorkspaceTab;
   }
   if (isMathTab) {
     initDesmosIfNeeded();
     composerWrap.hidden = true;
+    if (workspaceDocumentShell) {
+      workspaceDocumentShell.hidden = true;
+    }
+    if (sandboxPanel) {
+      sandboxPanel.hidden = true;
+    }
     if (workspaceAssistantPanel) {
       workspaceAssistantPanel.hidden = true;
     }
@@ -3310,6 +3788,15 @@ function renderWorkspaceUI(options = {}) {
       workspaceEditor.focus();
     }
     refreshWorkspaceDocumentToolbarState();
+  } else if (isSandboxTab) {
+    renderSandboxUI();
+    if (focus) {
+      if (sandboxFileEditor && !sandboxFileEditor.disabled) {
+        sandboxFileEditor.focus();
+      } else if (sandboxNewFileBtn) {
+        sandboxNewFileBtn.focus();
+      }
+    }
   } else if (isMathTab) {
     if (focus && isMathChatDrawerOpen && mathChatInput) {
       mathChatInput.focus();
@@ -3427,6 +3914,164 @@ function getWorkspaceContextForPrompt() {
   const content = String(current.workspace.content || "").trim();
   if (!content) return "";
   return content.slice(0, 18000);
+}
+
+function buildSandboxWorkspaceSnapshot(sandbox = getCurrentSandboxState()) {
+  if (!sandbox.files.length) {
+    return "Workspace is currently empty.";
+  }
+
+  const sortedFiles = [...sandbox.files].sort((a, b) => a.path.localeCompare(b.path));
+  let totalChars = 0;
+  const sections = [];
+  for (const file of sortedFiles.slice(0, SANDBOX_MAX_FILES)) {
+    const header = `FILE: ${file.path}`;
+    const remaining = Math.max(0, SANDBOX_MAX_FILE_CHARS - totalChars);
+    if (remaining <= 0) {
+      sections.push("... workspace snapshot truncated ...");
+      break;
+    }
+    const content = String(file.content || "");
+    const clipped = content.length > remaining ? `${content.slice(0, remaining)}\n... file truncated ...` : content;
+    sections.push(`${header}\n${clipped}`);
+    totalChars += clipped.length;
+  }
+  return sections.join("\n\n");
+}
+
+function buildSandboxAnalysisPrompt(userPrompt, sandbox = getCurrentSandboxState()) {
+  const promptText = String(userPrompt || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
+  const fileList = sandbox.files.length
+    ? sandbox.files.map((item) => `- ${item.path}`).join("\n")
+    : "- (empty workspace)";
+  return [
+    "You are ROK Sandbox, an AI coding agent working inside a virtual file workspace.",
+    "Analyze the user's request and the current workspace snapshot.",
+    "Respond with JSON only. Do not include markdown fences or extra prose.",
+    "Use this schema exactly:",
+    "{",
+    '  "summary": "short summary of the plan",',
+    '  "setup_steps": ["step 1", "step 2"],',
+    '  "files": [',
+    "    {",
+    '      "path": "src/app.js",',
+    '      "action": "create|update|delete",',
+    '      "language": "javascript",',
+    '      "reason": "why this file changes",',
+    '      "content": "full final file contents for create/update; omit or empty for delete"',
+    "    }",
+    "  ]",
+    "}",
+    "Rules:",
+    "- Include every file that must change.",
+    "- For create and update actions, return the complete final file content.",
+    "- For delete actions, leave content empty.",
+    "- Keep changes minimal but working.",
+    "- Include setup steps when dependencies, build steps, or commands are needed.",
+    "",
+    "USER REQUEST:",
+    promptText,
+    "",
+    "WORKSPACE FILES:",
+    fileList,
+    "",
+    "WORKSPACE SNAPSHOT:",
+    buildSandboxWorkspaceSnapshot(sandbox)
+  ].join("\n");
+}
+
+function extractJsonObjectFromText(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fencedMatch) {
+    return fencedMatch[1].trim();
+  }
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return text.slice(start, end + 1).trim();
+  }
+  return text;
+}
+
+function parseSandboxAnalysisResponse(rawText, promptText, modelId) {
+  const jsonText = extractJsonObjectFromText(rawText);
+  if (!jsonText) {
+    throw new Error("Sandbox response was empty.");
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error("Sandbox response was not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Sandbox response was not a JSON object.");
+  }
+  const normalized = normalizeSandboxAnalysis({
+    raw: jsonText,
+    summary: parsed.summary,
+    setup_steps: parsed.setup_steps,
+    setupSteps: parsed.setupSteps,
+    files: Array.isArray(parsed.files) ? parsed.files : parsed.changes,
+    lastPrompt: promptText,
+    model: modelId,
+    createdAt: Date.now()
+  });
+  return normalized;
+}
+
+function buildSandboxChatSummary(analysis, modelId = "") {
+  const modelLabel = getModelLabelById(modelId || analysis.model || "") || "ROK";
+  const fileLines = analysis.files.length
+    ? analysis.files.map((item) => `- \`${item.path}\` - ${item.action}`).join("\n")
+    : "- No file changes proposed.";
+  const setupLines = analysis.setupSteps.length
+    ? `\n\nSetup:\n${analysis.setupSteps.map((item) => `- ${item}`).join("\n")}`
+    : "";
+  return `**Sandbox plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in the Sandbox tab.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the Sandbox panel to inspect the JSON and apply the changes.`;
+}
+
+async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
+  if (!saveSandboxDraftToState({ silent: false, skipRender: true })) {
+    throw new Error("Save the current sandbox file before asking ROK to edit it.");
+  }
+  const sandbox = getCurrentSandboxState();
+  sandbox.statusText = "Analyzing workspace...";
+  renderSandboxUI();
+
+  try {
+    activeRequestController = new AbortController();
+    const res = await fetchWithBanGuard(API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      signal: activeRequestController.signal,
+      body: JSON.stringify({
+        message: buildSandboxAnalysisPrompt(promptText, sandbox),
+        attachments: buildAttachmentsPayload(),
+        history: recentHistory,
+        model: sessionModel,
+        max_tokens: clientLimits.maxResponseTokens,
+        enable_thinking: true
+      })
+    });
+    applyThinkingQuotaFromHeaders(res);
+    applyDaedalusQuotaFromHeaders(res);
+    const reply = await readChatTextResponse(res);
+    const analysis = parseSandboxAnalysisResponse(reply, promptText, sessionModel);
+    sandbox.analysis = analysis;
+    sandbox.statusText = analysis.files.length
+      ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
+      : "Plan ready";
+    syncCurrentSessionFromHistory();
+    renderSandboxUI();
+    return analysis;
+  } catch (error) {
+    sandbox.statusText = "Sandbox error";
+    renderSandboxUI();
+    throw error;
+  }
 }
 
 function isWorkspaceChattyLeadLine(line) {
@@ -3887,6 +4532,10 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function escapeMarkdown(value) {
+  return String(value || "").replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
 }
 
 function makeSessionId() {
@@ -4408,7 +5057,9 @@ function isTextLikeFile(file) {
     name.endsWith(".csv") ||
     name.endsWith(".json") ||
     name.endsWith(".js") ||
+    name.endsWith(".jsx") ||
     name.endsWith(".ts") ||
+    name.endsWith(".tsx") ||
     name.endsWith(".py") ||
     name.endsWith(".html") ||
     name.endsWith(".css") ||
@@ -4416,7 +5067,14 @@ function isTextLikeFile(file) {
     name.endsWith(".c") ||
     name.endsWith(".cpp") ||
     name.endsWith(".h") ||
-    name.endsWith(".hpp")
+    name.endsWith(".hpp") ||
+    name.endsWith(".sh") ||
+    name.endsWith(".yml") ||
+    name.endsWith(".yaml") ||
+    name.endsWith(".toml") ||
+    name.endsWith(".xml") ||
+    name.endsWith(".svg") ||
+    name.endsWith(".sql")
   );
 }
 
@@ -4628,6 +5286,57 @@ async function addSelectedFiles(fileList) {
   }
 
   renderAttachments();
+}
+
+async function addSelectedSandboxFiles(fileList) {
+  if (isSending) return;
+  const sandbox = getCurrentSandboxState();
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  if (sandboxDraftDirty) {
+    saveSandboxDraftToState({ silent: true, skipRender: true });
+  }
+
+  let importedCount = 0;
+  let selectedId = sandbox.selectedFileId;
+  for (const file of files) {
+    if (sandbox.files.length >= SANDBOX_MAX_FILES) {
+      setSandboxStatus(`Sandbox limit reached (${SANDBOX_MAX_FILES} files).`, "error");
+      break;
+    }
+    if (!isTextLikeFile(file)) {
+      continue;
+    }
+    try {
+      const path = normalizeSandboxFilePath(file.webkitRelativePath || file.name);
+      if (!path) {
+        continue;
+      }
+      const content = truncateText(await file.text(), SANDBOX_MAX_FILE_CHARS);
+      const existing = sandbox.files.find((item) => item.path.toLowerCase() === path.toLowerCase());
+      if (existing) {
+        existing.content = content;
+        existing.updatedAt = Date.now();
+        selectedId = existing.id;
+      } else {
+        const created = createSandboxFile(path, content);
+        sandbox.files.push(created);
+        selectedId = created.id;
+      }
+      importedCount += 1;
+    } catch {
+      // Ignore unreadable files and keep importing the rest.
+    }
+  }
+
+  sandbox.selectedFileId = selectedId || sandbox.selectedFileId;
+  sandbox.statusText = importedCount ? `Imported ${importedCount} file${importedCount === 1 ? "" : "s"}` : "No readable files imported";
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+  if (sandboxFileInput) {
+    sandboxFileInput.value = "";
+  }
 }
 
 function autoResizeInput() {
@@ -5022,8 +5731,10 @@ async function send() {
   const text = input.value.trim();
   const sessionModel = getCurrentSessionModel();
   const wasWorkspaceActive = isWorkspaceSessionActive();
+  const sandboxActive = isSandboxSessionActive();
   const sessionWorkspaceContext = getWorkspaceContextFromSession();
-  if (!text && attachments.length === 0 && !sessionWorkspaceContext) return;
+  const sessionSandbox = sandboxActive ? getCurrentSandboxState() : null;
+  if (!text && attachments.length === 0 && !sessionWorkspaceContext && !(sessionSandbox && sessionSandbox.files.length)) return;
   if (isSending) return;
   if (isIntentClassificationLoading) return;
   if (isWorkspaceSuggestionLoading) return;
@@ -5052,7 +5763,11 @@ async function send() {
 
   let displayText = text;
   if (!displayText) {
-    if (sessionWorkspaceContext && attachments.length) {
+    if (sandboxActive && sessionSandbox && (sessionSandbox.files.length || attachments.length)) {
+      displayText = attachments.length
+        ? `Review my sandbox and ${attachments.length} attachment(s).`
+        : "Review my sandbox files.";
+    } else if (sessionWorkspaceContext && attachments.length) {
       displayText = `Review my workspace and ${attachments.length} file(s).`;
     } else if (sessionWorkspaceContext) {
       displayText = "Review my workspace content.";
@@ -5333,6 +6048,23 @@ async function send() {
   };
 
   try {
+    if (sandboxActive) {
+      convertTypingRowToBotMessage();
+      if (bubble) {
+        setBubbleContent(bubble, "Analyzing sandbox...", false);
+      }
+      const analysis = await runSandboxAnalysis(text || SANDBOX_DEFAULT_PROMPT, recentHistory, sessionModel);
+      const chatSummary = buildSandboxChatSummary(analysis, sessionModel);
+      if (bubble) {
+        setBubbleContent(bubble, chatSummary, true);
+      }
+      history.push({ role: "assistant", content: chatSummary });
+      trimHistoryToLimit();
+      syncCurrentSessionFromHistory();
+      clearAttachments();
+      return;
+    }
+
     let intent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
     isIntentClassificationLoading = true;
     refreshSendState();
@@ -5923,6 +6655,102 @@ if (attachBtn && fileInput) {
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
 }
 
+if (sandboxUploadBtn && sandboxFileInput) {
+  sandboxUploadBtn.addEventListener("click", () => {
+    if (isSending) return;
+    sandboxFileInput.click();
+  });
+  sandboxFileInput.addEventListener("change", (e) => addSelectedSandboxFiles(e.target.files));
+}
+
+if (sandboxNewFileBtn) {
+  sandboxNewFileBtn.addEventListener("click", () => {
+    if (isSending) return;
+    createSandboxFileFromEditor();
+  });
+}
+
+if (sandboxSaveBtn) {
+  sandboxSaveBtn.addEventListener("click", () => {
+    saveSandboxDraftToState({ silent: false });
+  });
+}
+
+if (sandboxDeleteBtn) {
+  sandboxDeleteBtn.addEventListener("click", () => {
+    if (isSending) return;
+    deleteSelectedSandboxFile();
+  });
+}
+
+if (sandboxAnalyzeBtn) {
+  sandboxAnalyzeBtn.addEventListener("click", () => {
+    if (isSending) {
+      stopGeneration();
+      return;
+    }
+    if (!input.value.trim()) {
+      input.value = SANDBOX_DEFAULT_PROMPT;
+      autoResizeInput();
+    }
+    send();
+  });
+}
+
+if (sandboxApplyBtn) {
+  sandboxApplyBtn.addEventListener("click", () => {
+    if (sandboxDraftDirty) {
+      const saved = saveSandboxDraftToState({ silent: false });
+      if (!saved) return;
+    }
+    applySandboxAnalysis();
+  });
+}
+
+if (sandboxClearAnalysisBtn) {
+  sandboxClearAnalysisBtn.addEventListener("click", () => {
+    clearSandboxAnalysis();
+  });
+}
+
+if (sandboxFilesList) {
+  sandboxFilesList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest("[data-sandbox-file-id]");
+    if (!(button instanceof HTMLElement)) return;
+    const fileId = button.getAttribute("data-sandbox-file-id");
+    if (!fileId) return;
+    selectSandboxFile(fileId);
+  });
+}
+
+if (sandboxFilePathInput) {
+  sandboxFilePathInput.addEventListener("input", () => {
+    sandboxDraftPath = sandboxFilePathInput.value;
+    markSandboxDraftDirty();
+  });
+  sandboxFilePathInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveSandboxDraftToState({ silent: false });
+    }
+  });
+}
+
+if (sandboxFileEditor) {
+  sandboxFileEditor.addEventListener("input", () => {
+    sandboxDraftContent = sandboxFileEditor.value;
+    markSandboxDraftDirty();
+  });
+  sandboxFileEditor.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveSandboxDraftToState({ silent: false });
+    }
+  });
+}
+
 if (webToggleBtn) {
   webToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
@@ -6380,6 +7208,7 @@ setWorkspaceAssistantSuggestButtonLoading(false);
 renderModelSelectOptions();
 initializeSessions();
 refreshWorkspaceDocumentToolbarState();
+renderSandboxUI();
 bootstrapServerSession();
 refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
