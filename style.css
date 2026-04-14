@@ -1272,6 +1272,10 @@ body.settings-compact .attachment-list {
   gap: 9px;
 }
 
+.workspace-document-shell[hidden] {
+  display: none;
+}
+
 .workspace-panel-head {
   display: flex;
   flex-direction: column;
@@ -1397,6 +1401,10 @@ body.settings-compact .attachment-list {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.workspace-assistant[hidden] {
+  display: none;
 }
 
 .workspace-assistant-head {
@@ -5848,6 +5856,10 @@ button.stop-mode:hover {
   height: 100%;
   overflow: hidden;
   background: #0d0f14;
+}
+
+.math-panel[hidden] {
+  display: none;
 }
 
 .desmos-container {
