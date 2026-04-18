@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>ROK Blogs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="docs.css?v=docs3" />
+  <style>
+    .blog-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .blog-new-btn {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 130ms, border-color 130ms;
+    }
+    .blog-new-btn:hover {
+      background: var(--accent-soft-2);
+      border-color: #e05555;
+    }
+    .blog-admin-toggle {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 120ms, border-color 120ms;
+    }
+    .blog-admin-toggle:hover {
+      color: var(--text);
+      border-color: var(--line-2);
+    }
+    .blog-admin-toggle.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .blog-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .blog-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px 24px;
+      transition: border-color 120ms;
+      position: relative;
+    }
+    .blog-card:hover {
+      border-color: var(--line-2);
+    }
+    .blog-card-kicker {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .blog-card-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: var(--text);
+    }
+    .blog-card-date {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .blog-card-body {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .blog-card-actions {
+      margin-top: 12px;
+      display: none;
+      gap: 8px;
+    }
+    body.is-blog-admin .blog-card-actions {
+      display: flex;
+    }
+    .blog-card-btn {
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 120ms, border-color 120ms, background 120ms;
+    }
+    .blog-card-btn:hover {
+      color: var(--text);
+      border-color: var(--line-2);
+      background: rgba(255,255,255,0.04);
+    }
+    .blog-card-btn.danger:hover {
+      color: #f55;
+      border-color: #5a2a2a;
+    }
+
+    /* Editor modal */
+    .blog-editor-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .blog-editor-card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 28px 32px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .blog-editor-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 20px;
+      color: var(--text);
+    }
+    .blog-field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .blog-field-input,
+    .blog-field-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.3);
+      color: var(--text);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 14px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 120ms;
+    }
+    .blog-field-input:focus,
+    .blog-field-textarea:focus {
+      border-color: var(--accent);
+    }
+    .blog-field-textarea {
+      min-height: 200px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .blog-editor-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .blog-editor-btn {
+      padding: 9px 20px;
+      border-radius: 999px;
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 130ms, border-color 130ms;
+    }
+    .blog-editor-btn.ghost {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+    }
+    .blog-editor-btn.ghost:hover {
+      color: var(--text);
+      border-color: var(--line-2);
+    }
+    .blog-editor-btn.primary {
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .blog-editor-btn.primary:hover {
+      background: var(--accent-soft-2);
+    }
+    .blog-empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .blog-empty-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+    .blog-admin-bar {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    body.is-blog-admin .blog-admin-bar {
+      display: flex;
+    }
+    .blog-admin-bar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .blog-admin-bar-status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .blog-admin-bar-logout {
+      margin-left: auto;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .blog-admin-bar-logout:hover {
+      color: var(--text);
+      border-color: var(--line-2);
+    }
+    .blog-admin-key-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .blog-admin-key-input {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.3);
+      color: var(--text);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      outline: none;
+      width: 220px;
+      transition: border-color 120ms;
+    }
+    .blog-admin-key-input:focus {
+      border-color: var(--accent);
+    }
+    .blog-admin-key-submit {
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .blog-admin-key-submit:hover {
+      background: var(--accent-soft-2);
+    }
+    .blog-admin-key-error {
+      font-size: 11px;
+      color: #f55;
+      margin-left: 4px;
+    }
+    .blog-loading {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="docs-wrap">
+    <header class="docs-topbar">
+      <a class="docs-brand" href="index.html">
+        <img src="roklogo.svg" alt="ROK" class="rok-logo-img" />
+        <span class="docs-brand-text">
+          <span class="docs-brand-title">ROK Blogs</span>
+          <span class="docs-brand-subtitle">News and Updates</span>
+        </span>
+      </a>
+      <nav class="docs-top-links" aria-label="Blog quick links">
+        <a class="docs-top-link" href="index.html">Home</a>
+        <a class="docs-top-link" href="docs.html">Docs</a>
+        <a class="docs-top-link" href="about.html">About</a>
+      </nav>
+    </header>
+
+    <div class="docs-shell">
+      <main class="docs-main">
+        <section class="docs-card">
+          <span class="docs-kicker">Blog</span>
+          <h1>ROK Blogs</h1>
+          <p>News, updates, and stories from the ROK project.</p>
+
+          <div class="blog-admin-bar" id="blogAdminBar">
+            <span class="blog-admin-bar-label">Admin</span>
+            <span class="blog-admin-bar-status">Authenticated</span>
+            <button id="blogAdminLogoutBtn" class="blog-admin-bar-logout" type="button">Log out</button>
+          </div>
+
+          <div class="blog-actions">
+            <button id="blogNewBtn" class="blog-new-btn" type="button" style="display:none;">+ New Post</button>
+            <button id="blogAdminToggleBtn" class="blog-admin-toggle" type="button">Admin Login</button>
+          </div>
+
+          <div id="blogList" class="blog-list">
+            <div class="blog-loading">Loading posts...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Admin key prompt -->
+  <div id="blogAdminKeyOverlay" class="blog-editor-overlay" hidden>
+    <div class="blog-editor-card" role="dialog" aria-modal="true">
+      <h2 class="blog-editor-title">Admin Login</h2>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Enter your blog admin key to create, edit, or delete posts.</p>
+      <label class="blog-field-label" for="blogAdminKeyInput">Admin Key</label>
+      <div class="blog-admin-key-row">
+        <input id="blogAdminKeyInput" class="blog-admin-key-input" type="password" placeholder="Enter admin key..." />
+        <button id="blogAdminKeySubmitBtn" class="blog-admin-key-submit" type="button">Verify</button>
+      </div>
+      <span id="blogAdminKeyError" class="blog-admin-key-error"></span>
+      <div class="blog-editor-actions" style="margin-top:20px;">
+        <button id="blogAdminKeyCancelBtn" class="blog-editor-btn ghost" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor overlay (hidden by default) -->
+  <div id="blogEditorOverlay" class="blog-editor-overlay" hidden>
+    <div class="blog-editor-card" role="dialog" aria-modal="true">
+      <h2 id="blogEditorTitle" class="blog-editor-title">New Blog Post</h2>
+      <label class="blog-field-label" for="blogInputTitle">Title</label>
+      <input id="blogInputTitle" class="blog-field-input" type="text" maxlength="200" placeholder="Enter a title..." />
+      <label class="blog-field-label" for="blogInputCategory">Category</label>
+      <input id="blogInputCategory" class="blog-field-input" type="text" maxlength="60" placeholder="e.g. Update, Tutorial, News" />
+      <label class="blog-field-label" for="blogInputBody">Content</label>
+      <textarea id="blogInputBody" class="blog-field-textarea" placeholder="Write your blog post here..."></textarea>
+      <div class="blog-editor-actions">
+        <button id="blogEditorCancelBtn" class="blog-editor-btn ghost" type="button">Cancel</button>
+        <button id="blogEditorSaveBtn" class="blog-editor-btn primary" type="button">Publish</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const API_BASE = (
+        localStorage.getItem("rok_api_base") ||
+        localStorage.getItem("apiBase") ||
+        "https://rokbackendreal.kyklos.online"
+      ).replace(/\/+$/, "");
+      const ADMIN_KEY_STORAGE = "rok.blog.admin_key";
+
+      const listEl = document.getElementById("blogList");
+      const newBtn = document.getElementById("blogNewBtn");
+      const adminToggleBtn = document.getElementById("blogAdminToggleBtn");
+      const adminBar = document.getElementById("blogAdminBar");
+      const adminLogoutBtn = document.getElementById("blogAdminLogoutBtn");
+      const adminKeyOverlay = document.getElementById("blogAdminKeyOverlay");
+      const adminKeyInput = document.getElementById("blogAdminKeyInput");
+      const adminKeySubmitBtn = document.getElementById("blogAdminKeySubmitBtn");
+      const adminKeyCancelBtn = document.getElementById("blogAdminKeyCancelBtn");
+      const adminKeyError = document.getElementById("blogAdminKeyError");
+      const overlay = document.getElementById("blogEditorOverlay");
+      const editorTitle = document.getElementById("blogEditorTitle");
+      const inputTitle = document.getElementById("blogInputTitle");
+      const inputCategory = document.getElementById("blogInputCategory");
+      const inputBody = document.getElementById("blogInputBody");
+      const cancelBtn = document.getElementById("blogEditorCancelBtn");
+      const saveBtn = document.getElementById("blogEditorSaveBtn");
+
+      let editingId = null;
+      let adminKey = localStorage.getItem(ADMIN_KEY_STORAGE) || "";
+
+      function getAdminHeaders() {
+        const h = { "Content-Type": "application/json" };
+        if (adminKey) h["X-ROK-Blog-Admin-Key"] = adminKey;
+        return h;
+      }
+
+      function setAdminState(isAdmin) {
+        document.body.classList.toggle("is-blog-admin", isAdmin);
+        newBtn.style.display = isAdmin ? "" : "none";
+        adminToggleBtn.style.display = isAdmin ? "none" : "";
+        adminBar.style.display = isAdmin ? "flex" : "none";
+      }
+
+      function formatDate(ts) {
+        const d = new Date(ts);
+        return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      async function fetchBlogs() {
+        try {
+          const res = await fetch(`${API_BASE}/api/blogs`);
+          if (!res.ok) throw new Error("Failed to load");
+          const data = await res.json();
+          return data.posts || [];
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function renderBlogs(posts) {
+        if (posts === null) {
+          listEl.innerHTML = '<div class="blog-empty"><div class="blog-empty-icon">&#9888;</div>Could not load posts. Try again later.</div>';
+          return;
+        }
+        if (!posts.length) {
+          listEl.innerHTML = '<div class="blog-empty"><div class="blog-empty-icon">&#9998;</div>No blog posts yet.</div>';
+          return;
+        }
+        listEl.innerHTML = posts.map(function (post) {
+          return '<article class="blog-card" data-id="' + escapeHtml(post.id) + '">' +
+            '<div class="blog-card-kicker">' + escapeHtml(post.category || "General") + '</div>' +
+            '<h3 class="blog-card-title">' + escapeHtml(post.title) + '</h3>' +
+            '<div class="blog-card-date">' + formatDate(post.created) + '</div>' +
+            '<div class="blog-card-body">' + escapeHtml(post.body) + '</div>' +
+            '<div class="blog-card-actions">' +
+              '<button class="blog-card-btn" type="button" data-action="edit" data-id="' + escapeHtml(post.id) + '">Edit</button>' +
+              '<button class="blog-card-btn danger" type="button" data-action="delete" data-id="' + escapeHtml(post.id) + '">Delete</button>' +
+            '</div>' +
+          '</article>';
+        }).join("");
+      }
+
+      async function refreshBlogs() {
+        listEl.innerHTML = '<div class="blog-loading">Loading posts...</div>';
+        const posts = await fetchBlogs();
+        renderBlogs(posts);
+      }
+
+      function openEditor(post) {
+        editingId = post ? post.id : null;
+        editorTitle.textContent = post ? "Edit Blog Post" : "New Blog Post";
+        inputTitle.value = post ? post.title : "";
+        inputCategory.value = post ? post.category : "";
+        inputBody.value = post ? post.body : "";
+        overlay.hidden = false;
+        inputTitle.focus();
+      }
+
+      function closeEditor() {
+        overlay.hidden = true;
+        editingId = null;
+        inputTitle.value = "";
+        inputCategory.value = "";
+        inputBody.value = "";
+      }
+
+      // Admin login flow
+      adminToggleBtn.addEventListener("click", function () {
+        adminKeyOverlay.hidden = false;
+        adminKeyError.textContent = "";
+        adminKeyInput.value = "";
+        adminKeyInput.focus();
+      });
+
+      adminKeyCancelBtn.addEventListener("click", function () {
+        adminKeyOverlay.hidden = true;
+      });
+
+      adminKeyOverlay.addEventListener("click", function (e) {
+        if (e.target === adminKeyOverlay) adminKeyOverlay.hidden = true;
+      });
+
+      async function verifyAdminKey() {
+        const key = adminKeyInput.value.trim();
+        if (!key) return;
+        adminKeyError.textContent = "";
+        try {
+          const res = await fetch(`${API_BASE}/api/blogs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-ROK-Blog-Admin-Key": key },
+            body: JSON.stringify({ title: "__test__", body: "__test__" }),
+          });
+          if (res.status === 400) {
+            // Key was accepted (400 = valid auth but bad body), we're good
+            adminKey = key;
+            localStorage.setItem(ADMIN_KEY_STORAGE, key);
+            setAdminState(true);
+            adminKeyOverlay.hidden = true;
+            return;
+          }
+          if (res.status === 401 || res.status === 403) {
+            adminKeyError.textContent = "Invalid admin key.";
+            return;
+          }
+          if (res.status === 503) {
+            adminKeyError.textContent = "Blog admin is not configured on the server.";
+            return;
+          }
+          // Unexpected — try anyway
+          adminKey = key;
+          localStorage.setItem(ADMIN_KEY_STORAGE, key);
+          setAdminState(true);
+          adminKeyOverlay.hidden = true;
+        } catch (_) {
+          adminKeyError.textContent = "Connection error.";
+        }
+      }
+
+      adminKeySubmitBtn.addEventListener("click", verifyAdminKey);
+      adminKeyInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") verifyAdminKey();
+      });
+
+      adminLogoutBtn.addEventListener("click", function () {
+        adminKey = "";
+        localStorage.removeItem(ADMIN_KEY_STORAGE);
+        setAdminState(false);
+      });
+
+      // New post
+      newBtn.addEventListener("click", function () {
+        openEditor(null);
+      });
+
+      cancelBtn.addEventListener("click", closeEditor);
+
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) closeEditor();
+      });
+
+      // Save (create or update)
+      saveBtn.addEventListener("click", async function () {
+        const title = inputTitle.value.trim();
+        const category = inputCategory.value.trim();
+        const body = inputBody.value.trim();
+        if (!title || !body) return;
+
+        try {
+          let res;
+          if (editingId) {
+            res = await fetch(`${API_BASE}/api/blogs/${editingId}`, {
+              method: "PUT",
+              headers: getAdminHeaders(),
+              body: JSON.stringify({ title: title, category: category || "General", body: body }),
+            });
+          } else {
+            res = await fetch(`${API_BASE}/api/blogs`, {
+              method: "POST",
+              headers: getAdminHeaders(),
+              body: JSON.stringify({ title: title, category: category || "General", body: body }),
+            });
+          }
+          if (!res.ok) {
+            const err = await res.json().catch(function () { return {}; });
+            alert(err.error || "Failed to save post.");
+            return;
+          }
+          closeEditor();
+          await refreshBlogs();
+        } catch (_) {
+          alert("Connection error.");
+        }
+      });
+
+      // Edit / Delete
+      listEl.addEventListener("click", async function (e) {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        const action = btn.getAttribute("data-action");
+        const id = btn.getAttribute("data-id");
+
+        if (action === "edit") {
+          const card = btn.closest(".blog-card");
+          const post = {
+            id: id,
+            title: card.querySelector(".blog-card-title").textContent,
+            category: card.querySelector(".blog-card-kicker").textContent,
+            body: card.querySelector(".blog-card-body").textContent,
+          };
+          openEditor(post);
+        } else if (action === "delete") {
+          if (!confirm("Delete this blog post?")) return;
+          try {
+            const res = await fetch(`${API_BASE}/api/blogs/${id}`, {
+              method: "DELETE",
+              headers: getAdminHeaders(),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(function () { return {}; });
+              alert(err.error || "Failed to delete post.");
+              return;
+            }
+            await refreshBlogs();
+          } catch (_) {
+            alert("Connection error.");
+          }
+        }
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (!overlay.hidden) closeEditor();
+          if (!adminKeyOverlay.hidden) adminKeyOverlay.hidden = true;
+        }
+      });
+
+      // Init
+      if (adminKey) {
+        setAdminState(true);
+      }
+      refreshBlogs();
+    })();
+  </script>
+</body>
+</html>

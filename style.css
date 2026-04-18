@@ -3925,6 +3925,7 @@ body.settings-compact .attachment-list {
   flex-wrap: wrap;
   max-width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 #homeScreen .hs-nav-brand {
@@ -3952,6 +3953,7 @@ body.settings-compact .attachment-list {
   flex-wrap: wrap;
   justify-content: flex-end;
   max-width: 100%;
+  overflow: hidden;
 }
 
 #homeScreen .hs-nav-link {
@@ -3967,6 +3969,8 @@ body.settings-compact .attachment-list {
   font-weight: 700;
   letter-spacing: 0.2px;
   text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 1;
   transition: border-color 120ms, color 120ms, background 120ms;
 }
 
