@@ -74,7 +74,7 @@
       white-space: pre-wrap;
     }
     .blog-card-actions {
-      margin-top: 12px;
+      margin-top: 14px;
       display: none;
       gap: 8px;
     }
@@ -109,10 +109,13 @@
       inset: 0;
       z-index: 100;
       background: rgba(0,0,0,0.6);
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       padding: 20px;
+    }
+    .blog-editor-overlay:not([hidden]) {
+      display: flex;
     }
     .blog-editor-card {
       background: var(--panel-2);
