@@ -6717,6 +6717,7 @@ async function send() {
       history.push({ role: "assistant", content: partialText });
       trimHistoryToLimit();
       syncCurrentSessionFromHistory();
+      addCorrectMeButton(bubble);
     }
 
     if (writeBackToWorkspace) {
@@ -6761,6 +6762,7 @@ async function send() {
           history.push({ role: "assistant", content: partialText });
           trimHistoryToLimit();
           syncCurrentSessionFromHistory();
+          addCorrectMeButton(bubble);
         }
 
         if (writeBackToWorkspace) {
@@ -7728,3 +7730,192 @@ document.addEventListener("keydown", function (e) {
     openChatSearch();
   }
 });
+
+// --- Cloud Knowledge Learning ---
+var KNOWLEDGE_API_URL = API_URL.replace("/chat", "/knowledge");
+
+// --- "Correct Me" button on bot messages ---
+var _correctionTargetBubble = null;
+var _correctionTargetText = "";
+
+function addCorrectMeButton(bubble) {
+  if (!bubble) return;
+  // Only add to bot markdown bubbles
+  var row = bubble.closest(".msg-row");
+  if (!row || !row.classList.contains("bot")) return;
+  var btn = document.createElement("button");
+  btn.className = "correct-me-btn";
+  btn.type = "button";
+  btn.textContent = "Correct Me";
+  btn.title = "Submit a correction for this response";
+  btn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    _correctionTargetBubble = bubble;
+    _correctionTargetText = bubble.textContent || "";
+    openCorrectionModal();
+  });
+  bubble.appendChild(btn);
+}
+
+// --- Correction Modal ---
+function openCorrectionModal() {
+  var existing = document.getElementById("correctionModal");
+  if (existing) existing.remove();
+
+  var overlay = document.createElement("div");
+  overlay.id = "correctionModal";
+  overlay.className = "correction-modal-overlay";
+
+  var modal = document.createElement("div");
+  modal.className = "correction-modal";
+
+  var title = document.createElement("div");
+  title.className = "correction-modal-title";
+  title.textContent = "Correct ROK's Response";
+
+  var hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "Tell ROK what was wrong and what the correct answer is. Your correction will be reviewed before being added to ROK's knowledge.";
+
+  var textarea = document.createElement("textarea");
+  textarea.className = "correction-modal-input";
+  textarea.placeholder = "e.g. The seahorse emoji 🪸 does exist, it was added in Unicode 13.0";
+  textarea.maxLength = 500;
+  textarea.rows = 3;
+
+  var charCount = document.createElement("div");
+  charCount.className = "correction-modal-charcount";
+  charCount.textContent = "0 / 500";
+  textarea.addEventListener("input", function () {
+    charCount.textContent = textarea.value.length + " / 500";
+  });
+
+  var btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  var cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "correction-modal-cancel";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", function () {
+    overlay.remove();
+  });
+
+  var submitBtn = document.createElement("button");
+  submitBtn.type = "button";
+  submitBtn.className = "correction-modal-submit";
+  submitBtn.textContent = "Submit Correction";
+  submitBtn.disabled = true;
+  textarea.addEventListener("input", function () {
+    submitBtn.disabled = textarea.value.trim().length < 5;
+  });
+
+  submitBtn.addEventListener("click", function () {
+    var correction = textarea.value.trim();
+    if (!correction) return;
+    submitCorrection(correction, _correctionTargetText);
+    overlay.remove();
+    addMessage("system", "Correction submitted! ROK will review it and learn from it.");
+  });
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(submitBtn);
+
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(textarea);
+  modal.appendChild(charCount);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+  textarea.focus();
+}
+
+function submitCorrection(correction, botResponse) {
+  try {
+    fetch(KNOWLEDGE_API_URL + "/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        correction: correction,
+        bot_response: String(botResponse || "").slice(0, 500)
+      })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (data && data.ok) {
+        console.log("[Knowledge] Correction submitted:", correction);
+      } else if (data && data.error) {
+        addMessage("system", "Could not submit correction: " + data.error);
+      }
+    }).catch(function () {
+      // Silently fail
+    });
+  } catch (e) {
+    // Silently fail
+  }
+}
+
+// Fetch and render knowledge list in sidebar
+var knowledgeListEl = document.getElementById("knowledgeList");
+var knowledgeCountEl = document.getElementById("knowledgeCount");
+
+function fetchAndRenderKnowledge() {
+  if (!knowledgeListEl) return;
+  try {
+    fetch(KNOWLEDGE_API_URL, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data || !data.ok) return;
+      var entries = data.entries || [];
+      if (knowledgeCountEl) knowledgeCountEl.textContent = entries.length;
+      if (!entries.length) {
+        knowledgeListEl.innerHTML = '<div class="side-empty">No learned facts yet.</div>';
+        return;
+      }
+      knowledgeListEl.innerHTML = entries.slice(-20).reverse().map(function (e) {
+        var safeFact = escapeHtml(e.fact || "");
+        var safeId = escapeHtml(e.id || "");
+        return '<div class="knowledge-item" data-knowledge-id="' + safeId + '">' +
+          '<span class="knowledge-fact">' + safeFact + '</span>' +
+          '<button class="knowledge-delete-btn" type="button" data-delete-knowledge-id="' + safeId + '" aria-label="Delete fact" title="Delete">&times;</button>' +
+          '</div>';
+      }).join("");
+
+      // Wire up delete buttons
+      knowledgeListEl.querySelectorAll(".knowledge-delete-btn").forEach(function (btn) {
+        btn.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          var id = btn.getAttribute("data-delete-knowledge-id");
+          if (!id) return;
+          deleteKnowledgeFact(id);
+        });
+      });
+    }).catch(function () {
+      if (knowledgeListEl) knowledgeListEl.innerHTML = '<div class="side-empty">Could not load.</div>';
+    });
+  } catch (e) {
+    // Silently fail
+  }
+}
+
+function deleteKnowledgeFact(id) {
+  try {
+    fetch(KNOWLEDGE_API_URL + "/" + id, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (data && data.ok) {
+        fetchAndRenderKnowledge();
+      }
+    }).catch(function () {});
+  } catch (e) {}
+}
+
+// Load knowledge list on startup and after learning
+fetchAndRenderKnowledge();
