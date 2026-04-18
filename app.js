@@ -5456,10 +5456,11 @@ function autoResizeInput() {
   input.style.height = next + "px";
 }
 
-function renderMathInElement(el) {
+function renderKatexInElement(el) {
   if (!hasKaTeX || !el) return;
   try {
-    renderMathInElement(el, {
+    // Call KaTeX's global renderMathInElement (from auto-render.min.js)
+    window.renderMathInElement(el, {
       delimiters: [
         { left: "$$", right: "$$", display: true },
         { left: "\\[", right: "\\]", display: true },
@@ -5534,7 +5535,7 @@ function setBubbleContent(bubble, text, markdown) {
     }
     bubble.innerHTML = rawHtml;
     // Render math (KaTeX)
-    renderMathInElement(bubble);
+    renderKatexInElement(bubble);
     // Smooth fade-in when transitioning from streaming plain text to final markdown
     if (wasPlain) {
       bubble.classList.add("bubble-reveal");
@@ -6202,7 +6203,7 @@ async function send() {
       var html = marked.parse(protected ? protected.text : thinkingText.trim());
       if (protected) html = restoreMathAfterMarked(html, protected.mathBlocks);
       thinkingPanel.body.innerHTML = html;
-      renderMathInElement(thinkingPanel.body);
+      renderKatexInElement(thinkingPanel.body);
     } else {
       thinkingPanel.body.textContent = thinkingText.trim();
     }
