@@ -247,6 +247,58 @@
       color: var(--text);
       border-color: var(--line-2);
     }
+    .blog-admin-key-form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .blog-admin-key-form label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .blog-admin-key-form input {
+      flex: 1;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.3);
+      color: var(--text);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 120ms;
+    }
+    .blog-admin-key-form input:focus {
+      border-color: var(--accent);
+    }
+    .blog-admin-key-form button {
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .blog-admin-key-form button:hover {
+      background: var(--accent-soft-2);
+    }
+    .blog-admin-key-error {
+      font-size: 11px;
+      color: #f55;
+      margin-top: 6px;
+    }
     .blog-loading {
       text-align: center;
       padding: 32px;
@@ -279,14 +331,23 @@
           <h1>ROK Blogs</h1>
           <p>News, updates, and stories from the ROK project.</p>
 
-          <div class="blog-admin-bar" id="blogAdminBar" style="display:none;">
-            <span class="blog-admin-bar-label">Admin</span>
-            <span class="blog-admin-bar-status" id="blogAdminStatus">Not authenticated</span>
-            <button id="blogAdminLogoutBtn" class="blog-admin-bar-logout" type="button">Log out</button>
-          </div>
+          <div id="blogAdminSection" style="display:none;">
+            <div class="blog-admin-bar" id="blogAdminBar" style="display:none;">
+              <span class="blog-admin-bar-label">Admin</span>
+              <span class="blog-admin-bar-status" id="blogAdminStatus">Authenticated</span>
+              <button id="blogAdminLogoutBtn" class="blog-admin-bar-logout" type="button">Log out</button>
+            </div>
 
-          <div class="blog-actions" id="blogAdminActions" style="display:none;">
-            <button id="blogNewBtn" class="blog-new-btn" type="button">+ New Post</button>
+            <div class="blog-admin-key-form" id="blogAdminKeyForm">
+              <label for="blogAdminKeyInput">Admin Key</label>
+              <input id="blogAdminKeyInput" type="password" placeholder="Enter admin key..." />
+              <button id="blogAdminKeySubmitBtn" type="button">Unlock</button>
+            </div>
+            <div id="blogAdminKeyError" class="blog-admin-key-error"></div>
+
+            <div class="blog-actions" id="blogAdminActions" style="display:none;">
+              <button id="blogNewBtn" class="blog-new-btn" type="button">+ New Post</button>
+            </div>
           </div>
 
           <div id="blogList" class="blog-list">
@@ -326,11 +387,16 @@
       const isAdminPage = new URLSearchParams(window.location.search).has("admin");
 
       const listEl = document.getElementById("blogList");
-      const newBtn = document.getElementById("blogNewBtn");
+      const adminSection = document.getElementById("blogAdminSection");
       const adminBar = document.getElementById("blogAdminBar");
       const adminStatus = document.getElementById("blogAdminStatus");
+      const adminKeyForm = document.getElementById("blogAdminKeyForm");
+      const adminKeyInput = document.getElementById("blogAdminKeyInput");
+      const adminKeySubmitBtn = document.getElementById("blogAdminKeySubmitBtn");
+      const adminKeyError = document.getElementById("blogAdminKeyError");
       const adminActions = document.getElementById("blogAdminActions");
       const adminLogoutBtn = document.getElementById("blogAdminLogoutBtn");
+      const newBtn = document.getElementById("blogNewBtn");
       const overlay = document.getElementById("blogEditorOverlay");
       const editorTitle = document.getElementById("blogEditorTitle");
       const inputTitle = document.getElementById("blogInputTitle");
@@ -341,6 +407,7 @@
 
       let editingId = null;
       let adminKey = localStorage.getItem(ADMIN_KEY_STORAGE) || "";
+      let isAdmin = false;
 
       function getAdminHeaders() {
         const h = { "Content-Type": "application/json" };
@@ -348,16 +415,18 @@
         return h;
       }
 
-      function setAdminState(isAdmin) {
+      function setAdminState(authed) {
+        isAdmin = authed;
         document.body.classList.toggle("is-blog-admin", isAdmin);
         if (isAdmin) {
+          adminKeyForm.style.display = "none";
+          adminKeyError.textContent = "";
           adminBar.style.display = "flex";
           adminActions.style.display = "flex";
-          adminStatus.textContent = "Authenticated";
         } else {
           adminBar.style.display = "none";
           adminActions.style.display = "none";
-          adminStatus.textContent = "Not authenticated";
+          adminKeyForm.style.display = "flex";
         }
       }
 
@@ -413,6 +482,7 @@
       }
 
       function openEditor(post) {
+        if (!isAdmin) return;
         editingId = post ? post.id : null;
         editorTitle.textContent = post ? "Edit Blog Post" : "New Blog Post";
         inputTitle.value = post ? post.title : "";
@@ -429,6 +499,44 @@
         inputCategory.value = "";
         inputBody.value = "";
       }
+
+      // Admin key verification
+      async function verifyAdminKey() {
+        const key = adminKeyInput.value.trim();
+        if (!key) return;
+        adminKeyError.textContent = "";
+        try {
+          const res = await fetch(`${API_BASE}/api/blogs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-ROK-Blog-Admin-Key": key },
+            body: JSON.stringify({ title: "__test__", body: "__test__" }),
+          });
+          if (res.status === 400) {
+            adminKey = key;
+            localStorage.setItem(ADMIN_KEY_STORAGE, key);
+            setAdminState(true);
+            return;
+          }
+          if (res.status === 401 || res.status === 403) {
+            adminKeyError.textContent = "Invalid admin key.";
+            return;
+          }
+          if (res.status === 503) {
+            adminKeyError.textContent = "Blog admin is not configured on the server.";
+            return;
+          }
+          adminKey = key;
+          localStorage.setItem(ADMIN_KEY_STORAGE, key);
+          setAdminState(true);
+        } catch (_) {
+          adminKeyError.textContent = "Connection error.";
+        }
+      }
+
+      adminKeySubmitBtn.addEventListener("click", verifyAdminKey);
+      adminKeyInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") verifyAdminKey();
+      });
 
       adminLogoutBtn.addEventListener("click", function () {
         adminKey = "";
@@ -480,8 +588,9 @@
         }
       });
 
-      // Edit / Delete
+      // Edit / Delete — only works for admins
       listEl.addEventListener("click", async function (e) {
+        if (!isAdmin) return;
         const btn = e.target.closest("[data-action]");
         if (!btn) return;
         const action = btn.getAttribute("data-action");
@@ -521,9 +630,14 @@
         }
       });
 
-      // Init — only show admin UI on ?admin page
-      if (isAdminPage && adminKey) {
-        setAdminState(true);
+      // Init
+      if (isAdminPage) {
+        adminSection.style.display = "";
+        if (adminKey) {
+          setAdminState(true);
+        } else {
+          setAdminState(false);
+        }
       }
       refreshBlogs();
     })();
