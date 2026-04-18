@@ -70,6 +70,12 @@ const homeScreen = document.getElementById("homeScreen");
 const homeStartBtn = document.getElementById("homeStartBtn");
 const clearBtn = document.getElementById("clearBtn");
 const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+const chatSearchBar = document.getElementById("chatSearchBar");
+const chatSearchInput = document.getElementById("chatSearchInput");
+const chatSearchCount = document.getElementById("chatSearchCount");
+const chatSearchPrev = document.getElementById("chatSearchPrev");
+const chatSearchNext = document.getElementById("chatSearchNext");
+const chatSearchClose = document.getElementById("chatSearchClose");
 const composerModelPicker = document.getElementById("composerModelPicker");
 const modelPickerBtn = document.getElementById("modelPickerBtn");
 const modelPickerIcon = document.getElementById("modelPickerIcon");
@@ -446,6 +452,7 @@ let webSearchEnabled = false;
 let modelPickerOpen = false;
 
 const hasMarked = typeof marked !== "undefined";
+const hasKaTeX = typeof katex !== "undefined";
 if (hasMarked) {
   marked.setOptions({ breaks: true, gfm: true });
 }
@@ -2067,10 +2074,48 @@ function toggleServerDownWhyPanel() {
   serverDownWhyBtn.textContent = willShow ? "Hide details" : "Why does this happen?";
 }
 
+var autoScrollPaused = false;
+
 function scrollToBottom() {
   if (!chat) return;
-  if (!userSettings.autoScroll) return;
+  if (autoScrollPaused) return;
   chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+}
+
+function updateScrollFabVisibility() {
+  var fab = document.getElementById("scrollFab");
+  if (!fab || !chat) return;
+  var atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60;
+  autoScrollPaused = !atBottom;
+  fab.hidden = atBottom;
+}
+
+function scrollFabClick() {
+  if (!chat) return;
+  autoScrollPaused = false;
+  chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+  var fab = document.getElementById("scrollFab");
+  if (fab) fab.hidden = true;
+}
+
+// Create scroll FAB element
+(function () {
+  var fab = document.createElement("button");
+  fab.id = "scrollFab";
+  fab.type = "button";
+  fab.className = "scroll-fab";
+  fab.hidden = true;
+  fab.setAttribute("aria-label", "Scroll to bottom");
+  fab.title = "Scroll to latest message";
+  fab.innerHTML = "&#8595;";
+  fab.addEventListener("click", scrollFabClick);
+  document.body.appendChild(fab);
+})();
+
+if (chat) {
+  chat.addEventListener("scroll", function () {
+    updateScrollFabVisibility();
+  });
 }
 
 function createDefaultWorkspaceAssistantMemory() {
@@ -4687,9 +4732,55 @@ function renderSavedSessions() {
       const safeId = escapeHtml(session.id);
       const safeTitle = escapeHtml(session.title || "Untitled Chat");
       const safeTime = escapeHtml(formatSessionTime(session.updatedAt));
-      return `<div class="side-session-row${isActive}" data-session-row-id="${safeId}"><button class="side-item side-session-btn${isActive}" type="button" data-session-id="${safeId}" title="${safeTitle}"><span class="side-session-title">${safeTitle}</span><span class="side-session-time">${safeTime}</span></button><button class="session-delete-btn" type="button" data-delete-session-id="${safeId}" aria-label="Delete chat" title="Delete chat"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 9h2v9H7V9Z"/></svg></button></div>`;
+      return `<div class="side-session-row${isActive}" data-session-row-id="${safeId}"><button class="side-item side-session-btn${isActive}" type="button" data-session-id="${safeId}" title="${safeTitle}"><span class="side-session-title" data-session-title-id="${safeId}">${safeTitle}</span><span class="side-session-time">${safeTime}</span></button><button class="session-delete-btn" type="button" data-delete-session-id="${safeId}" aria-label="Delete chat" title="Delete chat"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 9h2v9H7V9Z"/></svg></button></div>`;
     })
     .join("");
+
+  // Wire up double-click to rename
+  savedChatsList.querySelectorAll(".side-session-title").forEach(function (titleEl) {
+    titleEl.addEventListener("dblclick", function (e) {
+      e.stopPropagation();
+      e.preventDefault();
+      var sessionId = titleEl.getAttribute("data-session-title-id");
+      if (!sessionId) return;
+      startRenameSession(sessionId, titleEl);
+    });
+  });
+}
+
+function startRenameSession(sessionId, titleEl) {
+  var session = getSessionById(sessionId);
+  if (!session) return;
+  var currentTitle = session.title || "Untitled Chat";
+  var input = document.createElement("input");
+  input.type = "text";
+  input.className = "side-session-rename-input";
+  input.value = currentTitle;
+  input.maxLength = 80;
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function finishRename() {
+    var newTitle = input.value.trim() || currentTitle;
+    session.title = newTitle;
+    saveSessionsToStorage();
+    renderSavedSessions();
+    if (sessionId === currentSessionId) {
+      updateCurrentSessionButton();
+    }
+  }
+
+  input.addEventListener("blur", finishRename);
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === "Escape") {
+      input.value = currentTitle;
+      input.blur();
+    }
+  });
 }
 
 function syncCurrentSessionFromHistory() {
@@ -4732,10 +4823,10 @@ function buildChatWelcomeElement() {
       <div class="chat-welcome-title">What can I help with?</div>
       <div class="chat-welcome-subtitle">Ask a question, drop a file, or paste text to get started.</div>
       <div class="chat-welcome-chips" aria-hidden="true">
-        <button class="chat-welcome-chip" type="button">Write</button>
-        <button class="chat-welcome-chip" type="button">Code</button>
-        <button class="chat-welcome-chip" type="button">Think</button>
-        <button class="chat-welcome-chip" type="button">Summarize</button>
+        <button class="chat-welcome-chip" type="button" data-chip="write">Write</button>
+        <button class="chat-welcome-chip" type="button" data-chip="code">Code</button>
+        <button class="chat-welcome-chip" type="button" data-chip="think">Think</button>
+        <button class="chat-welcome-chip" type="button" data-chip="summarize">Summarize</button>
       </div>
     </div>
   `;
@@ -4751,6 +4842,25 @@ function ensureChatWelcomeElement() {
   if (!welcome.isConnected) {
     chat.appendChild(welcome);
   }
+  // Wire up welcome chip click handlers
+  welcome.querySelectorAll(".chat-welcome-chip").forEach(function (chip) {
+    if (chip._rokChipWired) return;
+    chip._rokChipWired = true;
+    chip.addEventListener("click", function () {
+      const type = chip.getAttribute("data-chip");
+      const prompts = {
+        write: "Help me write ",
+        code: "Help me code ",
+        think: "Help me think through ",
+        summarize: "Summarize the following: "
+      };
+      if (input && prompts[type]) {
+        input.value = prompts[type];
+        input.focus();
+        autoResizeInput();
+      }
+    });
+  });
   return welcome;
 }
 
@@ -5346,17 +5456,113 @@ function autoResizeInput() {
   input.style.height = next + "px";
 }
 
+function renderMathInElement(el) {
+  if (!hasKaTeX || !el) return;
+  try {
+    renderMathInElement(el, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "\\[", right: "\\]", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false }
+      ],
+      throwOnError: false
+    });
+  } catch (e) {
+    // Silently ignore math rendering errors
+  }
+}
+
+function protectMathForMarked(text) {
+  // Replace math delimiters with placeholders so marked doesn't mangle them
+  var mathBlocks = [];
+  // Protect code blocks first so we don't touch $ inside code
+  var codeProtected = text.replace(/```[\s\S]*?```|`[^`]+`/g, function (m) {
+    var idx = mathBlocks.length;
+    mathBlocks.push(m);
+    return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  });
+  // Protect display math $$...$$
+  codeProtected = codeProtected.replace(/\$\$([\s\S]+?)\$\$/g, function (m) {
+    var idx = mathBlocks.length;
+    mathBlocks.push(m);
+    return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  });
+  // Protect \[...\]
+  codeProtected = codeProtected.replace(/\\\[([\s\S]+?)\\\]/g, function (m) {
+    var idx = mathBlocks.length;
+    mathBlocks.push(m);
+    return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  });
+  // Protect inline math $...$  (not $$)
+  codeProtected = codeProtected.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, function (m) {
+    var idx = mathBlocks.length;
+    mathBlocks.push(m);
+    return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  });
+  // Protect \(...\)
+  codeProtected = codeProtected.replace(/\\\(([\s\S]+?)\\\)/g, function (m) {
+    var idx = mathBlocks.length;
+    mathBlocks.push(m);
+    return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  });
+  return { text: codeProtected, mathBlocks: mathBlocks };
+}
+
+function restoreMathAfterMarked(html, mathBlocks) {
+  if (!mathBlocks.length) return html;
+  return html.replace(/%%MATH_PLACEHOLDER_(\d+)%%/g, function (m, idxStr) {
+    var idx = parseInt(idxStr, 10);
+    if (idx >= 0 && idx < mathBlocks.length) {
+      // Escape HTML entities so the math text stays raw for KaTeX
+      return mathBlocks[idx].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    return m;
+  });
+}
+
 function setBubbleContent(bubble, text, markdown) {
   if (markdown && hasMarked) {
+    var wasPlain = bubble.classList.contains("plain");
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
-    bubble.innerHTML = marked.parse(text);
+    // Protect math from marked, then restore after parsing
+    var protected = hasKaTeX ? protectMathForMarked(text) : null;
+    var rawHtml = marked.parse(protected ? protected.text : text);
+    if (protected) {
+      rawHtml = restoreMathAfterMarked(rawHtml, protected.mathBlocks);
+    }
+    bubble.innerHTML = rawHtml;
+    // Render math (KaTeX)
+    renderMathInElement(bubble);
+    // Smooth fade-in when transitioning from streaming plain text to final markdown
+    if (wasPlain) {
+      bubble.classList.add("bubble-reveal");
+    }
+    // Open external links in new tab with icon
+    bubble.querySelectorAll("a[href]").forEach(function (a) {
+      var href = a.getAttribute("href") || "";
+      if (href.startsWith("http://") || href.startsWith("https://")) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+        a.classList.add("external-link");
+      }
+    });
     // Add copy button to each code block
     bubble.querySelectorAll("pre").forEach(function (pre) {
       const wrapper = document.createElement("div");
       wrapper.className = "code-block-wrapper";
       pre.parentNode.insertBefore(wrapper, pre);
       wrapper.appendChild(pre);
+      // Language label
+      const codeEl = pre.querySelector("code");
+      const langMatch = codeEl ? (codeEl.className.match(/language-(\S+)/) || []) : [];
+      if (langMatch[1]) {
+        const langLabel = document.createElement("span");
+        langLabel.className = "code-lang-label";
+        langLabel.textContent = langMatch[1];
+        wrapper.appendChild(langLabel);
+      }
       const copyBtn = document.createElement("button");
       copyBtn.className = "code-copy-btn";
       copyBtn.type = "button";
@@ -5461,6 +5667,16 @@ function addMessage(role, text, options = {}) {
   const row = document.createElement("div");
   row.className = "msg " + role;
 
+  // Timestamp
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "msg-time";
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  timeSpan.textContent = h12 + ":" + (m < 10 ? "0" : "") + m + " " + ampm;
+
   const bubble = document.createElement("div");
   bubble.className = "bubble plain";
 
@@ -5485,6 +5701,7 @@ function addMessage(role, text, options = {}) {
     bubble.appendChild(createTypingDotsElement());
     row.appendChild(avatar);
     row.appendChild(bubble);
+    row.appendChild(timeSpan);
     chat.appendChild(row);
     scrollToBottom();
     updateChatWelcomeVisibility();
@@ -5499,6 +5716,7 @@ function addMessage(role, text, options = {}) {
 
     row.appendChild(avatar);
     row.appendChild(stack);
+    row.appendChild(timeSpan);
     chat.appendChild(row);
     scrollToBottom();
     updateChatWelcomeVisibility();
@@ -5512,6 +5730,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(avatar);
     row.appendChild(bubble);
   }
+  row.appendChild(timeSpan);
 
   chat.appendChild(row);
   scrollToBottom();
@@ -5556,6 +5775,7 @@ function updateSendButtonUI(cooldownActive) {
   if (isSending) {
     sendBtn.disabled = false;
     sendBtn.classList.add("stop-mode");
+    sendBtn.classList.remove("send-ready");
     sendBtn.textContent = "";
     sendBtn.setAttribute("aria-label", "Stop generation");
     sendBtn.setAttribute("title", "Stop generation");
@@ -5567,6 +5787,8 @@ function updateSendButtonUI(cooldownActive) {
   sendBtn.removeAttribute("aria-label");
   sendBtn.removeAttribute("title");
   sendBtn.disabled = cooldownActive || isIntentClassificationLoading;
+  var hasText = input && input.value.trim().length > 0;
+  sendBtn.classList.toggle("send-ready", hasText && !sendBtn.disabled);
 }
 
 function stopGeneration() {
@@ -5974,7 +6196,16 @@ async function send() {
     thinkingPanel.shell.hidden = false;
     thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
     setThinkingSummaryLabel("Thinking...");
-    thinkingPanel.body.textContent = thinkingText.trim();
+    // Render thinking body with markdown + KaTeX
+    if (hasMarked) {
+      var protected = hasKaTeX ? protectMathForMarked(thinkingText.trim()) : null;
+      var html = marked.parse(protected ? protected.text : thinkingText.trim());
+      if (protected) html = restoreMathAfterMarked(html, protected.mathBlocks);
+      thinkingPanel.body.innerHTML = html;
+      renderMathInElement(thinkingPanel.body);
+    } else {
+      thinkingPanel.body.textContent = thinkingText.trim();
+    }
     scrollToBottom();
   };
   const handleStatusUpdate = (status) => {
@@ -6480,6 +6711,7 @@ async function send() {
         bubble.textContent = "Story ready. Use Expand to read.";
       } else {
         setBubbleContent(bubble, partialText, true);
+        addRegenerateButton(bubble);
       }
       history.push({ role: "assistant", content: partialText });
       trimHistoryToLimit();
@@ -6523,6 +6755,7 @@ async function send() {
             bubble.textContent = `Story stopped at ${partialText.length.toLocaleString()} chars.`;
           } else {
             setBubbleContent(bubble, partialText, true);
+            addRegenerateButton(bubble);
           }
           history.push({ role: "assistant", content: partialText });
           trimHistoryToLimit();
@@ -6682,6 +6915,55 @@ sendBtn.addEventListener("click", () => {
   send();
 });
 
+function addRegenerateButton(bubble) {
+  // Remove any existing regenerate buttons in the chat
+  document.querySelectorAll(".regenerate-btn").forEach(function (b) { b.remove(); });
+  if (!bubble) return;
+  const btn = document.createElement("button");
+  btn.className = "regenerate-btn";
+  btn.type = "button";
+  btn.title = "Regenerate response";
+  btn.textContent = "Regenerate";
+  btn.addEventListener("click", function () {
+    regenerateLastResponse();
+  });
+  bubble.appendChild(btn);
+}
+
+function regenerateLastResponse() {
+  if (isSending) return;
+  // Find the last bot message row and remove it
+  const botRows = chat.querySelectorAll(".msg.bot");
+  if (!botRows.length) return;
+  const lastBotRow = botRows[botRows.length - 1];
+  lastBotRow.remove();
+  // Remove last assistant entry from history
+  if (history.length && history[history.length - 1].role === "assistant") {
+    history.pop();
+  }
+  // Find the last user message text
+  let lastUserText = "";
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === "user") {
+      lastUserText = history[i].content;
+      break;
+    }
+  }
+  if (!lastUserText) return;
+  // Remove last user entry from history (send() will re-add it)
+  if (history.length && history[history.length - 1].role === "user") {
+    history.pop();
+  }
+  // Also remove the last user message row from DOM
+  const userRows = chat.querySelectorAll(".msg.user");
+  if (userRows.length) {
+    userRows[userRows.length - 1].remove();
+  }
+  // Re-send
+  input.value = lastUserText;
+  send();
+}
+
 if (composerPlusBtn) {
   composerPlusBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
@@ -6696,6 +6978,30 @@ if (attachBtn && fileInput) {
     fileInput.click();
   });
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
+}
+
+// Drag-and-drop file attach on chat area
+if (chat) {
+  chat.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer) return;
+    e.dataTransfer.dropEffect = "copy";
+    chat.classList.add("chat-drop-active");
+  });
+  chat.addEventListener("dragleave", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    chat.classList.remove("chat-drop-active");
+  });
+  chat.addEventListener("drop", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    chat.classList.remove("chat-drop-active");
+    if (isSending) return;
+    if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+    addSelectedFiles(e.dataTransfer.files);
+  });
 }
 
 if (sandboxUploadBtn && sandboxFileInput) {
@@ -6811,7 +7117,10 @@ if (attachmentList) {
   });
 }
 
-input.addEventListener("input", autoResizeInput);
+input.addEventListener("input", function () {
+  autoResizeInput();
+  refreshSendState();
+});
 input.addEventListener("paste", (e) => {
   const pastedText = e.clipboardData?.getData("text") || "";
   if (pastedText.length <= 300) {
@@ -7266,3 +7575,155 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
 }
 syncLayoutForViewport();
 showHomeScreen();
+
+// --- Chat search ---
+var chatSearchMatches = [];
+var chatSearchCurrentIdx = -1;
+
+function openChatSearch() {
+  if (!chatSearchBar) return;
+  chatSearchBar.hidden = false;
+  if (chatSearchInput) {
+    chatSearchInput.focus();
+    chatSearchInput.select();
+  }
+}
+
+function closeChatSearch() {
+  if (!chatSearchBar) return;
+  chatSearchBar.hidden = true;
+  clearChatSearchHighlights();
+  chatSearchMatches = [];
+  chatSearchCurrentIdx = -1;
+  if (chatSearchInput) chatSearchInput.value = "";
+  if (chatSearchCount) chatSearchCount.textContent = "";
+}
+
+function clearChatSearchHighlights() {
+  if (!chat) return;
+  chat.querySelectorAll(".chat-search-highlight").forEach(function (el) {
+    var parent = el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+    parent.normalize();
+  });
+}
+
+function performChatSearch(query) {
+  clearChatSearchHighlights();
+  chatSearchMatches = [];
+  chatSearchCurrentIdx = -1;
+  if (!chat || !query) {
+    if (chatSearchCount) chatSearchCount.textContent = "";
+    return;
+  }
+  var lowerQuery = query.toLowerCase();
+  var msgRows = chat.querySelectorAll(".msg.user, .msg.bot");
+  msgRows.forEach(function (row) {
+    var bubbles = row.querySelectorAll(".bubble");
+    bubbles.forEach(function (bubble) {
+      var walker = document.createTreeWalker(bubble, NodeFilter.SHOW_TEXT, null, false);
+      var textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      textNodes.forEach(function (textNode) {
+        var text = textNode.textContent;
+        var lower = text.toLowerCase();
+        var idx = lower.indexOf(lowerQuery);
+        if (idx === -1) return;
+        var parts = [];
+        var lastIdx = 0;
+        while (idx !== -1) {
+          if (idx > lastIdx) parts.push({ text: text.slice(lastIdx, idx), highlight: false });
+          parts.push({ text: text.slice(idx, idx + query.length), highlight: true });
+          lastIdx = idx + query.length;
+          idx = lower.indexOf(lowerQuery, lastIdx);
+        }
+        if (lastIdx < text.length) parts.push({ text: text.slice(lastIdx), highlight: false });
+        var frag = document.createDocumentFragment();
+        parts.forEach(function (part) {
+          if (part.highlight) {
+            var mark = document.createElement("mark");
+            mark.className = "chat-search-highlight";
+            mark.textContent = part.text;
+            frag.appendChild(mark);
+            chatSearchMatches.push(mark);
+          } else {
+            frag.appendChild(document.createTextNode(part.text));
+          }
+        });
+        textNode.parentNode.replaceChild(frag, textNode);
+      });
+    });
+  });
+  if (chatSearchMatches.length > 0) {
+    chatSearchCurrentIdx = 0;
+    chatSearchMatches[0].classList.add("chat-search-current");
+    chatSearchMatches[0].scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  updateChatSearchCount();
+}
+
+function updateChatSearchCount() {
+  if (!chatSearchCount) return;
+  if (chatSearchMatches.length === 0) {
+    chatSearchCount.textContent = "0/0";
+  } else {
+    chatSearchCount.textContent = (chatSearchCurrentIdx + 1) + "/" + chatSearchMatches.length;
+  }
+}
+
+function navigateChatSearch(direction) {
+  if (!chatSearchMatches.length) return;
+  if (chatSearchCurrentIdx >= 0 && chatSearchCurrentIdx < chatSearchMatches.length) {
+    chatSearchMatches[chatSearchCurrentIdx].classList.remove("chat-search-current");
+  }
+  chatSearchCurrentIdx += direction;
+  if (chatSearchCurrentIdx < 0) chatSearchCurrentIdx = chatSearchMatches.length - 1;
+  if (chatSearchCurrentIdx >= chatSearchMatches.length) chatSearchCurrentIdx = 0;
+  chatSearchMatches[chatSearchCurrentIdx].classList.add("chat-search-current");
+  chatSearchMatches[chatSearchCurrentIdx].scrollIntoView({ block: "center", behavior: "smooth" });
+  updateChatSearchCount();
+}
+
+if (chatSearchInput) {
+  var searchDebounceTimer = null;
+  chatSearchInput.addEventListener("input", function () {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(function () {
+      performChatSearch(chatSearchInput.value.trim());
+    }, 200);
+  });
+  chatSearchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      navigateChatSearch(e.shiftKey ? -1 : 1);
+    } else if (e.key === "Escape") {
+      closeChatSearch();
+    }
+  });
+}
+
+if (chatSearchPrev) {
+  chatSearchPrev.addEventListener("click", function () { navigateChatSearch(-1); });
+}
+if (chatSearchNext) {
+  chatSearchNext.addEventListener("click", function () { navigateChatSearch(1); });
+}
+if (chatSearchClose) {
+  chatSearchClose.addEventListener("click", closeChatSearch);
+}
+
+document.addEventListener("keydown", function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+    // Only intercept if not in an input that isn't the search input
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") {
+      if (e.target === chatSearchInput) {
+        // Already in search, do nothing special
+      } else {
+        return; // Let native find work in inputs
+      }
+    }
+    e.preventDefault();
+    openChatSearch();
+  }
+});
