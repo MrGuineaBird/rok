@@ -353,28 +353,28 @@
             </div>
           </div>
 
+          <!-- Editor overlay (inside admin section so non-admins never see it) -->
+          <div id="blogEditorOverlay" class="blog-editor-overlay" hidden>
+            <div class="blog-editor-card" role="dialog" aria-modal="true">
+              <h2 id="blogEditorTitle" class="blog-editor-title">New Blog Post</h2>
+              <label class="blog-field-label" for="blogInputTitle">Title</label>
+              <input id="blogInputTitle" class="blog-field-input" type="text" maxlength="200" placeholder="Enter a title..." />
+              <label class="blog-field-label" for="blogInputCategory">Category</label>
+              <input id="blogInputCategory" class="blog-field-input" type="text" maxlength="60" placeholder="e.g. Update, Tutorial, News" />
+              <label class="blog-field-label" for="blogInputBody">Content</label>
+              <textarea id="blogInputBody" class="blog-field-textarea" placeholder="Write your blog post here..."></textarea>
+              <div class="blog-editor-actions">
+                <button id="blogEditorCancelBtn" class="blog-editor-btn ghost" type="button">Cancel</button>
+                <button id="blogEditorSaveBtn" class="blog-editor-btn primary" type="button">Publish</button>
+              </div>
+            </div>
+          </div>
+
           <div id="blogList" class="blog-list">
             <div class="blog-loading">Loading posts...</div>
           </div>
         </section>
       </main>
-    </div>
-  </div>
-
-  <!-- Editor overlay (hidden by default) -->
-  <div id="blogEditorOverlay" class="blog-editor-overlay" hidden>
-    <div class="blog-editor-card" role="dialog" aria-modal="true">
-      <h2 id="blogEditorTitle" class="blog-editor-title">New Blog Post</h2>
-      <label class="blog-field-label" for="blogInputTitle">Title</label>
-      <input id="blogInputTitle" class="blog-field-input" type="text" maxlength="200" placeholder="Enter a title..." />
-      <label class="blog-field-label" for="blogInputCategory">Category</label>
-      <input id="blogInputCategory" class="blog-field-input" type="text" maxlength="60" placeholder="e.g. Update, Tutorial, News" />
-      <label class="blog-field-label" for="blogInputBody">Content</label>
-      <textarea id="blogInputBody" class="blog-field-textarea" placeholder="Write your blog post here..."></textarea>
-      <div class="blog-editor-actions">
-        <button id="blogEditorCancelBtn" class="blog-editor-btn ghost" type="button">Cancel</button>
-        <button id="blogEditorSaveBtn" class="blog-editor-btn primary" type="button">Publish</button>
-      </div>
     </div>
   </div>
 
