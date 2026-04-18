@@ -32,26 +32,6 @@
       background: var(--accent-soft-2);
       border-color: #e05555;
     }
-    .blog-admin-toggle {
-      padding: 7px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: transparent;
-      color: var(--muted);
-      font-family: "Sora", "Segoe UI", sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: color 120ms, border-color 120ms;
-    }
-    .blog-admin-toggle:hover {
-      color: var(--text);
-      border-color: var(--line-2);
-    }
-    .blog-admin-toggle.active {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
     .blog-list {
       display: flex;
       flex-direction: column;
@@ -267,45 +247,6 @@
       color: var(--text);
       border-color: var(--line-2);
     }
-    .blog-admin-key-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .blog-admin-key-input {
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,0.3);
-      color: var(--text);
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 12px;
-      outline: none;
-      width: 220px;
-      transition: border-color 120ms;
-    }
-    .blog-admin-key-input:focus {
-      border-color: var(--accent);
-    }
-    .blog-admin-key-submit {
-      padding: 6px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--accent);
-      background: var(--accent-soft);
-      color: var(--text);
-      font-family: "Sora", "Segoe UI", sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .blog-admin-key-submit:hover {
-      background: var(--accent-soft-2);
-    }
-    .blog-admin-key-error {
-      font-size: 11px;
-      color: #f55;
-      margin-left: 4px;
-    }
     .blog-loading {
       text-align: center;
       padding: 32px;
@@ -338,15 +279,14 @@
           <h1>ROK Blogs</h1>
           <p>News, updates, and stories from the ROK project.</p>
 
-          <div class="blog-admin-bar" id="blogAdminBar">
+          <div class="blog-admin-bar" id="blogAdminBar" style="display:none;">
             <span class="blog-admin-bar-label">Admin</span>
-            <span class="blog-admin-bar-status">Authenticated</span>
+            <span class="blog-admin-bar-status" id="blogAdminStatus">Not authenticated</span>
             <button id="blogAdminLogoutBtn" class="blog-admin-bar-logout" type="button">Log out</button>
           </div>
 
-          <div class="blog-actions">
-            <button id="blogNewBtn" class="blog-new-btn" type="button" style="display:none;">+ New Post</button>
-            <button id="blogAdminToggleBtn" class="blog-admin-toggle" type="button">Admin Login</button>
+          <div class="blog-actions" id="blogAdminActions" style="display:none;">
+            <button id="blogNewBtn" class="blog-new-btn" type="button">+ New Post</button>
           </div>
 
           <div id="blogList" class="blog-list">
@@ -354,23 +294,6 @@
           </div>
         </section>
       </main>
-    </div>
-  </div>
-
-  <!-- Admin key prompt -->
-  <div id="blogAdminKeyOverlay" class="blog-editor-overlay" hidden>
-    <div class="blog-editor-card" role="dialog" aria-modal="true">
-      <h2 class="blog-editor-title">Admin Login</h2>
-      <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Enter your blog admin key to create, edit, or delete posts.</p>
-      <label class="blog-field-label" for="blogAdminKeyInput">Admin Key</label>
-      <div class="blog-admin-key-row">
-        <input id="blogAdminKeyInput" class="blog-admin-key-input" type="password" placeholder="Enter admin key..." />
-        <button id="blogAdminKeySubmitBtn" class="blog-admin-key-submit" type="button">Verify</button>
-      </div>
-      <span id="blogAdminKeyError" class="blog-admin-key-error"></span>
-      <div class="blog-editor-actions" style="margin-top:20px;">
-        <button id="blogAdminKeyCancelBtn" class="blog-editor-btn ghost" type="button">Cancel</button>
-      </div>
     </div>
   </div>
 
@@ -400,16 +323,14 @@
       ).replace(/\/+$/, "");
       const ADMIN_KEY_STORAGE = "rok.blog.admin_key";
 
+      const isAdminPage = new URLSearchParams(window.location.search).has("admin");
+
       const listEl = document.getElementById("blogList");
       const newBtn = document.getElementById("blogNewBtn");
-      const adminToggleBtn = document.getElementById("blogAdminToggleBtn");
       const adminBar = document.getElementById("blogAdminBar");
+      const adminStatus = document.getElementById("blogAdminStatus");
+      const adminActions = document.getElementById("blogAdminActions");
       const adminLogoutBtn = document.getElementById("blogAdminLogoutBtn");
-      const adminKeyOverlay = document.getElementById("blogAdminKeyOverlay");
-      const adminKeyInput = document.getElementById("blogAdminKeyInput");
-      const adminKeySubmitBtn = document.getElementById("blogAdminKeySubmitBtn");
-      const adminKeyCancelBtn = document.getElementById("blogAdminKeyCancelBtn");
-      const adminKeyError = document.getElementById("blogAdminKeyError");
       const overlay = document.getElementById("blogEditorOverlay");
       const editorTitle = document.getElementById("blogEditorTitle");
       const inputTitle = document.getElementById("blogInputTitle");
@@ -429,9 +350,15 @@
 
       function setAdminState(isAdmin) {
         document.body.classList.toggle("is-blog-admin", isAdmin);
-        newBtn.style.display = isAdmin ? "" : "none";
-        adminToggleBtn.style.display = isAdmin ? "none" : "";
-        adminBar.style.display = isAdmin ? "flex" : "none";
+        if (isAdmin) {
+          adminBar.style.display = "flex";
+          adminActions.style.display = "flex";
+          adminStatus.textContent = "Authenticated";
+        } else {
+          adminBar.style.display = "none";
+          adminActions.style.display = "none";
+          adminStatus.textContent = "Not authenticated";
+        }
       }
 
       function formatDate(ts) {
@@ -503,70 +430,12 @@
         inputBody.value = "";
       }
 
-      // Admin login flow
-      adminToggleBtn.addEventListener("click", function () {
-        adminKeyOverlay.hidden = false;
-        adminKeyError.textContent = "";
-        adminKeyInput.value = "";
-        adminKeyInput.focus();
-      });
-
-      adminKeyCancelBtn.addEventListener("click", function () {
-        adminKeyOverlay.hidden = true;
-      });
-
-      adminKeyOverlay.addEventListener("click", function (e) {
-        if (e.target === adminKeyOverlay) adminKeyOverlay.hidden = true;
-      });
-
-      async function verifyAdminKey() {
-        const key = adminKeyInput.value.trim();
-        if (!key) return;
-        adminKeyError.textContent = "";
-        try {
-          const res = await fetch(`${API_BASE}/api/blogs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-ROK-Blog-Admin-Key": key },
-            body: JSON.stringify({ title: "__test__", body: "__test__" }),
-          });
-          if (res.status === 400) {
-            // Key was accepted (400 = valid auth but bad body), we're good
-            adminKey = key;
-            localStorage.setItem(ADMIN_KEY_STORAGE, key);
-            setAdminState(true);
-            adminKeyOverlay.hidden = true;
-            return;
-          }
-          if (res.status === 401 || res.status === 403) {
-            adminKeyError.textContent = "Invalid admin key.";
-            return;
-          }
-          if (res.status === 503) {
-            adminKeyError.textContent = "Blog admin is not configured on the server.";
-            return;
-          }
-          // Unexpected — try anyway
-          adminKey = key;
-          localStorage.setItem(ADMIN_KEY_STORAGE, key);
-          setAdminState(true);
-          adminKeyOverlay.hidden = true;
-        } catch (_) {
-          adminKeyError.textContent = "Connection error.";
-        }
-      }
-
-      adminKeySubmitBtn.addEventListener("click", verifyAdminKey);
-      adminKeyInput.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") verifyAdminKey();
-      });
-
       adminLogoutBtn.addEventListener("click", function () {
         adminKey = "";
         localStorage.removeItem(ADMIN_KEY_STORAGE);
         setAdminState(false);
       });
 
-      // New post
       newBtn.addEventListener("click", function () {
         openEditor(null);
       });
@@ -649,12 +518,11 @@
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
           if (!overlay.hidden) closeEditor();
-          if (!adminKeyOverlay.hidden) adminKeyOverlay.hidden = true;
         }
       });
 
-      // Init
-      if (adminKey) {
+      // Init — only show admin UI on ?admin page
+      if (isAdminPage && adminKey) {
         setAdminState(true);
       }
       refreshBlogs();
