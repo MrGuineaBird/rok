@@ -651,7 +651,7 @@ body.settings-compact .attachment-list {
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
-  transition: padding 180ms ease, border-color 180ms ease;
+  transition: padding 180ms ease, border-color 180ms ease, max-width 250ms ease, opacity 200ms ease;
 }
 
 .app.sidebar-collapsed .sidebar {
@@ -3484,6 +3484,64 @@ body.settings-compact .attachment-list {
   border-left: 3px solid #402A2A;
   background: #190C0C;
   color: var(--muted);
+}
+
+/* Code block wrapper + copy button */
+.code-block-wrapper {
+  position: relative;
+  margin: 10px 0;
+}
+.code-block-wrapper pre {
+  margin: 0;
+}
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #361F1F;
+  background: #1E0E0E;
+  color: #bfa3a3;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, color 120ms ease, border-color 120ms ease;
+}
+.code-block-wrapper:hover .code-copy-btn {
+  opacity: 1;
+}
+.code-copy-btn:hover {
+  color: #f4dcdc;
+  border-color: #5a3030;
+}
+
+/* Bubble copy button for bot messages */
+.bubble-copy-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #361F1F;
+  background: transparent;
+  color: #8a6a6a;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.msg.bot:hover .bubble-copy-btn,
+.msg.bot .bubble.markdown:hover .bubble-copy-btn {
+  opacity: 1;
+}
+.bubble-copy-btn:hover {
+  color: #f4dcdc;
+  border-color: #5a3030;
+  background: rgba(30, 14, 14, 0.5);
 }
 
 /* Typing indicator — clean 3-dot bounce */

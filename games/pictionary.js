@@ -2,6 +2,7 @@
   "use strict";
 
   var ROUND_SECONDS = 120;
+  var MAX_UNDO_STEPS = 30;
 
   var canvas = document.getElementById("pictCanvas");
   var ctx = canvas.getContext("2d");
@@ -9,6 +10,8 @@
   var timerEl = document.getElementById("pictTimer");
   var startBtn = document.getElementById("pictStartBtn");
   var clearBtn = document.getElementById("pictClearBtn");
+  var undoBtn = document.getElementById("pictUndoBtn");
+  var downloadBtn = document.getElementById("pictDownloadBtn");
   var toolsPanel = document.getElementById("pictToolsPanel");
   var modeDrawBtn = document.getElementById("pictModeDraw");
   var modeEraseBtn = document.getElementById("pictModeErase");
@@ -28,6 +31,13 @@
   var verdictModal = document.getElementById("pictVerdictModal");
   var verdictBackdrop = document.getElementById("pictVerdictBackdrop");
   var modalCloseBtn = document.getElementById("pictModalCloseBtn");
+  var cursorPreview = document.getElementById("pictCursorPreview");
+  var revealOverlay = document.getElementById("pictRevealOverlay");
+  var revealScoreEl = document.getElementById("pictRevealScore");
+  var revealGuessEl = document.getElementById("pictRevealGuess");
+  var countdownOverlay = document.getElementById("pictCountdownOverlay");
+  var countdownNumberEl = document.getElementById("pictCountdownNumber");
+  var countdownPromptEl = document.getElementById("pictCountdownPrompt");
 
   var roundActive = false;
   var drawingEnabled = false;
@@ -43,6 +53,33 @@
   /** "draw" | "erase" */
   var brushMode = "draw";
 
+  // Undo history — stores canvas snapshots
+  var undoStack = [];
+
+  function pushUndoState() {
+    if (!drawingEnabled) return;
+    try {
+      undoStack.push(canvas.toDataURL("image/png"));
+      if (undoStack.length > MAX_UNDO_STEPS) {
+        undoStack.shift();
+      }
+    } catch (_) {}
+  }
+
+  function popUndoState() {
+    if (!undoStack.length) return;
+    var dataUrl = undoStack.pop();
+    var img = new Image();
+    img.onload = function () {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = CANVAS_BG;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = dataUrl;
+  }
+
   function showVerdictModal() {
     if (!verdictModal) return;
     verdictModal.hidden = false;
@@ -53,6 +90,64 @@
     if (!verdictModal) return;
     verdictModal.hidden = true;
     document.body.style.overflow = "";
+  }
+
+  function hideRevealOverlay() {
+    if (!revealOverlay) return;
+    revealOverlay.hidden = true;
+    // Reset animations by removing/re-adding elements
+    var spotlight = revealOverlay.querySelector(".pict-reveal-spotlight");
+    if (spotlight) {
+      spotlight.style.animation = "none";
+      void spotlight.offsetWidth;
+      spotlight.style.animation = "";
+    }
+    if (revealScoreEl) {
+      revealScoreEl.style.animation = "none";
+      void revealScoreEl.offsetWidth;
+      revealScoreEl.style.animation = "";
+    }
+    if (revealGuessEl) {
+      revealGuessEl.style.animation = "none";
+      void revealGuessEl.offsetWidth;
+      revealGuessEl.style.animation = "";
+    }
+  }
+
+  function showRevealOverlay(guess, score, onDone) {
+    if (!revealOverlay) {
+      if (onDone) onDone();
+      return;
+    }
+    // Set score text with color
+    if (revealScoreEl) {
+      revealScoreEl.textContent = score + " / 10";
+      revealScoreEl.className = "pict-reveal-score";
+      if (score <= 3) {
+        revealScoreEl.classList.add("pict-reveal-score--low");
+      } else if (score <= 6) {
+        revealScoreEl.classList.add("pict-reveal-score--mid");
+      } else {
+        revealScoreEl.classList.add("pict-reveal-score--high");
+      }
+    }
+    if (revealGuessEl) {
+      revealGuessEl.textContent = '"' + guess + '"';
+    }
+    revealOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    // After the full animation sequence (~3s), fade out and call onDone
+    setTimeout(function () {
+      revealOverlay.style.transition = "opacity 0.5s ease";
+      revealOverlay.style.opacity = "0";
+      setTimeout(function () {
+        revealOverlay.hidden = true;
+        revealOverlay.style.opacity = "";
+        revealOverlay.style.transition = "";
+        if (onDone) onDone();
+      }, 500);
+    }, 3200);
   }
 
   function syncWidthLabel() {
@@ -183,9 +278,34 @@
   }
 
   function clearCanvas() {
+    pushUndoState();
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = CANVAS_BG;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function downloadDrawing() {
+    try {
+      var link = document.createElement("a");
+      link.download = "rok-pictionary-" + (lastPrompt || "drawing").replace(/[^a-z0-9]/gi, "-").slice(0, 30) + ".png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch (_) {}
+  }
+
+  function showCursorPreview(e) {
+    if (!cursorPreview || !drawingEnabled) return;
+    var rect = canvas.getBoundingClientRect();
+    var size = currentLineWidth() * (rect.width / canvas.width);
+    cursorPreview.style.width = size + "px";
+    cursorPreview.style.height = size + "px";
+    cursorPreview.style.left = (e.clientX - size / 2) + "px";
+    cursorPreview.style.top = (e.clientY - size / 2) + "px";
+    cursorPreview.hidden = false;
+  }
+
+  function hideCursorPreview() {
+    if (cursorPreview) cursorPreview.hidden = true;
   }
 
   function canvasCoords(e) {
@@ -203,6 +323,7 @@
   function startStroke(e) {
     if (!drawingEnabled) return;
     e.preventDefault();
+    pushUndoState();
     drawing = true;
     var p = canvasCoords(e);
     ctx.beginPath();
@@ -227,6 +348,7 @@
   function endStroke() {
     drawing = false;
     ctx.beginPath();
+    hideCursorPreview();
   }
 
   function setStatus(mode, text) {
@@ -250,6 +372,7 @@
     canvas.classList.add("pict-canvas--locked");
     startBtn.disabled = false;
     clearBtn.disabled = true;
+    if (undoBtn) undoBtn.disabled = true;
     setTimerDisplay(0);
 
     var dataUrl = compressCanvasForUpload(canvas);
@@ -305,10 +428,20 @@
           var sc = typeof data.score === "number" ? data.score : parseInt(data.score, 10) || 0;
           resultScore.textContent = sc + " / 10";
           scoreFill.style.width = Math.min(100, Math.max(0, sc * 10)) + "%";
+          scoreFill.classList.remove("pict-score--low", "pict-score--mid", "pict-score--high");
+          if (sc <= 3) {
+            scoreFill.classList.add("pict-score--low");
+          } else if (sc <= 6) {
+            scoreFill.classList.add("pict-score--mid");
+          } else {
+            scoreFill.classList.add("pict-score--high");
+          }
           resultReaction.textContent = data.reaction || "—";
         }
         setStatus("idle", "Done");
-        showVerdictModal();
+        showRevealOverlay(data.guess || "—", sc, function () {
+          showVerdictModal();
+        });
       })
       .catch(function (err) {
         resultsEl.hidden = false;
@@ -331,21 +464,76 @@
     secondsLeft = ROUND_SECONDS;
     setTimerDisplay(secondsLeft);
 
-    roundActive = true;
-    drawingEnabled = true;
-    canvas.classList.remove("pict-canvas--locked");
-    hintEl.hidden = true;
-    startBtn.disabled = true;
-    clearBtn.disabled = false;
-    setStatus("idle", "Draw!");
+    // Show 3-2-1 countdown before enabling drawing
+    showCountdown(promptText, function () {
+      roundActive = true;
+      drawingEnabled = true;
+      undoStack = [];
+      canvas.classList.remove("pict-canvas--locked");
+      hintEl.hidden = true;
+      startBtn.disabled = true;
+      clearBtn.disabled = false;
+      if (undoBtn) undoBtn.disabled = false;
+      setStatus("idle", "Draw!");
 
-    timerId = setInterval(function () {
-      secondsLeft -= 1;
-      setTimerDisplay(secondsLeft);
-      if (secondsLeft <= 0) {
-        endRound();
+      timerId = setInterval(function () {
+        secondsLeft -= 1;
+        setTimerDisplay(secondsLeft);
+        if (secondsLeft <= 0) {
+          endRound();
+        }
+      }, 1000);
+    });
+  }
+
+  function showCountdown(promptText, onDone) {
+    if (!countdownOverlay || !countdownNumberEl) {
+      if (onDone) onDone();
+      return;
+    }
+    if (countdownPromptEl) {
+      countdownPromptEl.textContent = 'Draw: "' + promptText + '"';
+    }
+    countdownOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    var steps = ["3", "2", "1"];
+    var idx = 0;
+
+    function showNext() {
+      if (idx >= steps.length) {
+        // Show "GO!"
+        countdownNumberEl.textContent = "GO!";
+        countdownNumberEl.className = "pict-countdown-number pict-countdown-go";
+        // Force re-trigger animation
+        countdownNumberEl.style.animation = "none";
+        void countdownNumberEl.offsetWidth;
+        countdownNumberEl.style.animation = "";
+        setTimeout(function () {
+          countdownOverlay.hidden = true;
+          document.body.style.overflow = "";
+          countdownNumberEl.className = "pict-countdown-number";
+          if (onDone) onDone();
+        }, 600);
+        return;
       }
-    }, 1000);
+      countdownNumberEl.textContent = steps[idx];
+      countdownNumberEl.className = "pict-countdown-number";
+      // Force re-trigger animation
+      countdownNumberEl.style.animation = "none";
+      void countdownNumberEl.offsetWidth;
+      countdownNumberEl.style.animation = "";
+      idx++;
+      setTimeout(showNext, 900);
+    }
+
+    showNext();
+  }
+
+  function hideCountdown() {
+    if (!countdownOverlay) return;
+    countdownOverlay.hidden = true;
+    document.body.style.overflow = "";
   }
 
   function startRound() {
@@ -356,6 +544,8 @@
     }
     resultsEl.hidden = true;
     hideVerdictModal();
+    hideRevealOverlay();
+    hideCountdown();
     rawEl.hidden = true;
 
     startBtn.disabled = true;
@@ -392,8 +582,12 @@
   }
 
   canvas.addEventListener("mousedown", startStroke);
-  canvas.addEventListener("mousemove", moveStroke);
+  canvas.addEventListener("mousemove", function (e) {
+    moveStroke(e);
+    showCursorPreview(e);
+  });
   window.addEventListener("mouseup", endStroke);
+  canvas.addEventListener("mouseleave", hideCursorPreview);
   canvas.addEventListener("touchstart", startStroke, { passive: false });
   canvas.addEventListener("touchmove", moveStroke, { passive: false });
   window.addEventListener("touchend", endStroke);
@@ -407,6 +601,18 @@
     if (!drawingEnabled) return;
     clearCanvas();
   });
+
+  if (undoBtn) {
+    undoBtn.addEventListener("click", function () {
+      popUndoState();
+    });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", function () {
+      downloadDrawing();
+    });
+  }
 
   modeDrawBtn.addEventListener("click", function () {
     setBrushMode("draw");
@@ -447,6 +653,25 @@
   window.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       hideVerdictModal();
+      hideRevealOverlay();
+      hideCountdown();
+      return;
+    }
+    // Keyboard shortcuts (only when not typing in an input)
+    var tag = (event.target && event.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+      event.preventDefault();
+      popUndoState();
+      return;
+    }
+    if (!drawingEnabled) return;
+    if (event.key === "b" || event.key === "B") {
+      setBrushMode("draw");
+    } else if (event.key === "e" || event.key === "E") {
+      setBrushMode("erase");
+    } else if (event.key === "c" || event.key === "C") {
+      clearCanvas();
     }
   });
 

@@ -2070,7 +2070,7 @@ function toggleServerDownWhyPanel() {
 function scrollToBottom() {
   if (!chat) return;
   if (!userSettings.autoScroll) return;
-  chat.scrollTop = chat.scrollHeight;
+  chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
 }
 
 function createDefaultWorkspaceAssistantMemory() {
@@ -5351,10 +5351,53 @@ function setBubbleContent(bubble, text, markdown) {
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
     bubble.innerHTML = marked.parse(text);
+    // Add copy button to each code block
+    bubble.querySelectorAll("pre").forEach(function (pre) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "code-block-wrapper";
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "code-copy-btn";
+      copyBtn.type = "button";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", function () {
+        const code = pre.querySelector("code");
+        const textToCopy = code ? code.textContent : pre.textContent;
+        navigator.clipboard.writeText(textToCopy).then(function () {
+          copyBtn.textContent = "Copied!";
+          setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+        }).catch(function () {
+          copyBtn.textContent = "Failed";
+          setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+        });
+      });
+      wrapper.appendChild(copyBtn);
+    });
   } else {
     bubble.classList.remove("markdown");
     bubble.classList.add("plain");
     bubble.textContent = text;
+  }
+  // Add bubble copy button for bot messages
+  const msgRow = bubble.closest(".msg.bot");
+  if (msgRow && !bubble.querySelector(".bubble-copy-btn")) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "bubble-copy-btn";
+    copyBtn.type = "button";
+    copyBtn.title = "Copy message";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", function () {
+      const textToCopy = bubble.classList.contains("markdown") ? bubble.innerText : bubble.textContent;
+      navigator.clipboard.writeText(textToCopy).then(function () {
+        copyBtn.textContent = "Copied!";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+      }).catch(function () {
+        copyBtn.textContent = "Failed";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+      });
+    });
+    bubble.appendChild(copyBtn);
   }
 }
 

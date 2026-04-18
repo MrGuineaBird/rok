@@ -20,6 +20,7 @@
         <section class="pict-canvas-wrap" aria-label="Drawing area">
           <canvas id="pictCanvas" width="900" height="520" class="pict-canvas"></canvas>
           <p id="pictCanvasHint" class="pict-hint">Drawing unlocks when the round starts.</p>
+          <div id="pictCursorPreview" class="pict-cursor-preview" hidden></div>
         </section>
 
         <aside class="pict-side" aria-label="Prompt and drawing tools">
@@ -41,7 +42,7 @@
           <details class="pict-tools" id="pictToolsPanel" open>
             <summary class="pict-tools-summary">
               <span class="pict-tools-summary-label">Drawing tools</span>
-              <span class="pict-tools-summary-hint">Color · line width · eraser · clear — tap to fold</span>
+              <span class="pict-tools-summary-hint">Color · line width · eraser · undo · shortcuts: B draw, E erase, C clear, Ctrl+Z undo</span>
             </summary>
             <div class="pict-tools-body">
               <div class="pict-tools-row pict-tools-row--modes" role="group" aria-label="Brush mode">
@@ -73,7 +74,9 @@
                 </div>
               </div>
               <div class="pict-tools-row pict-tools-row--actions">
+                <button id="pictUndoBtn" type="button" class="pict-btn" disabled>Undo</button>
                 <button id="pictClearBtn" type="button" class="pict-btn" disabled>Clear canvas</button>
+                <button id="pictDownloadBtn" type="button" class="pict-btn">Save drawing</button>
               </div>
             </div>
           </details>
@@ -91,6 +94,15 @@
     <footer class="pict-footer">
       <span>Powered by your ROK backend · Ollama Cloud vision</span>
     </footer>
+  </div>
+  <div id="pictCountdownOverlay" class="pict-countdown-overlay" hidden>
+    <div class="pict-countdown-prompt" id="pictCountdownPrompt"></div>
+    <div class="pict-countdown-number" id="pictCountdownNumber">3</div>
+  </div>
+  <div id="pictRevealOverlay" class="pict-reveal-overlay" hidden>
+    <div class="pict-reveal-spotlight"></div>
+    <div class="pict-reveal-score" id="pictRevealScore" aria-live="assertive"></div>
+    <div class="pict-reveal-guess" id="pictRevealGuess"></div>
   </div>
   <div id="pictVerdictModal" class="pict-modal" hidden>
     <div id="pictVerdictBackdrop" class="pict-modal-backdrop"></div>
