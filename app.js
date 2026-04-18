@@ -5528,10 +5528,10 @@ function setBubbleContent(bubble, text, markdown) {
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
     // Protect math from marked, then restore after parsing
-    var protected = hasKaTeX ? protectMathForMarked(text) : null;
-    var rawHtml = marked.parse(protected ? protected.text : text);
-    if (protected) {
-      rawHtml = restoreMathAfterMarked(rawHtml, protected.mathBlocks);
+    var mathProtected = hasKaTeX ? protectMathForMarked(text) : null;
+    var rawHtml = marked.parse(mathProtected ? mathProtected.text : text);
+    if (mathProtected) {
+      rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
     }
     bubble.innerHTML = rawHtml;
     // Render math (KaTeX)
@@ -6199,9 +6199,9 @@ async function send() {
     setThinkingSummaryLabel("Thinking...");
     // Render thinking body with markdown + KaTeX
     if (hasMarked) {
-      var protected = hasKaTeX ? protectMathForMarked(thinkingText.trim()) : null;
-      var html = marked.parse(protected ? protected.text : thinkingText.trim());
-      if (protected) html = restoreMathAfterMarked(html, protected.mathBlocks);
+      var mathProtected = hasKaTeX ? protectMathForMarked(thinkingText.trim()) : null;
+      var html = marked.parse(mathProtected ? mathProtected.text : thinkingText.trim());
+      if (mathProtected) html = restoreMathAfterMarked(html, mathProtected.mathBlocks);
       thinkingPanel.body.innerHTML = html;
       renderKatexInElement(thinkingPanel.body);
     } else {
