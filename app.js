@@ -7741,8 +7741,8 @@ var _correctionTargetText = "";
 function addCorrectMeButton(bubble) {
   if (!bubble) return;
   // Only add to bot markdown bubbles
-  var row = bubble.closest(".msg-row");
-  if (!row || !row.classList.contains("bot")) return;
+  var row = bubble.closest(".msg.bot");
+  if (!row) return;
   var btn = document.createElement("button");
   btn.className = "correct-me-btn";
   btn.type = "button";

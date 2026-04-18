@@ -3965,7 +3965,7 @@ body.settings-compact .attachment-list {
   font-family: "Sora", "Segoe UI", sans-serif;
 }
 
-.msg-row.bot:hover .correct-me-btn {
+.msg.bot:hover .correct-me-btn {
   opacity: 1;
 }
 
