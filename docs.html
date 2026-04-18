@@ -22,7 +22,6 @@
       <nav class="docs-top-links" aria-label="Docs quick links">
         <a class="docs-top-link" href="index.html">Home</a>
         <a class="docs-top-link" href="about.html">About Me</a>
-        <a class="docs-top-link" href="settings.html">Settings</a>
       </nav>
     </header>
 
@@ -164,7 +163,8 @@
           <h2>API Access</h2>
           <p>
             ROK API keys are manually reviewed during beta. Request access first, then use your key in
-            <code>X-ROK-API-Key</code> for external requests.
+            <code>X-ROK-API-Key</code> for external requests. The base URL for all endpoints is
+            <code>https://rokbackendreal.kyklos.online</code>.
           </p>
           <button id="requestApiKeyBtn" class="docs-primary-btn" type="button">Request API Key</button>
           <p class="docs-note">
@@ -172,6 +172,7 @@
             returns <code>429</code> with <code>{"error":"API key request limit exceeded"}</code>.
           </p>
 
+          <h3>Authentication Errors</h3>
           <table class="docs-table">
             <thead>
               <tr>
@@ -195,6 +196,150 @@
             </tbody>
           </table>
 
+          <h3>Endpoints</h3>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Path</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>POST</code></td>
+                <td><code>/api/chat</code></td>
+                <td>Send a message and receive a streaming SSE response</td>
+              </tr>
+              <tr>
+                <td><code>POST</code></td>
+                <td><code>/api/intent</code></td>
+                <td>Classify the intent of a message (returns JSON)</td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/models</code></td>
+                <td>List available models and the default model</td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/health</code></td>
+                <td>Backend health check</td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/status</code></td>
+                <td>Alias for <code>/api/health</code></td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/client-config</code></td>
+                <td>Client limits, model params, auth config, and quota info</td>
+              </tr>
+              <tr>
+                <td><code>POST</code></td>
+                <td><code>/api/auth/login</code></td>
+                <td>Start or refresh a server session</td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/auth/session</code></td>
+                <td>Check current session status and rate limits</td>
+              </tr>
+              <tr>
+                <td><code>POST</code></td>
+                <td><code>/api/auth/logout</code></td>
+                <td>End the current session</td>
+              </tr>
+              <tr>
+                <td><code>GET/POST</code></td>
+                <td><code>/api/pictionary/judge</code></td>
+                <td>Submit a drawing for AI judging (ROK Pictionary)</td>
+              </tr>
+              <tr>
+                <td><code>GET</code></td>
+                <td><code>/api/pictionary/prompt</code></td>
+                <td>Get a random drawing prompt (ROK Pictionary)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>/api/chat Request Body</h3>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>message</code></td>
+                <td>string</td>
+                <td>Yes</td>
+                <td>The user's message text</td>
+              </tr>
+              <tr>
+                <td><code>history</code></td>
+                <td>array</td>
+                <td>Yes</td>
+                <td>Conversation history as <code>[{"role":"user"|"assistant","content":"..."}</code>]</td>
+              </tr>
+              <tr>
+                <td><code>model</code></td>
+                <td>string</td>
+                <td>No</td>
+                <td>Model ID to use (e.g. <code>gpt-oss:20b-cloud</code>, <code>gpt-oss:120b-cloud</code>, <code>glm-5.1:cloud</code>)</td>
+              </tr>
+              <tr>
+                <td><code>workspace_context</code></td>
+                <td>string</td>
+                <td>No</td>
+                <td>Additional context from the workspace editor</td>
+              </tr>
+              <tr>
+                <td><code>attachments</code></td>
+                <td>array</td>
+                <td>No</td>
+                <td>File/image attachments (objects with <code>type</code>, <code>name</code>, <code>content</code>)</td>
+              </tr>
+              <tr>
+                <td><code>enable_thinking</code></td>
+                <td>boolean</td>
+                <td>No</td>
+                <td>Enable thinking/reasoning mode (default: true where supported)</td>
+              </tr>
+              <tr>
+                <td><code>enable_web_search</code></td>
+                <td>boolean</td>
+                <td>No</td>
+                <td>Enable web search augmentation (default: false)</td>
+              </tr>
+              <tr>
+                <td><code>skip_tools</code></td>
+                <td>boolean</td>
+                <td>No</td>
+                <td>Skip tool-calling behavior (default: false)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>/api/chat Response</h3>
+          <p>
+            The response is a <strong>streaming Server-Sent Events (SSE)</strong> stream. Each line begins with
+            <code>data:</code> followed by a JSON object. Token chunks look like:
+          </p>
+          <pre><code>data: {"token":"Hello"}
+data: {"token":" world"}
+data: {"token":"!"}</code></pre>
+          <p>
+            The stream ends when the connection closes. Non-streaming error responses return JSON with an
+            <code>error</code> field.
+          </p>
+
+          <h3>Code Examples</h3>
           <div class="docs-api-example-controls">
             <label class="docs-example-label" for="apiExampleLanguage">Example Language</label>
             <select id="apiExampleLanguage" class="docs-example-select">
@@ -207,7 +352,7 @@
           <div class="docs-block" data-api-example="js">
             <h3 class="docs-block-title">JavaScript Example (with built-in token parser)</h3>
             <pre><code>async function runRokChat() {
-  const apiBase = "https://rokapi.kyklos.online";
+  const apiBase = "https://rokbackendreal.kyklos.online";
   const apiKey = "YOUR_ISSUED_API_KEY_HERE";
 
   const response = await fetch(`${apiBase}/api/chat`, {
@@ -217,8 +362,9 @@
       "X-ROK-API-Key": apiKey
     },
     body: JSON.stringify({
-      message: "Give me a quick 3-point summary of photosynthesis.", // example prompt
-      history: []
+      message: "Give me a quick 3-point summary of photosynthesis.",
+      history: [],
+      model: "gpt-oss:20b-cloud"  // optional: pick a specific model
     })
   });
 
@@ -285,7 +431,7 @@ runRokChat()
             <pre><code>import json
 import requests
 
-API_BASE = "https://rokapi.kyklos.online"
+API_BASE = "https://rokbackendreal.kyklos.online"
 API_KEY = "YOUR_ISSUED_API_KEY_HERE"
 
 headers = {
@@ -296,6 +442,7 @@ headers = {
 payload = {
     "message": "Explain photosynthesis in 3 bullet points.",
     "history": [],
+    "model": "gpt-oss:20b-cloud",  # optional: pick a specific model
 }
 
 with requests.post(
@@ -337,14 +484,14 @@ with requests.post(
 
           <div class="docs-block" data-api-example="curl" hidden>
             <h3 class="docs-block-title">cURL Example (raw stream)</h3>
-            <pre><code>curl -N -X POST "https://rokapi.kyklos.online/api/chat" ^
+            <pre><code>curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" ^
   -H "Content-Type: application/json" ^
   -H "Accept: text/event-stream" ^
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" ^
   -d "{\"message\":\"Summarize this in 3 bullets.\",\"history\":[]}"
 
 # macOS/Linux line-continuation version:
-curl -N -X POST "https://rokapi.kyklos.online/api/chat" \
+curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" \
