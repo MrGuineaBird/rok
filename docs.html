@@ -311,7 +311,7 @@
                 <td><code>enable_thinking</code></td>
                 <td>boolean</td>
                 <td>No</td>
-                <td>Enable thinking/reasoning mode (default: true where supported)</td>
+                <td>Enable thinking/reasoning mode (default: true where supported). Set to false to disable thinking and strip any <arg_key> tags from the response.</td>
               </tr>
               <tr>
                 <td><code>enable_web_search</code></td>
@@ -329,7 +329,7 @@
                 <td><code>tools</code></td>
                 <td>array</td>
                 <td>No</td>
-                <td>Tool definitions in OpenAI function-calling format (max 20). See <a href="#tool-calling">Tool Calling</a> below.</td>
+                <td>Tool definitions in OpenAI function-calling format (max 100). See <a href="#tool-calling">Tool Calling</a> below.</td>
               </tr>
             </tbody>
           </table>
@@ -402,7 +402,7 @@
               <tr><th>Limit</th><th>Value</th></tr>
             </thead>
             <tbody>
-              <tr><td>Max tools per request</td><td>20</td></tr>
+              <tr><td>Max tools per request</td><td>100</td></tr>
               <tr><td>Max tool name length</td><td>64 characters</td></tr>
               <tr><td>Max tool description length</td><td>512 characters</td></tr>
               <tr><td>Max parameters schema size</td><td>4096 characters</td></tr>
@@ -420,7 +420,7 @@
   "ok": true,
   "tool_calling": {
     "supported": true,
-    "max_tools": 20,
+    "max_tools": 100,
     "max_name_len": 64,
     "max_desc_len": 512,
     "max_params_schema_chars": 4096
