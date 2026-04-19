@@ -413,7 +413,8 @@ data: {"token":"!"}</code></pre>
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-ROK-API-Key": apiKey
+      "X-ROK-API-Key": apiKey,
+      "X-Custom-Identity": "Nova"  // optional: rename the AI (default is "ROK")
     },
     body: JSON.stringify({
       message: "Give me a quick 3-point summary of photosynthesis.",
@@ -492,6 +493,7 @@ headers = {
     "Content-Type": "application/json",
     "Accept": "text/event-stream",
     "X-ROK-API-Key": API_KEY,
+    "X-Custom-Identity": "Nova",  # optional: rename the AI (default is "ROK")
 }
 payload = {
     "message": "Explain photosynthesis in 3 bullet points.",
@@ -542,6 +544,7 @@ with requests.post(
   -H "Content-Type: application/json" ^
   -H "Accept: text/event-stream" ^
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" ^
+  -H "X-Custom-Identity: Nova" ^
   -d "{\"message\":\"Summarize this in 3 bullets.\",\"history\":[]}"
 
 # macOS/Linux line-continuation version:
@@ -549,6 +552,7 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" \
+  -H "X-Custom-Identity: Nova" \
   -d '{"message":"Summarize this in 3 bullets.","history":[]}'
 
 # You will receive streaming SSE chunks in lines that begin with:
