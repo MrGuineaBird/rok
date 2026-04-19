@@ -62,6 +62,7 @@ const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
+const toolsToggleBtn = document.getElementById("toolsToggleBtn");
 const fileInput = document.getElementById("fileInput");
 const sandboxFileInput = document.getElementById("sandboxFileInput");
 const attachmentList = document.getElementById("attachmentList");
@@ -449,6 +450,7 @@ let compactingBarElement = null;
 let compactingBarTimer = null;
 let composerTrayOpen = false;
 let webSearchEnabled = false;
+let toolsEnabled = false;
 let modelPickerOpen = false;
 
 const hasMarked = typeof marked !== "undefined";
@@ -5834,6 +5836,125 @@ function setWebSearchEnabled(nextEnabled) {
   webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
 }
 
+function setToolsEnabled(nextEnabled) {
+  toolsEnabled = Boolean(nextEnabled);
+  if (!toolsToggleBtn) return;
+  toolsToggleBtn.setAttribute("aria-pressed", toolsEnabled ? "true" : "false");
+  toolsToggleBtn.classList.toggle("is-active", toolsEnabled);
+  toolsToggleBtn.textContent = toolsEnabled ? "Tools On" : "Tools";
+}
+
+// --- Built-in tool definitions (client-side execution) ---
+const BUILTIN_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "calculator",
+      description: "Evaluate a mathematical expression and return the numeric result. Supports basic arithmetic, powers, and common math functions.",
+      parameters: {
+        type: "object",
+        properties: {
+          expression: { type: "string", description: "The mathematical expression to evaluate, e.g. '2 + 3 * 4' or 'sqrt(144)'" }
+        },
+        required: ["expression"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "current_datetime",
+      description: "Get the current date, time, and day of the week in the user's local timezone.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_uuid",
+      description: "Generate a random UUID (version 4).",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "text_transform",
+      description: "Transform text: uppercase, lowercase, title case, reverse, or count characters/words.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The input text to transform" },
+          operation: { type: "string", enum: ["uppercase", "lowercase", "titlecase", "reverse", "char_count", "word_count"], "description": "The transformation to apply" }
+        },
+        required: ["text", "operation"]
+      }
+    }
+  }
+];
+
+const BUILTIN_TOOL_MAX_LOOP = 5;
+
+function executeBuiltinTool(name, args) {
+  const a = args && typeof args === "object" ? args : {};
+  try {
+    switch (name) {
+      case "calculator": {
+        const expr = String(a.expression || "").replace(/[^0-9+\-*/().%^\s]|sqrt|abs|ceil|floor|round|sin|cos|tan|log|pi|e/gi, "");
+        if (!expr.trim()) return { ok: false, error: "Empty expression." };
+        const safeExpr = expr
+          .replace(/\^/g, "**")
+          .replace(/sqrt\(/gi, "Math.sqrt(")
+          .replace(/abs\(/gi, "Math.abs(")
+          .replace(/ceil\(/gi, "Math.ceil(")
+          .replace(/floor\(/gi, "Math.floor(")
+          .replace(/round\(/gi, "Math.round(")
+          .replace(/sin\(/gi, "Math.sin(")
+          .replace(/cos\(/gi, "Math.cos(")
+          .replace(/tan\(/gi, "Math.tan(")
+          .replace(/log\(/gi, "Math.log(")
+          .replace(/\bpi\b/gi, "Math.PI")
+          .replace(/\be\b/g, "Math.E");
+        const result = new Function("return (" + safeExpr + ")")();
+        if (typeof result !== "number" || !isFinite(result)) return { ok: false, error: "Result is not a finite number." };
+        return { ok: true, result: result };
+      }
+      case "current_datetime": {
+        const now = new Date();
+        return { ok: true, result: now.toLocaleString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) };
+      }
+      case "generate_uuid": {
+        return { ok: true, result: crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16); }) };
+      }
+      case "text_transform": {
+        const text = String(a.text || "");
+        const op = String(a.operation || "").toLowerCase();
+        switch (op) {
+          case "uppercase": return { ok: true, result: text.toUpperCase() };
+          case "lowercase": return { ok: true, result: text.toLowerCase() };
+          case "titlecase": return { ok: true, result: text.replace(/\w\S*/g, t => t[0].toUpperCase() + t.slice(1).toLowerCase()) };
+          case "reverse": return { ok: true, result: text.split("").reverse().join("") };
+          case "char_count": return { ok: true, result: text.length };
+          case "word_count": return { ok: true, result: text.trim() ? text.trim().split(/\s+/).length : 0 };
+          default: return { ok: false, error: `Unknown operation: ${op}` };
+        }
+      }
+      default:
+        return { ok: false, error: `Unknown tool: ${name}` };
+    }
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
 function refreshSendState() {
   const cooldownActive = Date.now() < nextAllowedAt;
   const uiLocked = isSending || isIntentClassificationLoading;
@@ -5847,6 +5968,9 @@ function refreshSendState() {
   }
   if (webToggleBtn) {
     webToggleBtn.disabled = uiLocked;
+  }
+  if (toolsToggleBtn) {
+    toolsToggleBtn.disabled = uiLocked;
   }
   if (fileInput) {
     fileInput.disabled = uiLocked;
@@ -6111,6 +6235,7 @@ async function send() {
   let insideThinkTag = false;
   let answerStarted = false;
   let assistantStreamStarted = false;
+  let pendingToolCalls = [];
   let writeBackToWorkspace = false;
   let useStoryCanvas = false;
   let workspaceContext = "";
@@ -6250,6 +6375,10 @@ async function send() {
   const handleToolCalls = (toolCalls, assistantContent) => {
     if (!Array.isArray(toolCalls) || !toolCalls.length) return;
     markAssistantStreamStarted();
+    // Collect tool calls for auto-execution after stream ends
+    for (const tc of toolCalls) {
+      pendingToolCalls.push({ ...tc, _assistantContent: assistantContent || "" });
+    }
     // Show a status line for each tool call the model wants to make
     const callNames = toolCalls.map(tc => {
       const fn = tc.function || tc;
@@ -6436,6 +6565,9 @@ async function send() {
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
     }
+    if (toolsEnabled) {
+      requestBody.tools = BUILTIN_TOOLS;
+    }
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -6518,11 +6650,175 @@ async function send() {
         noteAnswerStarted();
       }
       finalizeThinkingPanel(Boolean(partialText), true);
+
+      // --- Auto-execute built-in tool calls and loop ---
+      if (pendingToolCalls.length > 0 && toolsEnabled) {
+        let toolLoopCount = 0;
+        let toolHistory = [...recentHistory];
+        // Add the original user message to tool history if not already there
+        if (!toolHistory.length || toolHistory[toolHistory.length - 1].role !== "user") {
+          toolHistory.push({ role: "user", content: messageForApi });
+        }
+
+        while (pendingToolCalls.length > 0 && toolLoopCount < BUILTIN_TOOL_MAX_LOOP && !stopRequested) {
+          toolLoopCount++;
+          const callsToExecute = [...pendingToolCalls];
+          pendingToolCalls = [];
+
+          // Build assistant message with tool_calls for history
+          const assistantContent = callsToExecute[0]._assistantContent || partialText || "";
+          const toolCallsForHistory = callsToExecute.map(tc => ({
+            id: tc.id || `call_${toolLoopCount}_${Date.now()}`,
+            type: "function",
+            function: {
+              name: (tc.function && tc.function.name) || tc.name || "unknown",
+              arguments: (tc.function && tc.function.arguments) || JSON.stringify(tc.arguments || tc.params || {})
+            }
+          }));
+          toolHistory.push({ role: "assistant", content: assistantContent, tool_calls: toolCallsForHistory });
+
+          // Execute each tool call and add results to history
+          for (const tc of callsToExecute) {
+            const toolName = (tc.function && tc.function.name) || tc.name || "unknown";
+            let args = {};
+            try {
+              const argsRaw = (tc.function && tc.function.arguments) || JSON.stringify(tc.arguments || tc.params || {});
+              args = typeof argsRaw === "string" ? JSON.parse(argsRaw) : (argsRaw || {});
+            } catch (_) { args = {}; }
+
+            const toolResult = executeBuiltinTool(toolName, args);
+            const callId = tc.id || `call_${toolLoopCount}_${Date.now()}`;
+            const resultContent = toolResult.ok
+              ? JSON.stringify(toolResult.result)
+              : JSON.stringify({ error: toolResult.error });
+
+            // Show tool result in chat
+            handleStatusUpdate(`Tool ${toolName}: ${toolResult.ok ? String(toolResult.result) : "Error: " + toolResult.error}`);
+
+            toolHistory.push({
+              role: "tool",
+              name: toolName,
+              tool_call_id: callId,
+              content: resultContent
+            });
+          }
+
+          // Make follow-up request with tool results
+          try {
+            const followupBody = {
+              message: "",
+              workspace_context: "",
+              attachments: [],
+              history: toolHistory,
+              model: sessionModel,
+              max_tokens: clientLimits.maxResponseTokens,
+              enable_thinking: true,
+              tools: BUILTIN_TOOLS
+            };
+            if (webSearchEnabled) {
+              followupBody.enable_web_search = true;
+            }
+
+            const followupRes = await fetchWithBanGuard(API_URL, {
+              method: "POST",
+              headers: buildApiHeaders(true),
+              signal: activeRequestController ? activeRequestController.signal : undefined,
+              body: JSON.stringify(followupBody)
+            });
+
+            if (!followupRes.ok) break;
+
+            const followupContentType = (followupRes.headers.get("content-type") || "").toLowerCase();
+            applyThinkingQuotaFromHeaders(followupRes);
+            applyDaedalusQuotaFromHeaders(followupRes);
+
+            if (followupContentType.includes("text/event-stream") || followupContentType.includes("json") || followupContentType.includes("ndjson")) {
+              const followupReader = followupRes.body && followupRes.body.getReader ? followupRes.body.getReader() : null;
+              if (!followupReader) break;
+
+              const followupDecoder = new TextDecoder();
+              let followupBuffer = "";
+              let followupDone = false;
+
+              while (!followupDone && !stopRequested) {
+                const { value: fv, done: fd } = await followupReader.read();
+                if (fd) { followupDone = true; break; }
+                followupBuffer += followupDecoder.decode(fv, { stream: true });
+
+                const fBlocks = followupBuffer.split("\n\n");
+                followupBuffer = fBlocks.pop() || "";
+
+                for (const fBlock of fBlocks) {
+                  const fLines = fBlock.split("\n");
+                  for (const fLine of fLines) {
+                    const fTrimmed = fLine.trim();
+                    if (!fTrimmed || fTrimmed.startsWith(":")) continue;
+                    if (!fTrimmed.startsWith("data:")) continue;
+                    const fData = fTrimmed.slice(5);
+                    if (fData.trim() === "[DONE]") { followupDone = true; break; }
+                    const fParsed = extractTokenFromStreamPayload(fData);
+                    if (fParsed.thinking) { handleThinking(fParsed.thinking); }
+                    if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
+                    if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
+                    if (fParsed.status) { handleStatusUpdate(fParsed.status); }
+                  }
+                }
+              }
+              // Process remaining buffer
+              if (followupBuffer.trim()) {
+                for (const fLine of followupBuffer.split("\n")) {
+                  const fTrimmed = fLine.trim();
+                  if (!fTrimmed || fTrimmed.startsWith(":") || !fTrimmed.startsWith("data:")) continue;
+                  const fData = fTrimmed.slice(5);
+                  if (fData.trim() === "[DONE]") break;
+                  const fParsed = extractTokenFromStreamPayload(fData);
+                  if (fParsed.thinking) { handleThinking(fParsed.thinking); }
+                  if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
+                  if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
+                  if (fParsed.status) { handleStatusUpdate(fParsed.status); }
+                }
+              }
+            }
+          } catch (followupErr) {
+            if (followupErr && followupErr.name !== "AbortError") {
+              console.log("Tool follow-up error:", followupErr);
+            }
+            break;
+          }
+
+          // If more tool_calls were collected during the follow-up, the loop continues
+        }
+
+        // After tool loop, finalize the text
+        flushTaggedTokenCarry();
+        finalizeThinkingPanel(Boolean(partialText), true);
+        if (!partialText && thinkingText && thinkingText.trim()) {
+          partialText = thinkingText.trim();
+          thinkingText = "";
+          if (thinkingPanel) thinkingPanel.shell.hidden = true;
+        }
+      }
+
+      if (!partialText) {
+        // The model may have answered entirely inside <think> tags with no
+        // separate answer — surface the thinking content rather than "(No response)".
+        if (thinkingText && thinkingText.trim()) {
+          partialText = thinkingText.trim();
+          thinkingText = "";
+          if (thinkingPanel) {
+            thinkingPanel.shell.hidden = true;
+          }
+        } else {
+          partialText = "(No response)";
+        }
+      }
+      removeTypingIndicator();
+
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
-          await typeInStoryCanvas(storyCanvas, bubble, reply);
+          await typeInStoryCanvas(storyCanvas, bubble, partialText);
         } else {
-          await typeIn(bubble, reply);
+          await typeIn(bubble, partialText);
         }
         if (stopRequested) {
           return;
@@ -6531,13 +6827,14 @@ async function send() {
           bubble.textContent = "Story ready. Use Expand to read.";
           storyCanvas.setStatus("Complete");
         }
-        history.push({ role: "assistant", content: reply });
+        history.push({ role: "assistant", content: partialText });
         trimHistoryToLimit();
         syncCurrentSessionFromHistory();
+        addCorrectMeButton(bubble);
       }
 
       if (writeBackToWorkspace) {
-        const resolvedOutputType = inferWorkspaceOutputType(reply, text);
+        const resolvedOutputType = inferWorkspaceOutputType(partialText, text);
         setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.preparing, {
           intentText: hasWorkspaceContext
             ? "Finalizing clean workspace-ready output from document context."
@@ -6545,7 +6842,7 @@ async function send() {
           outputTypeText: resolvedOutputType,
           summaryText: WORKSPACE_GENERATION_PHASES.preparing
         });
-        const writeBackResult = await appendAssistantReplyToWorkspace(reply, { sourcePrompt: text });
+        const writeBackResult = await appendAssistantReplyToWorkspace(partialText, { sourcePrompt: text });
         finalizeWorkspaceAssistantGeneration(writeBackResult, {
           stopped: false,
           hasWorkspaceContext
@@ -6714,6 +7011,132 @@ async function send() {
 
     flushTaggedTokenCarry();
     finalizeThinkingPanel(Boolean(partialText), true);
+
+    // --- Auto-execute built-in tool calls and loop ---
+    if (pendingToolCalls.length > 0 && toolsEnabled) {
+      let toolLoopCount = 0;
+      let toolHistory = [...recentHistory];
+      if (!toolHistory.length || toolHistory[toolHistory.length - 1].role !== "user") {
+        toolHistory.push({ role: "user", content: messageForApi });
+      }
+
+      while (pendingToolCalls.length > 0 && toolLoopCount < BUILTIN_TOOL_MAX_LOOP && !stopRequested) {
+        toolLoopCount++;
+        const callsToExecute = [...pendingToolCalls];
+        pendingToolCalls = [];
+
+        const assistantContent = callsToExecute[0]._assistantContent || partialText || "";
+        const toolCallsForHistory = callsToExecute.map(tc => ({
+          id: tc.id || `call_${toolLoopCount}_${Date.now()}`,
+          type: "function",
+          function: {
+            name: (tc.function && tc.function.name) || tc.name || "unknown",
+            arguments: (tc.function && tc.function.arguments) || JSON.stringify(tc.arguments || tc.params || {})
+          }
+        }));
+        toolHistory.push({ role: "assistant", content: assistantContent, tool_calls: toolCallsForHistory });
+
+        for (const tc of callsToExecute) {
+          const toolName = (tc.function && tc.function.name) || tc.name || "unknown";
+          let args = {};
+          try {
+            const argsRaw = (tc.function && tc.function.arguments) || JSON.stringify(tc.arguments || tc.params || {});
+            args = typeof argsRaw === "string" ? JSON.parse(argsRaw) : (argsRaw || {});
+          } catch (_) { args = {}; }
+
+          const toolResult = executeBuiltinTool(toolName, args);
+          const callId = tc.id || `call_${toolLoopCount}_${Date.now()}`;
+          const resultContent = toolResult.ok
+            ? JSON.stringify(toolResult.result)
+            : JSON.stringify({ error: toolResult.error });
+
+          handleStatusUpdate(`Tool ${toolName}: ${toolResult.ok ? String(toolResult.result) : "Error: " + toolResult.error}`);
+
+          toolHistory.push({
+            role: "tool",
+            name: toolName,
+            tool_call_id: callId,
+            content: resultContent
+          });
+        }
+
+        try {
+          const followupBody = {
+            message: "",
+            workspace_context: "",
+            attachments: [],
+            history: toolHistory,
+            model: sessionModel,
+            max_tokens: clientLimits.maxResponseTokens,
+            enable_thinking: true,
+            tools: BUILTIN_TOOLS
+          };
+          if (webSearchEnabled) followupBody.enable_web_search = true;
+
+          const followupRes = await fetchWithBanGuard(API_URL, {
+            method: "POST",
+            headers: buildApiHeaders(true),
+            signal: activeRequestController ? activeRequestController.signal : undefined,
+            body: JSON.stringify(followupBody)
+          });
+          if (!followupRes.ok) break;
+
+          applyThinkingQuotaFromHeaders(followupRes);
+          applyDaedalusQuotaFromHeaders(followupRes);
+
+          const fReader = followupRes.body && followupRes.body.getReader ? followupRes.body.getReader() : null;
+          if (!fReader) break;
+          const fDecoder = new TextDecoder();
+          let fBuf = "";
+          let fDone = false;
+
+          while (!fDone && !stopRequested) {
+            const { value: fv, done: fd } = await fReader.read();
+            if (fd) { fDone = true; break; }
+            fBuf += fDecoder.decode(fv, { stream: true });
+            const fBlocks = fBuf.split("\n\n");
+            fBuf = fBlocks.pop() || "";
+            for (const fBlock of fBlocks) {
+              for (const fLine of fBlock.split("\n")) {
+                const ft = fLine.trim();
+                if (!ft || ft.startsWith(":") || !ft.startsWith("data:")) continue;
+                const fd2 = ft.slice(5);
+                if (fd2.trim() === "[DONE]") { fDone = true; break; }
+                const fp = extractTokenFromStreamPayload(fd2);
+                if (fp.thinking) handleThinking(fp.thinking);
+                if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
+                if (fp.token) consumeTaggedTokenChunk(fp.token);
+                if (fp.status) handleStatusUpdate(fp.status);
+              }
+            }
+          }
+          if (fBuf.trim()) {
+            for (const fLine of fBuf.split("\n")) {
+              const ft = fLine.trim();
+              if (!ft || ft.startsWith(":") || !ft.startsWith("data:")) continue;
+              const fd2 = ft.slice(5);
+              if (fd2.trim() === "[DONE]") break;
+              const fp = extractTokenFromStreamPayload(fd2);
+              if (fp.thinking) handleThinking(fp.thinking);
+              if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
+              if (fp.token) consumeTaggedTokenChunk(fp.token);
+              if (fp.status) handleStatusUpdate(fp.status);
+            }
+          }
+        } catch (fErr) {
+          if (fErr && fErr.name !== "AbortError") console.log("Tool follow-up error:", fErr);
+          break;
+        }
+      }
+
+      flushTaggedTokenCarry();
+      finalizeThinkingPanel(Boolean(partialText), true);
+      if (!partialText && thinkingText && thinkingText.trim()) {
+        partialText = thinkingText.trim();
+        thinkingText = "";
+        if (thinkingPanel) thinkingPanel.shell.hidden = true;
+      }
+    }
 
     if (!partialText) {
       // The model may have answered entirely inside <think> tags with no
@@ -7132,6 +7555,13 @@ if (webToggleBtn) {
   webToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
     setWebSearchEnabled(!webSearchEnabled);
+  });
+}
+
+if (toolsToggleBtn) {
+  toolsToggleBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setToolsEnabled(!toolsEnabled);
   });
 }
 
@@ -7581,6 +8011,7 @@ if (onboardingNameInput) {
 autoResizeInput();
 setComposerTrayOpen(false);
 setWebSearchEnabled(false);
+setToolsEnabled(false);
 applyUserSettingsToRuntime();
 refreshSendState();
 setWorkspaceAssistantSuggestButtonLoading(false);
