@@ -7814,9 +7814,12 @@ function openCorrectionModal() {
   submitBtn.addEventListener("click", function () {
     var correction = textarea.value.trim();
     if (!correction) return;
-    submitCorrection(correction, _correctionTargetText);
-    overlay.remove();
-    addMessage("system", "Correction submitted! ROK will review it and learn from it.");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending...";
+    submitCorrection(correction, _correctionTargetText, function (ok, msg) {
+      overlay.remove();
+      addMessage("system", msg);
+    });
   });
 
   btnRow.appendChild(cancelBtn);
@@ -7837,7 +7840,7 @@ function openCorrectionModal() {
   textarea.focus();
 }
 
-function submitCorrection(correction, botResponse) {
+function submitCorrection(correction, botResponse, callback) {
   try {
     fetch(KNOWLEDGE_API_URL + "/review", {
       method: "POST",
@@ -7846,17 +7849,27 @@ function submitCorrection(correction, botResponse) {
         correction: correction,
         bot_response: String(botResponse || "").slice(0, 500)
       })
-    }).then(function (res) { return res.json(); }).then(function (data) {
+    }).then(function (res) {
+      if (res.ok) {
+        return res.json();
+      }
+      return res.json().catch(function () { return {}; }).then(function (d) {
+        d._status = res.status;
+        return d;
+      });
+    }).then(function (data) {
       if (data && data.ok) {
-        console.log("[Knowledge] Correction submitted:", correction);
-      } else if (data && data.error) {
-        addMessage("system", "Could not submit correction: " + data.error);
+        if (callback) callback(true, "Correction submitted successfully! ROK will review it.");
+      } else {
+        var errMsg = (data && data.error) ? data.error : "Unknown error";
+        if (data._status === 429) errMsg = "Rate limit exceeded — try again later.";
+        if (callback) callback(false, "Failed to submit: " + errMsg);
       }
     }).catch(function () {
-      // Silently fail
+      if (callback) callback(false, "Failed to submit: Network error.");
     });
   } catch (e) {
-    // Silently fail
+    if (callback) callback(false, "Failed to submit: " + e.message);
   }
 }
 

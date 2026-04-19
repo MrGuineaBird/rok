@@ -327,6 +327,59 @@
             </tbody>
           </table>
 
+          <h3>Custom Headers</h3>
+          <p>
+            These optional headers let you customize how the AI identifies itself and what system prompt it uses.
+            Useful if you're embedding ROK's API into your own product and want your own branding.
+          </p>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Header</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>X-Custom-Identity</code></td>
+                <td>string</td>
+                <td>
+                  Override the AI's name. By default, the AI calls itself "ROK". Set this to any name
+                  (e.g. <code>Nova</code>, <code>Atlas</code>) and the AI will refer to itself by that name instead.
+                  Max 64 characters. Only affects identity — safety rules still apply.
+                </td>
+              </tr>
+              <tr>
+                <td><code>X-Custom-System-Prompt</code></td>
+                <td>string</td>
+                <td>
+                  Replace the default system prompt entirely. The identity block and safety block are still
+                  appended automatically. Use this to give the AI custom instructions or personality.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4>Example: Custom Identity</h4>
+          <pre><code># The AI will call itself "Nova" instead of "ROK"
+curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-ROK-API-Key: YOUR_KEY" \
+  -H "X-Custom-Identity: Nova" \
+  -d '{"message":"Who are you?","history":[]}'
+
+# Response: "I'm Nova, an AI assistant..."</code></pre>
+
+          <h4>Example: Custom Identity + Custom System Prompt</h4>
+          <pre><code># Full branding override — the AI acts as "Atlas", a coding assistant
+curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-ROK-API-Key: YOUR_KEY" \
+  -H "X-Custom-Identity: Atlas" \
+  -H "X-Custom-System-Prompt: You are a concise coding assistant. Answer in code blocks when possible." \
+  -d '{"message":"How do I reverse a list in Python?","history":[]}'</code></pre>
+
           <h3>/api/chat Response</h3>
           <p>
             The response is a <strong>streaming Server-Sent Events (SSE)</strong> stream. Each line begins with
@@ -510,7 +563,7 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
             If you propose architecture changes, include request flow impact and migration steps.
           </p>
           <div class="docs-footer">
-            ROK Docs - updated February 23, 2026
+            ROK Docs - updated April 18, 2026
           </div>
         </section>
       </main>
@@ -577,27 +630,5 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   </script>
 </body>
 </html>
-
-<script>
-  if (window.top !== window.self) {
-    document.body.innerHTML = `
-      <div style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        text-align: center;
-      ">
-        <p style="font-size: 24px;">
-        Embedding of this website is not allowed.
-          Please use the verified link of 
-          <a href="${window.self.location.href}" target="_blank">
-            ${window.self.location.href}
-          </a>
-        </p>
-      </div>
-    `;
-  }
-</script>
 
 
