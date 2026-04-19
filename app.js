@@ -718,31 +718,33 @@ function extractTokenFromStreamPayload(payload) {
     return { token: "", thinking: "", status: "", done: true };
   }
   if (raw[0] !== "{") {
-    return { token: raw, thinking: "", status: "", done: false };
+    return { token: raw, thinking: "", status: "", done: false, tool_calls: null, assistant_content: "" };
   }
 
   let parsed = null;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { token: raw, thinking: "", status: "", done: false };
+    return { token: raw, thinking: "", status: "", done: false, tool_calls: null, assistant_content: "" };
   }
   if (!parsed || typeof parsed !== "object") {
-    return { token: "", thinking: "", status: "", done: false };
+    return { token: "", thinking: "", status: "", done: false, tool_calls: null, assistant_content: "" };
   }
 
   const done = Boolean(parsed.done);
   const thinking = typeof parsed.thinking === "string" ? parsed.thinking : "";
   const status = typeof parsed.status === "string" ? parsed.status : "";
+  const tool_calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : null;
+  const assistant_content = typeof parsed.assistant_content === "string" ? parsed.assistant_content : "";
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, status, done };
+      return { token: value, thinking, status, done, tool_calls, assistant_content };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, thinking, status, done };
+    return { token: parsed.message.content, thinking, status, done, tool_calls, assistant_content };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -766,14 +768,14 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, thinking, status, done: done || choiceDone };
+      return { token: joined, thinking, status, done: done || choiceDone, tool_calls, assistant_content };
     }
     if (done || choiceDone) {
-      return { token: "", thinking: "", status, done: true };
+      return { token: "", thinking: "", status, done: true, tool_calls: null, assistant_content: "" };
     }
   }
 
-  return { token: "", thinking, status, done };
+  return { token: "", thinking, status, done, tool_calls, assistant_content };
 }
 
 function splitThinkingFromText(text = "") {
@@ -6245,6 +6247,20 @@ async function send() {
 
     scrollToBottom();
   };
+  const handleToolCalls = (toolCalls, assistantContent) => {
+    if (!Array.isArray(toolCalls) || !toolCalls.length) return;
+    markAssistantStreamStarted();
+    // Show a status line for each tool call the model wants to make
+    const callNames = toolCalls.map(tc => {
+      const fn = tc.function || tc;
+      return fn.name || "unknown";
+    }).join(", ");
+    handleStatusUpdate(`Calling tool${toolCalls.length > 1 ? "s" : ""}: ${callNames}`);
+    // If the model also produced text content alongside tool calls, show it
+    if (assistantContent && typeof assistantContent === "string" && assistantContent.trim()) {
+      consumeTaggedTokenChunk(assistantContent);
+    }
+  };
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
@@ -6594,6 +6610,9 @@ async function send() {
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
           }
+          if (parsedPayload.tool_calls) {
+            handleToolCalls(parsedPayload.tool_calls, parsedPayload.assistant_content);
+          }
           if (parsedPayload.token) {
             consumeTaggedTokenChunk(parsedPayload.token);
           }
@@ -6619,6 +6638,9 @@ async function send() {
         if (parsedPayload.thinking) {
           handleThinking(parsedPayload.thinking);
         }
+        if (parsedPayload.tool_calls) {
+          handleToolCalls(parsedPayload.tool_calls, parsedPayload.assistant_content);
+        }
         if (parsedPayload.token) {
           consumeTaggedTokenChunk(parsedPayload.token);
         }
@@ -6642,6 +6664,9 @@ async function send() {
       }
       if (parsedPayload.thinking) {
         handleThinking(parsedPayload.thinking);
+      }
+      if (parsedPayload.tool_calls) {
+        handleToolCalls(parsedPayload.tool_calls, parsedPayload.assistant_content);
       }
       if (parsedPayload.token) {
         consumeTaggedTokenChunk(parsedPayload.token);

@@ -517,25 +517,3 @@
   </script>
 </body>
 </html>
-
-<script>
-  if (window.top !== window.self) {
-    document.body.innerHTML = `
-      <div style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        text-align: center;
-      ">
-        <p style="font-size: 24px;">
-        Embedding of this website is not allowed.
-          Please use the verified link of 
-          <a href="${window.self.location.href}" target="_blank">
-            ${window.self.location.href}
-          </a>
-        </p>
-      </div>
-    `;
-  }
-</script>

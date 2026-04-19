@@ -39,6 +39,7 @@
           <li><a href="#security">Security and Privacy</a></li>
           <li><a href="#roadmap">Roadmap</a></li>
           <li><a href="#api-access">API Access</a></li>
+          <li><a href="#tool-calling">Tool Calling</a></li>
           <li><a href="#contributing">Contributing</a></li>
         </ul>
       </aside>
@@ -324,8 +325,107 @@
                 <td>No</td>
                 <td>Skip tool-calling behavior (default: false)</td>
               </tr>
+              <tr>
+                <td><code>tools</code></td>
+                <td>array</td>
+                <td>No</td>
+                <td>Tool definitions in OpenAI function-calling format (max 20). See <a href="#tool-calling">Tool Calling</a> below.</td>
+              </tr>
             </tbody>
           </table>
+
+          <h3 id="tool-calling">Tool Calling (Client-Side Execution)</h3>
+          <p>
+            ROK supports <strong>client-side tool calling</strong> compatible with the OpenAI function-calling format.
+            You define tools in your request, the model decides when to call them, and <strong>your client code</strong>
+            executes the tools and sends the results back via the conversation history.
+          </p>
+          <p class="docs-note">
+            The ROK backend does <strong>not</strong> execute tools. It returns tool call suggestions in the SSE stream,
+            and your application is responsible for running them and feeding results back.
+          </p>
+
+          <h4>How It Works</h4>
+          <ol>
+            <li>You send a <code>/api/chat</code> request with a <code>tools</code> array defining available functions.</li>
+            <li>If the model decides to call a tool, the SSE stream emits a <code>tool_calls</code> event instead of token chunks.</li>
+            <li>Your client parses the <code>tool_calls</code> event, executes the tool(s) locally, and sends a follow-up request with the results in <code>history</code>.</li>
+            <li>The model then generates a final response using the tool results.</li>
+          </ol>
+
+          <h4>Tool Definition Format</h4>
+          <p>Each tool follows the OpenAI function-calling schema:</p>
+          <pre><code>{
+  "type": "function",
+  "function": {
+    "name": "get_weather",          // required, alphanumeric + underscores, max 64 chars
+    "description": "Get current weather", // max 512 chars
+    "parameters": {               // JSON Schema object, max 4096 chars
+      "type": "object",
+      "properties": {
+        "location": {"type": "string"}
+      },
+      "required": ["location"]
+    }
+  }
+}</code></pre>
+
+          <h4>SSE Event: tool_calls</h4>
+          <p>When the model wants to call tools, you receive this SSE event:</p>
+          <pre><code>data: {"tool_calls":[{"id":"call_abc123","type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"NYC\"}"}}],"assistant_content":""}</code></pre>
+          <p>
+            The <code>tool_calls</code> array contains one or more call objects. Each has an <code>id</code> (for matching results),
+            and a <code>function</code> object with <code>name</code> and <code>arguments</code> (a JSON string).
+            <code>assistant_content</code> may contain text the model produced alongside the tool calls.
+          </p>
+
+          <h4>Feeding Results Back</h4>
+          <p>After executing the tool(s), send a new <code>/api/chat</code> request with the full conversation in <code>history</code>:</p>
+          <pre><code>{
+  "message": "",
+  "history": [
+    {"role": "user", "content": "What's the weather in NYC?"},
+    {"role": "assistant", "content": "", "tool_calls": [
+      {"id": "call_abc123", "type": "function", "function": {"name": "get_weather", "arguments": "{\"location\":\"NYC\"}"}}
+    ]},
+    {"role": "tool", "name": "get_weather", "tool_call_id": "call_abc123", "content": "{\"temp\":72,\"condition\":\"sunny\"}"}
+  ],
+  "tools": [ ... ]
+}</code></pre>
+          <p class="docs-note">
+            Always include the same <code>tools</code> array in follow-up requests so the model can make additional calls if needed.
+          </p>
+
+          <h4>Tool Calling Limits</h4>
+          <table class="docs-table">
+            <thead>
+              <tr><th>Limit</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Max tools per request</td><td>20</td></tr>
+              <tr><td>Max tool name length</td><td>64 characters</td></tr>
+              <tr><td>Max tool description length</td><td>512 characters</td></tr>
+              <tr><td>Max parameters schema size</td><td>4096 characters</td></tr>
+              <tr><td>Max tool result content</td><td>50,000 characters</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Checking Tool Calling Support</h4>
+          <p>
+            The <code>/api/models</code> endpoint returns a <code>tool_calling</code> object confirming support and limits:
+          </p>
+          <pre><code>GET /api/models
+
+{
+  "ok": true,
+  "tool_calling": {
+    "supported": true,
+    "max_tools": 20,
+    "max_name_len": 64,
+    "max_desc_len": 512,
+    "max_params_schema_chars": 4096
+  }
+}</code></pre>
 
           <h3>Custom Headers</h3>
           <p>
@@ -567,7 +667,7 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
             If you propose architecture changes, include request flow impact and migration steps.
           </p>
           <div class="docs-footer">
-            ROK Docs - updated April 18, 2026
+            ROK Docs - updated April 19, 2026
           </div>
         </section>
       </main>
@@ -634,27 +734,5 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   </script>
 </body>
 </html>
-
-<script>
-  if (window.top !== window.self) {
-    document.body.innerHTML = `
-      <div style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        text-align: center;
-      ">
-        <p style="font-size: 24px;">
-        Embedding of this website is not allowed.
-          Please use the verified link of 
-          <a href="${window.self.location.href}" target="_blank">
-            ${window.self.location.href}
-          </a>
-        </p>
-      </div>
-    `;
-  }
-</script>
 
 
