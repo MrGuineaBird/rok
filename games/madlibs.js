@@ -27,7 +27,7 @@
   let currentStory = null;
   let filledWords = {};
 
-  // Generate story template via API
+  // Generate story template via API (handles SSE streaming response)
   async function generateStory() {
     showLoading();
     
@@ -49,9 +49,7 @@ Make it humorous and slightly absurd. Only return the story with the blanks, no 
           message: prompt,
           history: [],
           model: "qwen3.5:9b",
-          skip_tools: true,
-          stream: false,
-          max_tokens: 300
+          skip_tools: true
         })
       });
 
@@ -59,10 +57,27 @@ Make it humorous and slightly absurd. Only return the story with the blanks, no 
         throw new Error(`API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      const storyText = data.response || data.message || data.text || "";
+      // Read SSE stream and collect tokens
+      const responseText = await response.text();
+      const lines = responseText.split('\n');
+      let storyText = '';
       
-      if (!storyText) {
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data:')) {
+          try {
+            const jsonStr = trimmed.slice(5); // Remove 'data:' prefix
+            const data = JSON.parse(jsonStr);
+            if (data.token) {
+              storyText += data.token;
+            }
+          } catch (e) {
+            // Skip invalid JSON lines
+          }
+        }
+      }
+      
+      if (!storyText.trim()) {
         throw new Error("Empty response from AI");
       }
 
