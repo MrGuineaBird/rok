@@ -8,6 +8,7 @@
   var ctx = canvas.getContext("2d");
   var promptEl = document.getElementById("pictPrompt");
   var timerEl = document.getElementById("pictTimer");
+  var timerProgressEl = document.querySelector(".pict-timer-progress");
   var startBtn = document.getElementById("pictStartBtn");
   var clearBtn = document.getElementById("pictClearBtn");
   var undoBtn = document.getElementById("pictUndoBtn");
@@ -137,7 +138,7 @@
     revealOverlay.hidden = false;
     document.body.style.overflow = "hidden";
 
-    // After the full animation sequence (~3s), fade out and call onDone
+    // After the full animation sequence (~4s with new spotlight), fade out and call onDone
     setTimeout(function () {
       revealOverlay.style.transition = "opacity 0.5s ease";
       revealOverlay.style.opacity = "0";
@@ -147,7 +148,7 @@
         revealOverlay.style.transition = "";
         if (onDone) onDone();
       }, 500);
-    }, 3200);
+    }, 4200);
   }
 
   function syncWidthLabel() {
@@ -169,6 +170,19 @@
     if (toolsPanel) {
       toolsPanel.classList.toggle("pict-tools--color-muted", isErase);
     }
+    updateColorSwatchHighlight();
+  }
+
+  function updateColorSwatchHighlight() {
+    var currentColor = currentStrokeColor();
+    document.querySelectorAll(".pict-swatch").forEach(function (swatch) {
+      var swatchColor = swatch.getAttribute("data-color");
+      if (swatchColor && swatchColor.toLowerCase() === currentColor.toLowerCase()) {
+        swatch.classList.add("pict-swatch--active");
+      } else {
+        swatch.classList.remove("pict-swatch--active");
+      }
+    });
   }
 
   function currentStrokeColor() {
@@ -275,6 +289,16 @@
   function setTimerDisplay(sec) {
     timerEl.textContent = formatTime(sec);
     timerEl.classList.toggle("pict-timer--warn", sec <= 20 && sec > 0);
+    updateTimerProgress(sec);
+  }
+
+  function updateTimerProgress(sec) {
+    if (!timerProgressEl) return;
+    var totalSeconds = ROUND_SECONDS;
+    var progress = Math.max(0, sec / totalSeconds);
+    var circumference = 2 * Math.PI * 26; // r=26 from SVG
+    var offset = circumference * (1 - progress);
+    timerProgressEl.style.strokeDashoffset = offset;
   }
 
   function clearCanvas() {
@@ -370,6 +394,7 @@
     roundActive = false;
     drawingEnabled = false;
     canvas.classList.add("pict-canvas--locked");
+    canvas.closest(".pict-canvas-wrap").classList.remove("pict-canvas-wrap--drawing");
     startBtn.disabled = false;
     clearBtn.disabled = true;
     if (undoBtn) undoBtn.disabled = true;
@@ -470,6 +495,7 @@
       drawingEnabled = true;
       undoStack = [];
       canvas.classList.remove("pict-canvas--locked");
+      canvas.closest(".pict-canvas-wrap").classList.add("pict-canvas-wrap--drawing");
       hintEl.hidden = true;
       startBtn.disabled = true;
       clearBtn.disabled = false;
@@ -491,8 +517,9 @@
       if (onDone) onDone();
       return;
     }
+    // Don't show the prompt in the countdown overlay — it's already in the sidebar
     if (countdownPromptEl) {
-      countdownPromptEl.textContent = 'Draw: "' + promptText + '"';
+      countdownPromptEl.textContent = '';
     }
     countdownOverlay.hidden = false;
     document.body.style.overflow = "hidden";
@@ -624,6 +651,7 @@
 
   colorPicker.addEventListener("input", function () {
     setBrushMode("draw");
+    updateColorSwatchHighlight();
   });
 
   widthRange.addEventListener("input", syncWidthLabel);
@@ -634,6 +662,7 @@
       if (c) {
         colorPicker.value = c;
         setBrushMode("draw");
+        updateColorSwatchHighlight();
       }
     });
   });
@@ -682,8 +711,80 @@
     hideVerdictModal();
     canvas.classList.add("pict-canvas--locked");
     setTimerDisplay(ROUND_SECONDS);
+    updateTimerProgress(ROUND_SECONDS);
     setStatus("idle", "Press Start round when ready.");
+    updateColorSwatchHighlight();
   }
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", function (e) {
+    // Ignore when typing in inputs
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    
+    // Ignore modifiers
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      // Ctrl+Z for undo
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        if (undoBtn && !undoBtn.disabled) {
+          popUndoState();
+        }
+      }
+      return;
+    }
+    
+    switch (e.key.toLowerCase()) {
+      case "b":
+        e.preventDefault();
+        setBrushMode("draw");
+        break;
+      case "e":
+        e.preventDefault();
+        setBrushMode("erase");
+        break;
+      case "c":
+        e.preventDefault();
+        if (clearBtn && !clearBtn.disabled) {
+          clearCanvas();
+        }
+        break;
+      case " ":
+        e.preventDefault();
+        if (startBtn && !startBtn.disabled) {
+          startRound();
+        }
+        break;
+      case "1":
+      case "2":
+      case "3":
+      case "4":
+      case "5":
+      case "6":
+        e.preventDefault();
+        var swatches = document.querySelectorAll(".pict-swatch");
+        var index = parseInt(e.key) - 1;
+        if (swatches[index]) {
+          swatches[index].click();
+        }
+        break;
+      case "+":
+      case "=":
+        e.preventDefault();
+        if (widthRange) {
+          widthRange.value = Math.min(40, parseInt(widthRange.value) + 2);
+          syncWidthLabel();
+        }
+        break;
+      case "-":
+      case "_":
+        e.preventDefault();
+        if (widthRange) {
+          widthRange.value = Math.max(2, parseInt(widthRange.value) - 2);
+          syncWidthLabel();
+        }
+        break;
+    }
+  });
 
   init();
 })();
