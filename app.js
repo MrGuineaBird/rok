@@ -455,6 +455,7 @@ let modelPickerOpen = false;
 
 const hasMarked = typeof marked !== "undefined";
 const hasKaTeX = typeof katex !== "undefined";
+const hasDOMPurify = typeof DOMPurify !== "undefined";
 if (hasMarked) {
   marked.setOptions({ breaks: true, gfm: true });
 }
@@ -5537,7 +5538,9 @@ function setBubbleContent(bubble, text, markdown) {
     if (mathProtected) {
       rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
     }
-    bubble.innerHTML = rawHtml;
+    // Sanitize HTML to prevent XSS attacks
+    var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
+    bubble.innerHTML = cleanHtml;
     // Render math (KaTeX)
     renderKatexInElement(bubble);
     // Smooth fade-in when transitioning from streaming plain text to final markdown
@@ -6329,7 +6332,9 @@ async function send() {
       var mathProtected = hasKaTeX ? protectMathForMarked(thinkingText.trim()) : null;
       var html = marked.parse(mathProtected ? mathProtected.text : thinkingText.trim());
       if (mathProtected) html = restoreMathAfterMarked(html, mathProtected.mathBlocks);
-      thinkingPanel.body.innerHTML = html;
+      // Sanitize HTML to prevent XSS attacks
+      var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(html) : html;
+      thinkingPanel.body.innerHTML = cleanHtml;
       renderKatexInElement(thinkingPanel.body);
     } else {
       thinkingPanel.body.textContent = thinkingText.trim();
