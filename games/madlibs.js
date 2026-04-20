@@ -50,6 +50,7 @@ Make it humorous and slightly absurd. Only return the story with the blanks, no 
           history: [],
           model: "qwen3.5:9b",
           skip_tools: true,
+          stream: false,
           max_tokens: 300
         })
       });
