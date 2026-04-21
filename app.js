@@ -8455,7 +8455,7 @@ showElixirPartnershipModal();
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_MAX_ITERATIONS = 100;
-const PIXEL_PAINTER_CANVAS_SIZE = 256;
+const PIXEL_PAINTER_CANVAS_SIZE = 100;
 
 class PixelCanvas {
   constructor(size = PIXEL_PAINTER_CANVAS_SIZE) {
@@ -8616,7 +8616,10 @@ async function handleImagineCommand(prompt) {
   const startTime = Date.now();
   const iterationLogs = [];
   
-  // Painting loop
+  // Painting loop with rate limit handling
+  const MIN_DELAY_MS = 500; // Base delay between iterations
+  const RATE_LIMIT_DELAY_MS = 3000; // Extra delay on 429
+  
   for (let iteration = 1; iteration <= PIXEL_PAINTER_MAX_ITERATIONS; iteration++) {
     if (stopped) break;
     
@@ -8627,7 +8630,8 @@ async function handleImagineCommand(prompt) {
     
     try {
       let response = null;
-      let retries = 3;
+      let retries = 5;
+      let rateLimitRetries = 3; // Separate counter for 429s
       
       while (retries > 0) {
         response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -8640,10 +8644,24 @@ async function handleImagineCommand(prompt) {
           })
         });
         
-        if (response.ok || response.status < 500) break; // Only retry on 5xx
+        // Success or client error - don't retry
+        if (response.ok) break;
+        if (response.status === 429) {
+          // Rate limit - wait longer and retry
+          rateLimitRetries--;
+          if (rateLimitRetries > 0) {
+            const waitMs = (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS; // 3s, 6s, 9s
+            statusText.textContent = `Rate limit hit, backing off ${waitMs / 1000}s...`;
+            await new Promise(r => setTimeout(r, waitMs));
+            continue; // Don't count against regular retries
+          }
+        }
+        if (response.status < 500) break; // Don't retry other 4xx
+        
+        // Server error - retry with backoff
         retries--;
         if (retries > 0) {
-          const waitMs = (4 - retries) * 2000; // 2s, 4s, 6s
+          const waitMs = (6 - retries) * 1000; // 1s, 2s, 3s, 4s, 5s
           statusText.textContent = `Server error ${response.status}, retrying in ${waitMs / 1000}s...`;
           await new Promise(r => setTimeout(r, waitMs));
         }
@@ -8690,8 +8708,8 @@ async function handleImagineCommand(prompt) {
       break;
     }
     
-    // Small delay to not overwhelm the API
-    await new Promise(r => setTimeout(r, 100));
+    // Delay between iterations to avoid rate limits
+    await new Promise(r => setTimeout(r, MIN_DELAY_MS));
   }
   
   // Show final result
