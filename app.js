@@ -8535,38 +8535,72 @@ async function handleImagineCommand(prompt) {
   // Show user message
   addMessage("user", `/imagine ${prompt}`);
   
-  // Create painting UI
-  const paintingId = "painting-" + Date.now();
-  const paintingHtml = `
-    <div id="${paintingId}" class="pixel-painting-container">
-      <div class="pixel-painting-header">
-        <span class="pixel-painting-icon">🎨</span>
-        <span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>
-      </div>
-      <div class="pixel-painting-progress">
-        <div class="pixel-painting-bar">
-          <div class="pixel-painting-fill" style="width: 0%"></div>
-        </div>
-        <span class="pixel-painting-status">Initializing...</span>
-      </div>
-      <div class="pixel-painting-preview" style="display: none;">
-        <img class="pixel-painting-img" alt="Generated image" />
-      </div>
-      <div class="pixel-painting-controls">
-        <button class="pixel-painting-stop" type="button">Stop</button>
-      </div>
-      <div class="pixel-painting-details" style="display: none;"></div>
-    </div>
-  `;
+  // Build painting UI as DOM elements (not through addMessage which sanitizes HTML)
+  const row = document.createElement("div");
+  row.className = "msg bot";
   
-  const botRow = addMessage("bot", paintingHtml);
-  const paintingEl = document.getElementById(paintingId);
-  const progressBar = paintingEl.querySelector(".pixel-painting-fill");
-  const statusText = paintingEl.querySelector(".pixel-painting-status");
-  const previewDiv = paintingEl.querySelector(".pixel-painting-preview");
-  const previewImg = paintingEl.querySelector(".pixel-painting-img");
-  const stopBtn = paintingEl.querySelector(".pixel-painting-stop");
-  const detailsDiv = paintingEl.querySelector(".pixel-painting-details");
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:86%;height:86%;object-fit:contain;border-radius:50%;">';
+  
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+  
+  const container = document.createElement("div");
+  container.className = "pixel-painting-container";
+  
+  const header = document.createElement("div");
+  header.className = "pixel-painting-header";
+  header.innerHTML = `<span class="pixel-painting-icon">🎨</span><span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>`;
+  
+  const progressWrap = document.createElement("div");
+  progressWrap.className = "pixel-painting-progress";
+  progressWrap.innerHTML = `<div class="pixel-painting-bar"><div class="pixel-painting-fill" style="width: 0%"></div></div><span class="pixel-painting-status">Initializing...</span>`;
+  
+  const previewDiv = document.createElement("div");
+  previewDiv.className = "pixel-painting-preview";
+  previewDiv.style.display = "none";
+  const previewImg = document.createElement("img");
+  previewImg.className = "pixel-painting-img";
+  previewImg.alt = "Generated image";
+  previewDiv.appendChild(previewImg);
+  
+  const controlsDiv = document.createElement("div");
+  controlsDiv.className = "pixel-painting-controls";
+  const stopBtn = document.createElement("button");
+  stopBtn.className = "pixel-painting-stop";
+  stopBtn.type = "button";
+  stopBtn.textContent = "Stop";
+  controlsDiv.appendChild(stopBtn);
+  
+  const detailsDiv = document.createElement("div");
+  detailsDiv.className = "pixel-painting-details";
+  detailsDiv.style.display = "none";
+  
+  container.appendChild(header);
+  container.appendChild(progressWrap);
+  container.appendChild(previewDiv);
+  container.appendChild(controlsDiv);
+  container.appendChild(detailsDiv);
+  bubble.appendChild(container);
+  
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "msg-time";
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  timeSpan.textContent = (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + ampm;
+  
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  row.appendChild(timeSpan);
+  chat.appendChild(row);
+  scrollToBottom();
+  updateChatWelcomeVisibility();
+  
+  const progressBar = progressWrap.querySelector(".pixel-painting-fill");
+  const statusText = progressWrap.querySelector(".pixel-painting-status");
   
   let stopped = false;
   stopBtn.addEventListener("click", () => {
