@@ -8506,12 +8506,23 @@ class PixelCanvas {
     this.ctx.putImageData(this.imageData, 0, 0);
   }
 
-  // Get base64 PNG
-  getBase64() {
-    return this.canvas.toDataURL("image/png").split(",")[1];
+  // Get base64 PNG (scaled up for AI vision - each pixel is 4x4 block)
+  getBase64(scaleFactor = 4) {
+    if (scaleFactor <= 1) {
+      return this.canvas.toDataURL("image/png").split(",")[1];
+    }
+    // Create scaled canvas for AI to see pixels better
+    const scaledCanvas = document.createElement("canvas");
+    scaledCanvas.width = this.size * scaleFactor;
+    scaledCanvas.height = this.size * scaleFactor;
+    const scaledCtx = scaledCanvas.getContext("2d");
+    // Use nearest-neighbor scaling to preserve pixel blocks
+    scaledCtx.imageSmoothingEnabled = false;
+    scaledCtx.drawImage(this.canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+    return scaledCanvas.toDataURL("image/png").split(",")[1];
   }
 
-  // Get display URL
+  // Get display URL (original size)
   getDisplayUrl() {
     return this.canvas.toDataURL("image/png");
   }
