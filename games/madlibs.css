@@ -233,6 +233,9 @@ body {
   min-height: 400px;
   padding: 24px;
 }
+.madlibs-loading[hidden] {
+  display: none;
+}
 .madlibs-loading-card {
   background: var(--surface-2);
   border: 1px solid var(--border);

@@ -112,6 +112,12 @@ const workspaceRouteNoBtn = document.getElementById("workspaceRouteNoBtn");
 const workspaceRouteCloseBtn = document.getElementById("workspaceRouteCloseBtn");
 const legalModal = document.getElementById("legalModal");
 const legalCloseBtn = document.getElementById("legalCloseBtn");
+
+// Elixir Network Partnership Modal
+const elixirPartnershipModal = document.getElementById("elixirPartnershipModal");
+const elixirCloseBtn = document.getElementById("elixirCloseBtn");
+const elixirOkBtn = document.getElementById("elixirOkBtn");
+const ELIXIR_PARTNERSHIP_SEEN_KEY = "rok_elixir_partnership_seen";
 const legalTermsTab = document.getElementById("legalTermsTab");
 const legalPrivacyTab = document.getElementById("legalPrivacyTab");
 const legalCreditsTab = document.getElementById("legalCreditsTab");
@@ -8393,3 +8399,41 @@ function deleteKnowledgeFact(id) {
 
 // Load knowledge list on startup and after learning
 fetchAndRenderKnowledge();
+
+// Elixir Network Partnership Modal - One time popup
+function showElixirPartnershipModal() {
+  if (!elixirPartnershipModal) return;
+  try {
+    const hasSeen = localStorage.getItem(ELIXIR_PARTNERSHIP_SEEN_KEY);
+    if (hasSeen) return; // Already shown
+    elixirPartnershipModal.hidden = false;
+    elixirPartnershipModal.setAttribute("aria-hidden", "false");
+  } catch (e) {
+    // Ignore storage errors, still show modal
+    elixirPartnershipModal.hidden = false;
+    elixirPartnershipModal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function hideElixirPartnershipModal() {
+  if (!elixirPartnershipModal) return;
+  elixirPartnershipModal.hidden = true;
+  elixirPartnershipModal.setAttribute("aria-hidden", "true");
+  try {
+    localStorage.setItem(ELIXIR_PARTNERSHIP_SEEN_KEY, "1");
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+// Elixir modal event listeners
+if (elixirCloseBtn) {
+  elixirCloseBtn.addEventListener("click", hideElixirPartnershipModal);
+}
+
+if (elixirOkBtn) {
+  elixirOkBtn.addEventListener("click", hideElixirPartnershipModal);
+}
+
+// Show Elixir partnership modal on first visit
+showElixirPartnershipModal();
