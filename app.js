@@ -6129,10 +6129,10 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
-  const text = input.value.trim();
+  const text = input.value?.trim() || "";
   
   // Handle /imagine command for pixel painting
-  if (text.startsWith("/imagine")) {
+  if (text && text.startsWith("/imagine")) {
     const prompt = text.slice(8).trim();
     if (prompt) {
       input.value = "";
@@ -8702,9 +8702,4 @@ function savePixelPainting(prompt, imageUrl, logs, duration) {
   }
 }
 
-// Escape HTML for display
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
+// escapeHtml already defined above (line ~4584)
