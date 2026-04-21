@@ -59,26 +59,49 @@ Make it humorous and slightly absurd. Only return the story with the blanks, no 
 
       // Read SSE stream and collect tokens
       const responseText = await response.text();
-      const lines = responseText.split('\n');
+      console.log("Raw response preview:", responseText.substring(0, 300));
+      
+      // Split by any newline (handles \n, \r\n, or \r)
+      const lines = responseText.split(/\r?\n/);
       let storyText = '';
       
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmed = line.trim();
-        if (trimmed.startsWith('data:')) {
-          try {
-            const jsonStr = trimmed.slice(5); // Remove 'data:' prefix
-            const data = JSON.parse(jsonStr);
-            if (data.token) {
-              storyText += data.token;
-            }
-          } catch (e) {
-            // Skip invalid JSON lines
+        
+        // SSE lines start with "data:"
+        if (!trimmed.startsWith('data:')) continue;
+        
+        // Remove "data:" prefix (handle both "data:" and "data: ")
+        let jsonStr = trimmed.substring(5).trim();
+        
+        // Handle case where there might be extra whitespace
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        
+        // If the line still starts with "data:", something is wrong - skip it
+        if (jsonStr.startsWith('data:')) {
+          console.log("Skipping malformed line:", trimmed.substring(0, 60));
+          continue;
+        }
+        
+        try {
+          const data = JSON.parse(jsonStr);
+          // Only collect tokens, skip thinking chunks
+          if (data.token && typeof data.token === 'string') {
+            storyText += data.token;
           }
+        } catch (e) {
+          console.log("Parse error on line", i, ":", trimmed.substring(0, 60));
+          // Skip invalid lines - don't let them crash the game
+          continue;
         }
       }
       
+      console.log("Final story length:", storyText.length);
+      console.log("Story preview:", storyText.substring(0, 150));
+      
       if (!storyText.trim()) {
-        throw new Error("Empty response from AI");
+        throw new Error("Empty response from AI - no tokens received");
       }
 
       // Parse story to extract blanks
