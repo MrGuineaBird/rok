@@ -7050,3 +7050,125 @@ button.stop-mode:hover {
   border-color: rgba(230, 170, 170, 0.55);
   transform: translateY(-1px);
 }
+
+/* ROK Pixel Painter - Image Generation */
+.pixel-painting-container {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 8px 0;
+}
+
+.pixel-painting-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pixel-painting-icon {
+  font-size: 20px;
+}
+
+.pixel-painting-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pixel-painting-progress {
+  margin-bottom: 12px;
+}
+
+.pixel-painting-bar {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.pixel-painting-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ff6b6b);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.pixel-painting-status {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.pixel-painting-preview {
+  margin: 16px 0;
+  text-align: center;
+}
+
+.pixel-painting-img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+}
+
+.pixel-painting-controls {
+  margin-top: 12px;
+}
+
+.pixel-painting-stop {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pixel-painting-stop:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.pixel-painting-stop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pixel-painting-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.pixel-painting-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.pixel-painting-save {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pixel-painting-save:hover {
+  opacity: 0.9;
+}
+
+.pixel-painting-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

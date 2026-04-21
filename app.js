@@ -6130,6 +6130,18 @@ async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
   const text = input.value.trim();
+  
+  // Handle /imagine command for pixel painting
+  if (text.startsWith("/imagine")) {
+    const prompt = text.slice(8).trim();
+    if (prompt) {
+      input.value = "";
+      autoResizeInput();
+      handleImagineCommand(prompt);
+      return;
+    }
+  }
+  
   const sessionModel = getCurrentSessionModel();
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sandboxActive = isSandboxSessionActive();
@@ -8437,3 +8449,262 @@ if (elixirOkBtn) {
 
 // Show Elixir partnership modal on first visit
 showElixirPartnershipModal();
+
+// ── ROK Pixel Painter - VLM-guided image generation ──
+
+const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
+const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
+const PIXEL_PAINTER_MAX_ITERATIONS = 100;
+const PIXEL_PAINTER_CANVAS_SIZE = 256;
+
+class PixelCanvas {
+  constructor(size = PIXEL_PAINTER_CANVAS_SIZE) {
+    this.size = size;
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = size;
+    this.canvas.height = size;
+    this.ctx = this.canvas.getContext("2d");
+    this.imageData = this.ctx.createImageData(size, size);
+    this.data = this.imageData.data;
+  }
+
+  // Initialize with random noise
+  initWithNoise() {
+    for (let i = 0; i < this.data.length; i += 4) {
+      this.data[i] = Math.floor(Math.random() * 256);     // R
+      this.data[i + 1] = Math.floor(Math.random() * 256); // G
+      this.data[i + 2] = Math.floor(Math.random() * 256); // B
+      this.data[i + 3] = 255; // Alpha
+    }
+    this.updateCanvas();
+  }
+
+  // Apply pixel changes from VLM response
+  applyPixelChanges(changes) {
+    for (const change of changes) {
+      const x = Math.max(0, Math.min(this.size - 1, change.x));
+      const y = Math.max(0, Math.min(this.size - 1, change.y));
+      const color = change.color;
+      
+      // Parse hex color
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      
+      // Set pixel
+      const idx = (y * this.size + x) * 4;
+      this.data[idx] = r;
+      this.data[idx + 1] = g;
+      this.data[idx + 2] = b;
+      this.data[idx + 3] = 255;
+    }
+    this.updateCanvas();
+  }
+
+  // Update canvas from image data
+  updateCanvas() {
+    this.ctx.putImageData(this.imageData, 0, 0);
+  }
+
+  // Get base64 PNG
+  getBase64() {
+    return this.canvas.toDataURL("image/png").split(",")[1];
+  }
+
+  // Get display URL
+  getDisplayUrl() {
+    return this.canvas.toDataURL("image/png");
+  }
+
+  // Get thumbnail (64x64)
+  getThumbnail() {
+    const thumbCanvas = document.createElement("canvas");
+    thumbCanvas.width = 64;
+    thumbCanvas.height = 64;
+    const thumbCtx = thumbCanvas.getContext("2d");
+    thumbCtx.drawImage(this.canvas, 0, 0, 64, 64);
+    return thumbCanvas.toDataURL("image/png");
+  }
+}
+
+// Store for active painting sessions
+let activePixelPainting = null;
+
+// Handle /imagine command
+async function handleImagineCommand(prompt) {
+  // Show user message
+  addMessage("user", `/imagine ${prompt}`);
+  
+  // Create painting UI
+  const paintingId = "painting-" + Date.now();
+  const paintingHtml = `
+    <div id="${paintingId}" class="pixel-painting-container">
+      <div class="pixel-painting-header">
+        <span class="pixel-painting-icon">🎨</span>
+        <span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>
+      </div>
+      <div class="pixel-painting-progress">
+        <div class="pixel-painting-bar">
+          <div class="pixel-painting-fill" style="width: 0%"></div>
+        </div>
+        <span class="pixel-painting-status">Initializing...</span>
+      </div>
+      <div class="pixel-painting-preview" style="display: none;">
+        <img class="pixel-painting-img" alt="Generated image" />
+      </div>
+      <div class="pixel-painting-controls">
+        <button class="pixel-painting-stop" type="button">Stop</button>
+      </div>
+      <div class="pixel-painting-details" style="display: none;"></div>
+    </div>
+  `;
+  
+  const botRow = addMessage("bot", paintingHtml);
+  const paintingEl = document.getElementById(paintingId);
+  const progressBar = paintingEl.querySelector(".pixel-painting-fill");
+  const statusText = paintingEl.querySelector(".pixel-painting-status");
+  const previewDiv = paintingEl.querySelector(".pixel-painting-preview");
+  const previewImg = paintingEl.querySelector(".pixel-painting-img");
+  const stopBtn = paintingEl.querySelector(".pixel-painting-stop");
+  const detailsDiv = paintingEl.querySelector(".pixel-painting-details");
+  
+  let stopped = false;
+  stopBtn.addEventListener("click", () => {
+    stopped = true;
+    statusText.textContent = "Stopped by user";
+    stopBtn.disabled = true;
+  });
+  
+  // Initialize canvas with noise
+  const canvas = new PixelCanvas();
+  canvas.initWithNoise();
+  
+  const startTime = Date.now();
+  const iterationLogs = [];
+  
+  // Painting loop
+  for (let iteration = 1; iteration <= PIXEL_PAINTER_MAX_ITERATIONS; iteration++) {
+    if (stopped) break;
+    
+    // Update progress
+    const progress = (iteration / PIXEL_PAINTER_MAX_ITERATIONS) * 100;
+    progressBar.style.width = `${progress}%`;
+    statusText.textContent = `Iteration ${iteration}/${PIXEL_PAINTER_MAX_ITERATIONS}`;
+    
+    try {
+      const response = await fetch(PIXEL_PAINTER_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt,
+          canvas_base64: canvas.getBase64(),
+          iteration: iteration
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.ok) {
+        throw new Error(data.error || "Painting failed");
+      }
+      
+      // Apply pixel changes
+      if (data.pixel_changes && data.pixel_changes.length > 0) {
+        canvas.applyPixelChanges(data.pixel_changes);
+      }
+      
+      // Log iteration
+      iterationLogs.push({
+        iteration,
+        pixelsChanged: data.pixel_changes?.length || 0,
+        assessment: data.progress_assessment,
+        confidence: data.confidence
+      });
+      
+      // Update preview every 10 iterations
+      if (iteration % 10 === 0 || iteration === 1) {
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+      }
+      
+      // Check if VLM says we're done
+      if (!data.should_continue || data.confidence >= 0.85) {
+        statusText.textContent = `Complete at iteration ${iteration}`;
+        break;
+      }
+      
+    } catch (error) {
+      statusText.textContent = `Error: ${error.message}`;
+      console.error("Pixel painting error:", error);
+      break;
+    }
+    
+    // Small delay to not overwhelm the API
+    await new Promise(r => setTimeout(r, 100));
+  }
+  
+  // Show final result
+  const finalUrl = canvas.getDisplayUrl();
+  previewImg.src = finalUrl;
+  previewDiv.style.display = "block";
+  stopBtn.style.display = "none";
+  
+  // Build details
+  const duration = Math.round((Date.now() - startTime) / 1000);
+  const totalPixels = iterationLogs.reduce((sum, log) => sum + log.pixelsChanged, 0);
+  const finalConfidence = iterationLogs[iterationLogs.length - 1]?.confidence || 0;
+  
+  detailsDiv.innerHTML = `
+    <div class="pixel-painting-stats">
+      <span>⏱️ ${duration}s</span>
+      <span>🖌️ ${iterationLogs.length} iterations</span>
+      <span>📊 ${totalPixels} pixels changed</span>
+      <span>🎯 ${Math.round(finalConfidence * 100)}% confidence</span>
+    </div>
+    <button class="pixel-painting-save" type="button">💾 Save to Gallery</button>
+  `;
+  detailsDiv.style.display = "block";
+  
+  // Save button
+  const saveBtn = detailsDiv.querySelector(".pixel-painting-save");
+  saveBtn.addEventListener("click", () => {
+    savePixelPainting(prompt, finalUrl, iterationLogs, duration);
+    saveBtn.textContent = "✅ Saved!";
+    saveBtn.disabled = true;
+  });
+  
+  // Auto-save
+  savePixelPainting(prompt, finalUrl, iterationLogs, duration);
+}
+
+// Save painting to localStorage
+function savePixelPainting(prompt, imageUrl, logs, duration) {
+  try {
+    const paintings = JSON.parse(localStorage.getItem(PIXEL_PAINTER_STORAGE_KEY) || "[]");
+    paintings.push({
+      id: Date.now(),
+      prompt,
+      imageUrl,
+      thumbnail: imageUrl, // Could optimize to smaller size
+      iterations: logs.length,
+      duration,
+      timestamp: Date.now()
+    });
+    // Keep only last 20
+    while (paintings.length > 20) paintings.shift();
+    localStorage.setItem(PIXEL_PAINTER_STORAGE_KEY, JSON.stringify(paintings));
+  } catch (e) {
+    console.error("Failed to save painting:", e);
+  }
+}
+
+// Escape HTML for display
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
