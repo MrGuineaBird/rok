@@ -225,23 +225,82 @@ body {
   justify-content: center;
 }
 
-/* Loading */
+/* Loading Popup with Progress */
 .madlibs-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 24px;
+}
+.madlibs-loading-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 32px;
   text-align: center;
-  padding: 48px 24px;
-  color: var(--text-2);
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow);
+  animation: popIn 0.3s ease;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.madlibs-loading-card h3 {
+  margin: 0 0 24px;
+  font-size: 18px;
+  color: var(--text);
+  font-weight: 600;
 }
 .madlibs-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--border);
+  width: 56px;
+  height: 56px;
+  border: 4px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
+  margin: 0 auto 24px;
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Progress Bar */
+.madlibs-progress-container {
+  margin: 20px 0;
+}
+.madlibs-progress-bar {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.madlibs-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ff6b6b);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s ease;
+  animation: progressPulse 2s ease-in-out infinite;
+}
+@keyframes progressPulse {
+  0% { width: 10%; opacity: 0.6; }
+  50% { width: 60%; opacity: 1; }
+  100% { width: 10%; opacity: 0.6; }
+}
+.madlibs-time-estimate {
+  font-size: 16px;
+  color: var(--accent);
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.madlibs-loading-hint {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
 }
 
 /* Error */

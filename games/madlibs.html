@@ -61,10 +61,19 @@
           </div>
         </section>
 
-        <!-- Loading State -->
+        <!-- Loading State with Estimated Time -->
         <div id="loadingState" class="madlibs-loading" hidden>
-          <div class="madlibs-spinner"></div>
-          <p>The AI is writing a story...</p>
+          <div class="madlibs-loading-card">
+            <div class="madlibs-spinner"></div>
+            <h3>The AI is writing a story...</h3>
+            <div class="madlibs-progress-container">
+              <div class="madlibs-progress-bar">
+                <div id="generationProgress" class="madlibs-progress-fill"></div>
+              </div>
+            </div>
+            <p id="timeEstimate" class="madlibs-time-estimate">Estimated time: ~15 seconds</p>
+            <p class="madlibs-loading-hint">This usually takes 10-30 seconds</p>
+          </div>
         </div>
 
         <!-- Error State -->
@@ -84,6 +93,6 @@
   <script>
     window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
   </script>
-  <script src="madlibs.js?v=3" defer></script>
+  <script src="madlibs.js?v=5" defer></script>
 </body>
 </html>

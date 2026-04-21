@@ -22,87 +22,39 @@
   const shareStoryBtn = document.getElementById("shareStoryBtn");
   const retryBtn = document.getElementById("retryBtn");
   const errorMessage = document.getElementById("errorMessage");
+  const timeEstimate = document.getElementById("timeEstimate");
+  const generationProgress = document.getElementById("generationProgress");
 
   // State
   let currentStory = null;
   let filledWords = {};
+  let countdownTimer = null;
+  const ESTIMATED_SECONDS = 20;
 
-  // Generate story template via API (handles SSE streaming response)
+  // Generate story via fast dedicated endpoint (returns JSON directly, no streaming)
   async function generateStory() {
     showLoading();
-    
-    const prompt = `Create a short, funny Mad Libs story (2-3 paragraphs) with 6-8 blanks. 
-Each blank should be marked with [TYPE] where TYPE is: noun, verb, adjective, adverb, place, animal, or exclamation.
+    startCountdown();
 
-Example format:
-Once upon a time, a [ADJECTIVE] [ANIMAL] decided to [VERB] to [PLACE]. It was very [ADJECTIVE]!
-
-Make it humorous and slightly absurd. Only return the story with the blanks, no other text.`;
+    const startTime = Date.now();
 
     try {
-      const response = await fetch(`${API_BASE}/api/chat`, {
+      const response = await fetch(`${API_BASE}/api/madlibs/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: prompt,
-          history: [],
-          model: "qwen3.5:9b",
-          skip_tools: true
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      
+      if (!data.ok || !data.story) {
+        throw new Error(data.error || "Failed to generate story");
       }
 
-      // Read SSE stream and collect tokens
-      const responseText = await response.text();
-      console.log("Raw response preview:", responseText.substring(0, 300));
-      
-      // Split by any newline (handles \n, \r\n, or \r)
-      const lines = responseText.split(/\r?\n/);
-      let storyText = '';
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-        
-        // SSE lines start with "data:"
-        if (!trimmed.startsWith('data:')) continue;
-        
-        // Remove "data:" prefix (handle both "data:" and "data: ")
-        let jsonStr = trimmed.substring(5).trim();
-        
-        // Handle case where there might be extra whitespace
-        if (!jsonStr || jsonStr === '[DONE]') continue;
-        
-        // If the line still starts with "data:", something is wrong - skip it
-        if (jsonStr.startsWith('data:')) {
-          console.log("Skipping malformed line:", trimmed.substring(0, 60));
-          continue;
-        }
-        
-        try {
-          const data = JSON.parse(jsonStr);
-          // Only collect tokens, skip thinking chunks
-          if (data.token && typeof data.token === 'string') {
-            storyText += data.token;
-          }
-        } catch (e) {
-          console.log("Parse error on line", i, ":", trimmed.substring(0, 60));
-          // Skip invalid lines - don't let them crash the game
-          continue;
-        }
-      }
-      
-      console.log("Final story length:", storyText.length);
-      console.log("Story preview:", storyText.substring(0, 150));
-      
-      if (!storyText.trim()) {
-        throw new Error("Empty response from AI - no tokens received");
-      }
+      const storyText = data.story;
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      console.log(`Story received in ${elapsed}s, length:`, storyText.length);
 
       // Parse story to extract blanks
       currentStory = parseStory(storyText);
@@ -115,6 +67,48 @@ Make it humorous and slightly absurd. Only return the story with the blanks, no 
       showInputPhase();
     } catch (err) {
       showError(err.message || "Failed to generate story");
+    } finally {
+      stopCountdown();
+    }
+  }
+
+  // Countdown timer for generation
+  function startCountdown() {
+    stopCountdown();
+    let remaining = ESTIMATED_SECONDS;
+    
+    function updateDisplay() {
+      if (remaining <= 0) {
+        timeEstimate.textContent = "Almost done...";
+        if (generationProgress) {
+          generationProgress.style.animation = "none";
+          generationProgress.style.width = "90%";
+        }
+      } else {
+        timeEstimate.textContent = `Estimated time: ~${remaining} second${remaining === 1 ? "" : "s"}`;
+        remaining--;
+      }
+    }
+    
+    updateDisplay();
+    countdownTimer = setInterval(updateDisplay, 1000);
+  }
+
+  function stopCountdown() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    if (timeEstimate) {
+      timeEstimate.textContent = "";
+    }
+    if (generationProgress) {
+      generationProgress.style.width = "100%";
+      generationProgress.style.opacity = "0";
+      setTimeout(() => {
+        generationProgress.style.width = "0%";
+        generationProgress.style.opacity = "1";
+      }, 300);
     }
   }
 
@@ -340,6 +334,7 @@ I exclaimed "[EXCLAMATION]!" and decided to [VERB] away as [ADVERB] as possible.
     inputPhase.hidden = true;
     storyPhase.hidden = true;
     loadingState.hidden = true;
+    stopCountdown();
     errorState.hidden = true;
     wordInputs.hidden = true;
   }
