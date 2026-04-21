@@ -8626,18 +8626,31 @@ async function handleImagineCommand(prompt) {
     statusText.textContent = `Iteration ${iteration}/${PIXEL_PAINTER_MAX_ITERATIONS}`;
     
     try {
-      const response = await fetch(PIXEL_PAINTER_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt,
-          canvas_base64: canvas.getBase64(),
-          iteration: iteration
-        })
-      });
+      let response = null;
+      let retries = 3;
+      
+      while (retries > 0) {
+        response = await fetch(PIXEL_PAINTER_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: prompt,
+            canvas_base64: canvas.getBase64(),
+            iteration: iteration
+          })
+        });
+        
+        if (response.ok || response.status < 500) break; // Only retry on 5xx
+        retries--;
+        if (retries > 0) {
+          const waitMs = (4 - retries) * 2000; // 2s, 4s, 6s
+          statusText.textContent = `Server error ${response.status}, retrying in ${waitMs / 1000}s...`;
+          await new Promise(r => setTimeout(r, waitMs));
+        }
+      }
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`API error: ${response.status} (retries exhausted)`);
       }
       
       const data = await response.json();
