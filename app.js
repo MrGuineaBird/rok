@@ -8648,7 +8648,7 @@ async function handleImagineCommand(prompt) {
           canvas_base64: canvas.getBase64(),
           pass_num: passNum,
           max_pixels: 200,
-          mode: PIXEL_PAINTER_MODE
+          mode: "json"
         })
       });
       
