@@ -8454,8 +8454,12 @@ showElixirPartnershipModal();
 
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
-const PIXEL_PAINTER_MAX_ITERATIONS = 100;
 const PIXEL_PAINTER_CANVAS_SIZE = 100;
+
+// 2-pass generation: rough draft + refinement (only 2 API calls!)
+const PIXEL_PAINTER_PASS_1_PIXELS = 200;  // Rough draft
+const PIXEL_PAINTER_PASS_2_PIXELS = 150;  // Refinement
+const PIXEL_PAINTER_DELAY_MS = 100;
 
 class PixelCanvas {
   constructor(size = PIXEL_PAINTER_CANVAS_SIZE) {
@@ -8625,102 +8629,77 @@ async function handleImagineCommand(prompt) {
   canvas.initWithNoise();
   
   const startTime = Date.now();
-  const iterationLogs = [];
+  const RATE_LIMIT_DELAY_MS = 3000;
   
-  // Painting loop with rate limit handling
-  const MIN_DELAY_MS = 500; // Base delay between iterations
-  const RATE_LIMIT_DELAY_MS = 3000; // Extra delay on 429
-  
-  for (let iteration = 1; iteration <= PIXEL_PAINTER_MAX_ITERATIONS; iteration++) {
-    if (stopped) break;
+  // Helper to make API call with retries
+  async function paintPass(passNum, passName) {
+    progressBar.style.width = `${passNum === 1 ? 30 : 80}%`;
+    statusText.textContent = `${passName}...`;
     
-    // Update progress
-    const progress = (iteration / PIXEL_PAINTER_MAX_ITERATIONS) * 100;
-    progressBar.style.width = `${progress}%`;
-    statusText.textContent = `Iteration ${iteration}/${PIXEL_PAINTER_MAX_ITERATIONS}`;
+    let retries = 5;
+    let rateLimitRetries = 3;
     
-    try {
-      let response = null;
-      let retries = 5;
-      let rateLimitRetries = 3; // Separate counter for 429s
-      
-      while (retries > 0) {
-        response = await fetch(PIXEL_PAINTER_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: prompt,
-            canvas_base64: canvas.getBase64(),
-            iteration: iteration
-          })
-        });
-        
-        // Success or client error - don't retry
-        if (response.ok) break;
-        if (response.status === 429) {
-          // Rate limit - wait longer and retry
-          rateLimitRetries--;
-          if (rateLimitRetries > 0) {
-            const waitMs = (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS; // 3s, 6s, 9s
-            statusText.textContent = `Rate limit hit, backing off ${waitMs / 1000}s...`;
-            await new Promise(r => setTimeout(r, waitMs));
-            continue; // Don't count against regular retries
-          }
-        }
-        if (response.status < 500) break; // Don't retry other 4xx
-        
-        // Server error - retry with backoff
-        retries--;
-        if (retries > 0) {
-          const waitMs = (6 - retries) * 1000; // 1s, 2s, 3s, 4s, 5s
-          statusText.textContent = `Server error ${response.status}, retrying in ${waitMs / 1000}s...`;
-          await new Promise(r => setTimeout(r, waitMs));
-        }
-      }
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} (retries exhausted)`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.ok) {
-        throw new Error(data.error || "Painting failed");
-      }
-      
-      // Apply pixel changes
-      if (data.pixel_changes && data.pixel_changes.length > 0) {
-        canvas.applyPixelChanges(data.pixel_changes);
-      }
-      
-      // Log iteration
-      iterationLogs.push({
-        iteration,
-        pixelsChanged: data.pixel_changes?.length || 0,
-        assessment: data.progress_assessment,
-        confidence: data.confidence
+    while (retries > 0) {
+      const response = await fetch(PIXEL_PAINTER_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt,
+          canvas_base64: canvas.getBase64(),
+          pass_num: passNum,
+          max_pixels: maxPixels
+        })
       });
       
-      // Update preview every 10 iterations
-      if (iteration % 10 === 0 || iteration === 1) {
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
+      if (response.ok) {
+        const data = await response.json();
+        if (data.ok && data.pixel_changes?.length > 0) {
+          canvas.applyPixelChanges(data.pixel_changes);
+        }
+        return data;
       }
       
-      // Check if VLM says we're done
-      if (!data.should_continue || data.confidence >= 0.85) {
-        statusText.textContent = `Complete at iteration ${iteration}`;
-        break;
+      if (response.status === 429 && rateLimitRetries > 0) {
+        rateLimitRetries--;
+        const waitMs = (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS;
+        statusText.textContent = `Rate limit, waiting ${waitMs / 1000}s...`;
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
       }
       
-    } catch (error) {
-      statusText.textContent = `Error: ${error.message}`;
-      console.error("Pixel painting error:", error);
-      break;
+      if (response.status < 500) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      retries--;
+      if (retries > 0) {
+        const waitMs = (6 - retries) * 1000;
+        statusText.textContent = `Retrying in ${waitMs / 1000}s...`;
+        await new Promise(r => setTimeout(r, waitMs));
+      }
     }
     
-    // Delay between iterations to avoid rate limits
-    await new Promise(r => setTimeout(r, MIN_DELAY_MS));
+    throw new Error("API retries exhausted");
+  }
+  
+  try {
+    // Pass 1: Shape - carve main forms out of noise
+    if (!stopped) {
+      await paintPass(1, "Shaping from noise...");
+      previewImg.src = canvas.getDisplayUrl();
+      previewDiv.style.display = "block";
+      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+    }
+    
+    // Pass 2: Polish - refine into clear image
+    if (!stopped) {
+      await paintPass(2, "Polishing details...");
+    }
+    
+    statusText.textContent = "Complete";
+  } catch (error) {
+    statusText.textContent = `Error: ${error.message}`;
+    console.error("Pixel painting error:", error);
   }
   
   // Show final result
