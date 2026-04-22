@@ -8711,15 +8711,11 @@ async function handleImagineCommand(prompt) {
   
   // Build details
   const duration = Math.round((Date.now() - startTime) / 1000);
-  const totalPixels = iterationLogs.reduce((sum, log) => sum + log.pixelsChanged, 0);
-  const finalConfidence = iterationLogs[iterationLogs.length - 1]?.confidence || 0;
   
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
       <span>⏱️ ${duration}s</span>
-      <span>🖌️ ${iterationLogs.length} iterations</span>
-      <span>📊 ${totalPixels} pixels changed</span>
-      <span>🎯 ${Math.round(finalConfidence * 100)}% confidence</span>
+      <span>2-pass denoising</span>
     </div>
     <button class="pixel-painting-save" type="button">💾 Save to Gallery</button>
   `;
@@ -8728,13 +8724,13 @@ async function handleImagineCommand(prompt) {
   // Save button
   const saveBtn = detailsDiv.querySelector(".pixel-painting-save");
   saveBtn.addEventListener("click", () => {
-    savePixelPainting(prompt, finalUrl, iterationLogs, duration);
+    savePixelPainting(prompt, finalUrl, [], duration);
     saveBtn.textContent = "✅ Saved!";
     saveBtn.disabled = true;
   });
   
   // Auto-save
-  savePixelPainting(prompt, finalUrl, iterationLogs, duration);
+  savePixelPainting(prompt, finalUrl, [], duration);
 }
 
 // Save painting to localStorage
