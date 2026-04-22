@@ -8457,9 +8457,9 @@ const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_CANVAS_SIZE = 100;
 
 // 2-pass generation: rough draft + refinement (only 2 API calls!)
-const PIXEL_PAINTER_PASS_1_PIXELS = 200;  // Rough draft
-const PIXEL_PAINTER_PASS_2_PIXELS = 150;  // Refinement
-const PIXEL_PAINTER_DELAY_MS = 100;
+const PIXEL_PAINTER_PASS_1_PIXELS = 100;  // Reduced to avoid rate limits
+const PIXEL_PAINTER_PASS_2_PIXELS = 100;  // Reduced to avoid rate limits
+const PIXEL_PAINTER_DELAY_MS = 2000;  // 2s delay between passes to avoid rate limits
 
 class PixelCanvas {
   constructor(size = PIXEL_PAINTER_CANVAS_SIZE) {
@@ -8636,8 +8636,8 @@ async function handleImagineCommand(prompt) {
     progressBar.style.width = `${passNum === 1 ? 30 : 80}%`;
     statusText.textContent = `${passName}...`;
     
-    let retries = 5;
-    let rateLimitRetries = 3;
+    let retries = 2;  // Reduced - backend has its own retries
+    let rateLimitRetries = 1;
     
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -8647,7 +8647,7 @@ async function handleImagineCommand(prompt) {
           prompt: prompt,
           canvas_base64: canvas.getBase64(),
           pass_num: passNum,
-          max_pixels: 200,
+          max_pixels: 100,  // Capped to reduce GPU time per request
           mode: "json"
         })
       });
