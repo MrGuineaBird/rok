@@ -6141,7 +6141,23 @@ async function send() {
       return;
     }
   }
-  
+
+  // Handle /pictionary command
+  if (text && text.startsWith("/pictionary")) {
+    input.value = "";
+    autoResizeInput();
+    handlePictionaryCommand();
+    return;
+  }
+
+  // Handle /madlibs command
+  if (text && text.startsWith("/madlibs")) {
+    input.value = "";
+    autoResizeInput();
+    handleMadlibsCommand();
+    return;
+  }
+
   const sessionModel = getCurrentSessionModel();
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sandboxActive = isSandboxSessionActive();
@@ -8851,3 +8867,251 @@ function savePixelPainting(prompt, imageUrl, logs, duration) {
 }
 
 // escapeHtml already defined above (line ~4584)
+
+// ── ROK Pictionary ──
+const PICTIONARY_API_URL = buildApiUrl("/api/pictionary");
+
+async function handlePictionaryCommand() {
+  addMessage("user", "/pictionary");
+  addMessage("bot", "🎨 **Pictionary** - Draw the prompt and I'll guess what it is!");
+
+  // Fetch prompt from backend
+  let prompt = "a cat"; // fallback
+  try {
+    const res = await fetch(`${PICTIONARY_API_URL}/prompt`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.prompt) {
+        prompt = data.prompt;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch pictionary prompt:", e);
+  }
+
+  // Build UI
+  const row = document.createElement("div");
+  row.className = "chat-row bot-row";
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble bot-bubble";
+
+  bubble.innerHTML = `
+    <div class="pictionary-game" style="padding: 16px; background: #252535; border-radius: 12px; margin: 8px 0;">
+      <div style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #fff;">
+        🎯 Draw this: <span style="color: #7dd3fc;">${escapeHtml(prompt)}</span>
+      </div>
+      <canvas class="pictionary-canvas" width="300" height="300" style="background: #fff; border-radius: 8px; cursor: crosshair; touch-action: none;"></canvas>
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button class="pictionary-clear" style="padding: 8px 16px; background: #374151; border: none; border-radius: 6px; color: #fff; cursor: pointer;">🗑️ Clear</button>
+        <button class="pictionary-submit" style="padding: 8px 16px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer;">✅ Submit Drawing</button>
+      </div>
+      <div class="pictionary-result" style="margin-top: 12px; font-size: 14px;"></div>
+    </div>
+  `;
+
+  row.appendChild(bubble);
+  chatContainer.appendChild(row);
+  scrollToBottom();
+
+  // Setup canvas drawing
+  const canvas = bubble.querySelector(".pictionary-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#000";
+
+  let drawing = false;
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
+  }
+
+  canvas.addEventListener("mousedown", (e) => {
+    drawing = true;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  });
+  canvas.addEventListener("mousemove", (e) => {
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  });
+  canvas.addEventListener("mouseup", () => drawing = false);
+  canvas.addEventListener("mouseleave", () => drawing = false);
+
+  // Touch support
+  canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    drawing = true;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  });
+  canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  });
+  canvas.addEventListener("touchend", () => drawing = false);
+
+  // Clear button
+  bubble.querySelector(".pictionary-clear").addEventListener("click", () => {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    bubble.querySelector(".pictionary-result").innerHTML = "";
+  });
+
+  // Initialize white background
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Submit button
+  bubble.querySelector(".pictionary-submit").addEventListener("click", async () => {
+    const imageBase64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+    const resultDiv = bubble.querySelector(".pictionary-result");
+    resultDiv.innerHTML = "🤔 AI is thinking...";
+
+    try {
+      const res = await fetch(`${PICTIONARY_API_URL}/judge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, image_base64: imageBase64 })
+      });
+
+      if (!res.ok) {
+        resultDiv.innerHTML = `❌ Error: ${res.status}`;
+        return;
+      }
+
+      const data = await res.json();
+      if (data.ok) {
+        resultDiv.innerHTML = `
+          <div style="background: #1e293b; padding: 12px; border-radius: 8px;">
+            <div>🤖 AI guessed: <strong>${escapeHtml(data.guess || "?")}</strong></div>
+            <div>⭐ Score: <strong>${data.score || 0}/100</strong></div>
+            <div style="color: #94a3b8; margin-top: 4px;">${escapeHtml(data.reaction || "")}</div>
+          </div>
+        `;
+      } else {
+        resultDiv.innerHTML = `❌ ${escapeHtml(data.error || "Failed")}`;
+      }
+    } catch (e) {
+      resultDiv.innerHTML = "❌ Network error";
+      console.error("Pictionary submit error:", e);
+    }
+  });
+}
+
+// ── ROK Mad Libs ──
+const MADLIBS_API_URL = buildApiUrl("/api/madlibs");
+
+async function handleMadlibsCommand() {
+  addMessage("user", "/madlibs");
+  addMessage("bot", "📖 **Mad Libs** - Fill in the blanks and read your hilarious story!");
+
+  // Fetch story template from backend
+  let storyText = "The [adjective] [noun] [verb] over the [adjective] [noun].";
+  try {
+    const res = await fetch(`${MADLIBS_API_URL}/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.story) {
+        storyText = data.story;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch madlibs story:", e);
+  }
+
+  // Parse blanks from story (find all [TYPE] patterns)
+  const blankMatches = [...storyText.matchAll(/\[([a-z]+)\]/gi)];
+  const blanks = blankMatches.map(m => ({ type: m[1], full: m[0] }));
+
+  if (blanks.length === 0) {
+    addMessage("bot", escapeHtml(storyText));
+    return;
+  }
+
+  // Build UI
+  const row = document.createElement("div");
+  row.className = "chat-row bot-row";
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble bot-bubble";
+
+  const uniqueBlanks = [];
+  const seen = new Set();
+  blanks.forEach((b, i) => {
+    if (!seen.has(i)) {
+      uniqueBlanks.push({ ...b, index: i });
+      seen.add(i);
+    }
+  });
+
+  const blanksHtml = blanks.map((b, i) =>
+    `<input type="text" class="madlibs-input-${i}" placeholder="${escapeHtml(b.type)}" style="padding: 6px 10px; background: #1e293b; border: 1px solid #475569; border-radius: 4px; color: #fff; width: 100px; margin: 2px; font-size: 13px;">`
+  ).join("");
+
+  // Show story with blanks replaced by input fields
+  let storyWithInputs = escapeHtml(storyText);
+  blanks.forEach((b, i) => {
+    storyWithInputs = storyWithInputs.replace(escapeHtml(b.full), `<span class="madlibs-blank-${i}">[${escapeHtml(b.type)}]</span>`);
+  });
+
+  bubble.innerHTML = `
+    <div class="madlibs-game" style="padding: 16px; background: #252535; border-radius: 12px; margin: 8px 0;">
+      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 12px;">Fill in the blanks:</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px;">
+        ${blanksHtml}
+      </div>
+      <div class="madlibs-story" style="font-size: 15px; line-height: 1.8; color: #fff; background: #1e293b; padding: 16px; border-radius: 8px; white-space: pre-wrap;">
+        ${storyWithInputs}
+      </div>
+      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">📖 Reveal Story</button>
+      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">🔄 New Story</button>
+    </div>
+  `;
+
+  row.appendChild(bubble);
+  chatContainer.appendChild(row);
+  scrollToBottom();
+
+  // Update story as user types
+  const updateStory = () => {
+    let updatedStory = escapeHtml(storyText);
+    blanks.forEach((b, i) => {
+      const input = bubble.querySelector(`.madlibs-input-${i}`);
+      const val = input?.value?.trim() || `[${b.type}]`;
+      updatedStory = updatedStory.replace(escapeHtml(b.full), `<strong style="color: #7dd3fc;">${escapeHtml(val)}</strong>`);
+    });
+    bubble.querySelector(".madlibs-story").innerHTML = updatedStory;
+  };
+
+  blanks.forEach((_, i) => {
+    const input = bubble.querySelector(`.madlibs-input-${i}`);
+    if (input) input.addEventListener("input", updateStory);
+  });
+
+  // Reveal button
+  bubble.querySelector(".madlibs-reveal").addEventListener("click", () => {
+    updateStory();
+    bubble.querySelector(".madlibs-reveal").style.display = "none";
+    // Scroll inputs into view
+    bubble.querySelector(".madlibs-story").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  // New story button
+  bubble.querySelector(".madlibs-new").addEventListener("click", () => {
+    handleMadlibsCommand();
+  });
+}
