@@ -8494,11 +8494,10 @@ class PixelCanvas {
     this.updateCanvas();
   }
 
-  // Apply pixel changes from VLM response
+  // Apply pixel changes from VLM response (supports single pixel, fill, and rect)
   applyPixelChanges(changes) {
     for (const change of changes) {
-      const x = Math.max(0, Math.min(this.size - 1, change.x));
-      const y = Math.max(0, Math.min(this.size - 1, change.y));
+      const type = change.type || "pixel";
       const color = change.color;
       
       // Parse hex color
@@ -8506,14 +8505,84 @@ class PixelCanvas {
       const g = parseInt(color.slice(3, 5), 16);
       const b = parseInt(color.slice(5, 7), 16);
       
-      // Set pixel
+      if (type === "fill") {
+        // Flood fill from point (x,y) with color
+        this.floodFill(change.x, change.y, r, g, b, change.tolerance || 0);
+      } else if (type === "rect") {
+        // Fill rectangle from (x,y) with width w and height h
+        const x = Math.max(0, Math.min(this.size - 1, change.x));
+        const y = Math.max(0, Math.min(this.size - 1, change.y));
+        const w = Math.min(change.w || 1, this.size - x);
+        const h = Math.min(change.h || 1, this.size - y);
+        for (let dy = 0; dy < h; dy++) {
+          for (let dx = 0; dx < w; dx++) {
+            const idx = ((y + dy) * this.size + (x + dx)) * 4;
+            this.data[idx] = r;
+            this.data[idx + 1] = g;
+            this.data[idx + 2] = b;
+            this.data[idx + 3] = 255;
+          }
+        }
+      } else {
+        // Single pixel (default)
+        const x = Math.max(0, Math.min(this.size - 1, change.x));
+        const y = Math.max(0, Math.min(this.size - 1, change.y));
+        const idx = (y * this.size + x) * 4;
+        this.data[idx] = r;
+        this.data[idx + 1] = g;
+        this.data[idx + 2] = b;
+        this.data[idx + 3] = 255;
+      }
+    }
+    this.updateCanvas();
+  }
+
+  // Flood fill algorithm (bucket fill)
+  floodFill(startX, startY, r, g, b, tolerance) {
+    startX = Math.max(0, Math.min(this.size - 1, Math.floor(startX)));
+    startY = Math.max(0, Math.min(this.size - 1, Math.floor(startY)));
+    
+    const startIdx = (startY * this.size + startX) * 4;
+    const targetR = this.data[startIdx];
+    const targetG = this.data[startIdx + 1];
+    const targetB = this.data[startIdx + 2];
+    
+    // Don't fill if already the target color
+    if (targetR === r && targetG === g && targetB === b) return;
+    
+    const stack = [[startX, startY]];
+    const visited = new Set([startY * this.size + startX]);
+    
+    while (stack.length > 0) {
+      const [x, y] = stack.pop();
       const idx = (y * this.size + x) * 4;
+      
+      // Set pixel
       this.data[idx] = r;
       this.data[idx + 1] = g;
       this.data[idx + 2] = b;
       this.data[idx + 3] = 255;
+      
+      // Check neighbors
+      const neighbors = [[x+1, y], [x-1, y], [x, y+1], [x, y-1]];
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || nx >= this.size || ny < 0 || ny >= this.size) continue;
+        const key = ny * this.size + nx;
+        if (visited.has(key)) continue;
+        
+        const nIdx = key * 4;
+        const nr = this.data[nIdx];
+        const ng = this.data[nIdx + 1];
+        const nb = this.data[nIdx + 2];
+        
+        // Check if pixel matches target color (within tolerance)
+        const diff = Math.abs(nr - targetR) + Math.abs(ng - targetG) + Math.abs(nb - targetB);
+        if (diff <= tolerance * 3) {
+          visited.add(key);
+          stack.push([nx, ny]);
+        }
+      }
     }
-    this.updateCanvas();
   }
 
   // Update canvas from image data
@@ -8644,7 +8713,8 @@ async function handleImagineCommand(prompt) {
   
   // Helper to make API call with retries
   async function paintPass(passNum, passName) {
-    progressBar.style.width = `${passNum === 1 ? 30 : 80}%`;
+    const progress = passNum === 1 ? 25 : passNum === 2 ? 50 : passNum === 3 ? 75 : 95;
+    progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
     
     let retries = 2;  // Reduced - backend has its own retries
@@ -8695,17 +8765,32 @@ async function handleImagineCommand(prompt) {
   }
   
   try {
-    // Pass 1: Shape - carve main forms out of noise
+    // 4-pass drawing for better quality
+    // Pass 1: Sketch - outline and main shapes
     if (!stopped) {
-      await paintPass(1, "Shaping from noise...");
+      await paintPass(1, "Sketching outline...");
       previewImg.src = canvas.getDisplayUrl();
       previewDiv.style.display = "block";
       await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
     }
     
-    // Pass 2: Polish - refine into clear image
+    // Pass 2: Base colors - fill in main colors
     if (!stopped) {
-      await paintPass(2, "Polishing details...");
+      await paintPass(2, "Adding base colors...");
+      previewImg.src = canvas.getDisplayUrl();
+      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+    }
+    
+    // Pass 3: Details - add shading and textures
+    if (!stopped) {
+      await paintPass(3, "Adding details...");
+      previewImg.src = canvas.getDisplayUrl();
+      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+    }
+    
+    // Pass 4: Polish - final touches
+    if (!stopped) {
+      await paintPass(4, "Final polish...");
     }
     
     statusText.textContent = "Complete";
