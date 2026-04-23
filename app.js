@@ -8478,7 +8478,18 @@ class PixelCanvas {
       this.data[i] = Math.floor(Math.random() * 256);     // R
       this.data[i + 1] = Math.floor(Math.random() * 256); // G
       this.data[i + 2] = Math.floor(Math.random() * 256); // B
-      this.data[i + 3] = 255; // Alpha
+      this.data[i + 3] = 255; // A
+    }
+    this.updateCanvas();
+  }
+
+  // Initialize with blank white canvas (easier for AI to draw)
+  initBlank() {
+    for (let i = 0; i < this.data.length; i += 4) {
+      this.data[i] = 255;     // R = white
+      this.data[i + 1] = 255; // G = white
+      this.data[i + 2] = 255; // B = white
+      this.data[i + 3] = 255; // A = opaque
     }
     this.updateCanvas();
   }
@@ -8624,9 +8635,9 @@ async function handleImagineCommand(prompt) {
     stopBtn.disabled = true;
   });
   
-  // Initialize canvas with noise
+  // Initialize canvas with blank white (easier for AI to draw on)
   const canvas = new PixelCanvas();
-  canvas.initWithNoise();
+  canvas.initBlank();
   
   const startTime = Date.now();
   const RATE_LIMIT_DELAY_MS = 3000;
