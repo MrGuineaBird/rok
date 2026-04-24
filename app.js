@@ -824,7 +824,7 @@ function createThinkingPanel() {
   const summaryIcon = document.createElement("span");
   summaryIcon.className = "thinking-summary-icon";
   summaryIcon.setAttribute("aria-hidden", "true");
-  summaryIcon.textContent = "â—·";
+  summaryIcon.textContent = "AI";
 
   const summaryLabel = document.createElement("span");
   summaryLabel.className = "thinking-summary-label";
@@ -833,7 +833,7 @@ function createThinkingPanel() {
   const summaryArrow = document.createElement("span");
   summaryArrow.className = "thinking-summary-arrow";
   summaryArrow.setAttribute("aria-hidden", "true");
-  summaryArrow.textContent = "â€º";
+  summaryArrow.textContent = ">";
 
   summaryMain.appendChild(summaryIcon);
   summaryMain.appendChild(summaryLabel);
@@ -8661,16 +8661,149 @@ function setPixelPainterApiKey(value) {
   }
 }
 
+let activePixelPainterApiKeyModal = null;
+
+function closePixelPainterApiKeyModal(result) {
+  if (!activePixelPainterApiKeyModal) return;
+  const { overlay, resolve, keydownHandler } = activePixelPainterApiKeyModal;
+  activePixelPainterApiKeyModal = null;
+  if (keydownHandler) {
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+  resolve(result);
+}
+
 function requestPixelPainterApiKey() {
+  if (activePixelPainterApiKeyModal) {
+    return activePixelPainterApiKeyModal.promise;
+  }
+
   const existing = getPixelPainterApiKey();
-  const entered = window.prompt(
-    "Enter your own Ollama API key for Pixel Painter. It stays only in this browser on this device, and ROK's server key cannot be used for /imagine.",
-    existing || ""
-  );
-  if (entered === null) return null;
-  const normalized = String(entered || "").trim();
-  setPixelPainterApiKey(normalized);
-  return normalized;
+  let resolveModal = null;
+  const promise = new Promise((resolve) => {
+    resolveModal = resolve;
+  });
+
+  const overlay = document.createElement("div");
+  overlay.id = "pixelPainterApiKeyModal";
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "pixelPainterApiKeyTitle");
+
+  const title = document.createElement("div");
+  title.id = "pixelPainterApiKeyTitle";
+  title.className = "correction-modal-title";
+  title.textContent = "Pixel Painter API Key";
+
+  const hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "Enter your own Ollama API key for Pixel Painter. It stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+
+  const input = document.createElement("input");
+  input.className = "correction-modal-input";
+  input.type = "password";
+  input.placeholder = "Paste your Ollama API key";
+  input.value = existing;
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  const forgetBtn = document.createElement("button");
+  forgetBtn.type = "button";
+  forgetBtn.className = "correction-modal-cancel";
+  forgetBtn.textContent = "Forget Saved Key";
+  forgetBtn.disabled = !existing;
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "correction-modal-cancel";
+  cancelBtn.textContent = "Cancel";
+
+  const submitBtn = document.createElement("button");
+  submitBtn.type = "button";
+  submitBtn.className = "correction-modal-submit";
+  submitBtn.textContent = "Save and Continue";
+
+  function updateSubmitState() {
+    submitBtn.disabled = !String(input.value || "").trim();
+  }
+
+  function submitValue() {
+    const normalized = String(input.value || "").trim();
+    if (!normalized) return;
+    setPixelPainterApiKey(normalized);
+    closePixelPainterApiKeyModal(normalized);
+  }
+
+  input.addEventListener("input", updateSubmitState);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitValue();
+    }
+  });
+
+  forgetBtn.addEventListener("click", () => {
+    setPixelPainterApiKey("");
+    input.value = "";
+    forgetBtn.disabled = true;
+    updateSubmitState();
+    input.focus();
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    closePixelPainterApiKeyModal(null);
+  });
+
+  submitBtn.addEventListener("click", submitValue);
+
+  btnRow.appendChild(forgetBtn);
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(submitBtn);
+
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(input);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      closePixelPainterApiKeyModal(null);
+    }
+  });
+
+  const keydownHandler = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closePixelPainterApiKeyModal(null);
+    }
+  };
+
+  activePixelPainterApiKeyModal = {
+    overlay,
+    resolve: resolveModal,
+    promise,
+    keydownHandler
+  };
+
+  document.addEventListener("keydown", keydownHandler);
+  document.body.appendChild(overlay);
+  updateSubmitState();
+  input.focus();
+  input.select();
+
+  return promise;
 }
 
 // Store for active painting sessions
@@ -8678,7 +8811,7 @@ let activePixelPainting = null;
 
 // Handle /imagine command
 async function handleImagineCommand(prompt) {
-  const userPixelPainterApiKey = requestPixelPainterApiKey();
+  const userPixelPainterApiKey = await requestPixelPainterApiKey();
   if (userPixelPainterApiKey === null) {
     return;
   }
@@ -8719,6 +8852,7 @@ async function handleImagineCommand(prompt) {
   previewImg.className = "pixel-painting-img";
   previewImg.alt = "Generated image";
   previewDiv.appendChild(previewImg);
+  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">PX</span><span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>`;
   
   const controlsDiv = document.createElement("div");
   controlsDiv.className = "pixel-painting-controls";
@@ -8886,6 +9020,13 @@ async function handleImagineCommand(prompt) {
     <button class="pixel-painting-save" type="button">ðŸ’¾ Save to Gallery</button>
   `;
   detailsDiv.style.display = "block";
+  detailsDiv.innerHTML = `
+    <div class="pixel-painting-stats">
+      <span>Time: ${duration}s</span>
+      <span>4-pass pixel painting</span>
+    </div>
+    <button class="pixel-painting-save" type="button">Save to Gallery</button>
+  `;
   
   // Save button
   const saveBtn = detailsDiv.querySelector(".pixel-painting-save");
@@ -8893,6 +9034,7 @@ async function handleImagineCommand(prompt) {
     savePixelPainting(prompt, finalUrl, [], duration);
     saveBtn.textContent = "âœ… Saved!";
     saveBtn.disabled = true;
+    saveBtn.textContent = "Saved to Gallery";
   });
   
   // Auto-save

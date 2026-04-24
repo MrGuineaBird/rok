@@ -3310,9 +3310,21 @@ body.settings-compact .attachment-list {
 
 .thinking-summary-icon {
   flex: none;
-  color: #bc8d8d;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 75, 75, 0.22);
+  background: rgba(209, 75, 75, 0.12);
+  color: #d8a7a7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   line-height: 1;
+  text-transform: uppercase;
 }
 
 .thinking-summary-label {
@@ -4066,6 +4078,11 @@ body.settings-compact .attachment-list {
 .correction-modal-cancel:hover {
   background: rgba(255, 255, 255, 0.03);
   color: #b08080;
+}
+
+.correction-modal-cancel:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .correction-modal-submit {
@@ -7068,7 +7085,21 @@ button.stop-mode:hover {
 }
 
 .pixel-painting-icon {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 75, 75, 0.25);
+  background: rgba(209, 75, 75, 0.14);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .pixel-painting-title {
@@ -7111,6 +7142,7 @@ button.stop-mode:hover {
   border-radius: 8px;
   border: 2px solid var(--border);
   background: var(--bg);
+  image-rendering: pixelated;
 }
 
 .pixel-painting-controls {
