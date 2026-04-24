@@ -155,10 +155,10 @@ const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/ap
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
-  historyLimit: 20,          // was 200 — large history balloons every request payload
+  historyLimit: 20,          // was 200 â€” large history balloons every request payload
   maxHistoryMessages: 20,    // was 200
   maxAttachments: 3,
-  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB — capped at 2MB
+  maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
   maxFileChars: 8000,        // was 12000
   maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
 };
@@ -208,10 +208,10 @@ const KNOWN_MODEL_LABELS = {
   "glm-5.1:cloud": "ROK Daedalus"
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen3.5:9b": "Hermes — swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
-  "gpt-oss:20b-cloud": "ROK Hermes — fast cloud replies for everyday questions.",
-  "gpt-oss:120b-cloud": "ROK Titan — largest cloud model for deeper reasoning.",
-  "glm-5.1:cloud": "ROK Daedalus — specialized cloud model with its own daily message limit."
+  "qwen3.5:9b": "Hermes â€” swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
+  "gpt-oss:20b-cloud": "ROK Hermes â€” fast cloud replies for everyday questions.",
+  "gpt-oss:120b-cloud": "ROK Titan â€” largest cloud model for deeper reasoning.",
+  "glm-5.1:cloud": "ROK Daedalus â€” specialized cloud model with its own daily message limit."
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
@@ -340,22 +340,22 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently out of office.",
   "Looks like ROK took a wrong turn at the last router.",
   "ROK is currently off the grid.",
-  "We’re giving ROK a quick tune-up.",
+  "Weâ€™re giving ROK a quick tune-up.",
   "ROK is undergoing a little spring cleaning.",
-  "ROK’s gears are jammed, but we’re fixing them now.",
+  "ROKâ€™s gears are jammed, but weâ€™re fixing them now.",
   "ROK is installing some fresh batteries.",
   "Just polishing the ROK. Back online momentarily.",
-  "ROK is playing hide and seek. (It’s winning).",
-  "ROK is currently in ‘Do Not Disturb’ mode.",
+  "ROK is playing hide and seek. (Itâ€™s winning).",
+  "ROK is currently in â€˜Do Not Disturbâ€™ mode.",
   "Waiting for ROK to wake up...",
   "ROK: Gone fishing. Back shortly.",
   "ROK is taking a breather.",
-  "ROK hit a snag! We’re working on it.",
+  "ROK hit a snag! Weâ€™re working on it.",
   "Something tripped ROK up. Hang tight.",
   "ROK is currently speechless.",
   "ROK ran into a bit of a hiccup.",
   "ROK is currently counting sheep.",
-  "It’s not you, it’s ROK. We need a moment.",
+  "Itâ€™s not you, itâ€™s ROK. We need a moment.",
   "ROK is playing hard to get. Try again!",
   "ROK is out for a jog. Back soon.",
   "ROK is currently meditating. Namaste.",
@@ -399,7 +399,7 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently communicating with alien lifeforms. Back soon.",
   "ROK is currently caught in a time warp. Please hold on.",
   "ROK is currently experiencing a solar flare. Please wait for it to pass.",
-  "ROK is currently orbiting a black hole. It’s a bit slow right now.",
+  "ROK is currently orbiting a black hole. Itâ€™s a bit slow right now.",
   "ROK is currently on a mission to Mars. Communication delay expected.",
 
   // --- Construction Theme ---
@@ -824,7 +824,7 @@ function createThinkingPanel() {
   const summaryIcon = document.createElement("span");
   summaryIcon.className = "thinking-summary-icon";
   summaryIcon.setAttribute("aria-hidden", "true");
-  summaryIcon.textContent = "◷";
+  summaryIcon.textContent = "â—·";
 
   const summaryLabel = document.createElement("span");
   summaryLabel.className = "thinking-summary-label";
@@ -833,7 +833,7 @@ function createThinkingPanel() {
   const summaryArrow = document.createElement("span");
   summaryArrow.className = "thinking-summary-arrow";
   summaryArrow.setAttribute("aria-hidden", "true");
-  summaryArrow.textContent = "›";
+  summaryArrow.textContent = "â€º";
 
   summaryMain.appendChild(summaryIcon);
   summaryMain.appendChild(summaryLabel);
@@ -1450,7 +1450,7 @@ function applyServerThinkingQuota(quota) {
     updatedAt: Date.now(),
   };
   const isExhausted = Boolean(serverThinkingQuota.exhausted);
-  // Only act on the transition (not-exhausted → exhausted), never on repeat calls
+  // Only act on the transition (not-exhausted â†’ exhausted), never on repeat calls
   const justExhausted = !wasExhausted && isExhausted && limitVal > 0;
   if (justExhausted) {
     setTitanLockUntil(Date.now() + titanLockWindowMs);
@@ -1526,7 +1526,7 @@ function hideThinkingBurnoutModal() {
 }
 
 function showThinkingQuotaToast(message) {
-  // For non-limit-hit cases (e.g. click-blocked) — small inline toast
+  // For non-limit-hit cases (e.g. click-blocked) â€” small inline toast
   let toast = document.getElementById("thinkingQuotaToast");
   if (!toast) {
     toast = document.createElement("div");
@@ -1705,7 +1705,7 @@ async function refreshClientConfigFromServer() {
         daedalusLockWindowMs = Math.max(60_000, Math.floor(daedLockSec * 1000));
       }
     }
-    // Apply server-provided thinking quota (authoritative — replaces any stale UI state)
+    // Apply server-provided thinking quota (authoritative â€” replaces any stale UI state)
     if (payload && typeof payload === "object" && payload.thinking_quota) {
       applyServerThinkingQuota(payload.thinking_quota);
     }
@@ -1779,7 +1779,7 @@ function ensureReadyMessage() {
   if (hasShownReadyMessage) return;
   const name = String(loadUserSettingsFromStorage().preferredName || "").trim();
   const text = name
-    ? `Hi, ${name}. ROK is ready — ask me anything.`
+    ? `Hi, ${name}. ROK is ready â€” ask me anything.`
     : "ROK is ready. Ask me anything.";
   addMessage("system", text);
   hasShownReadyMessage = true;
@@ -2672,7 +2672,7 @@ function renderSandboxAnalysisUI(analysis) {
       const content = String(change.content || "");
       const lineCount = countLines(content);
       const charCount = content.length;
-      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} • ${escapeHtml(lineCount.toLocaleString())} lines • ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
+      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} â€¢ ${escapeHtml(lineCount.toLocaleString())} lines â€¢ ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
     })
     .join("");
   sandboxChangeList.innerHTML = `${summaryHtml}${setupHtml}${fileCards}` || '<div class="sandbox-empty-state">No AI file changes yet.</div>';
@@ -6401,7 +6401,7 @@ async function send() {
         bubble.appendChild(retryLine);
       }
       const retryLine = bubble.querySelector(".retry-status-line");
-      if (retryLine) retryLine.textContent = `⟳ ${value}`;
+      if (retryLine) retryLine.textContent = `âŸ³ ${value}`;
     } else if (bubble) {
       // Clear retry indicator when a real answer starts
       const existing = bubble.querySelector(".retry-status-line");
@@ -6622,7 +6622,7 @@ async function send() {
     }
     // Read server-enforced thinking quota from response headers and update UI
     applyThinkingQuotaFromHeaders(res);
-    // Read Daedalus quota headers (independent of Titan — exhausting one doesn't lock the other)
+    // Read Daedalus quota headers (independent of Titan â€” exhausting one doesn't lock the other)
     applyDaedalusQuotaFromHeaders(res);
 
     if (!res.ok || contentType.includes("text/html")) {
@@ -6642,7 +6642,7 @@ async function send() {
         nextAllowedAt = Date.now() + retryAfterSec * 1000;
         startCooldownTimer();
         refreshSendState();
-        throw new Error(errorMessage || `Rate limited — wait ${retryAfterSec}s before sending again.`);
+        throw new Error(errorMessage || `Rate limited â€” wait ${retryAfterSec}s before sending again.`);
       }
 
       if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
@@ -6840,7 +6840,7 @@ async function send() {
 
       if (!partialText) {
         // The model may have answered entirely inside <think> tags with no
-        // separate answer — surface the thinking content rather than "(No response)".
+        // separate answer â€” surface the thinking content rather than "(No response)".
         if (thinkingText && thinkingText.trim()) {
           partialText = thinkingText.trim();
           thinkingText = "";
@@ -7179,7 +7179,7 @@ async function send() {
 
     if (!partialText) {
       // The model may have answered entirely inside <think> tags with no
-      // separate answer — surface the thinking content rather than "(No response)".
+      // separate answer â€” surface the thinking content rather than "(No response)".
       if (thinkingText && thinkingText.trim()) {
         partialText = thinkingText.trim();
         thinkingText = "";
@@ -8275,7 +8275,7 @@ function openCorrectionModal() {
 
   var textarea = document.createElement("textarea");
   textarea.className = "correction-modal-input";
-  textarea.placeholder = "e.g. The seahorse emoji 🪸 does exist, it was added in Unicode 13.0";
+  textarea.placeholder = "e.g. The seahorse emoji ðŸª¸ does exist, it was added in Unicode 13.0";
   textarea.maxLength = 500;
   textarea.rows = 3;
 
@@ -8357,7 +8357,7 @@ function submitCorrection(correction, botResponse, callback) {
         if (callback) callback(true, "Correction submitted successfully! ROK will review it.");
       } else {
         var errMsg = (data && data.error) ? data.error : "Unknown error";
-        if (data._status === 429) errMsg = "Rate limit exceeded — try again later.";
+        if (data._status === 429) errMsg = "Rate limit exceeded â€” try again later.";
         if (callback) callback(false, "Failed to submit: " + errMsg);
       }
     }).catch(function () {
@@ -8466,11 +8466,13 @@ if (elixirOkBtn) {
 // Show Elixir partnership modal on first visit
 showElixirPartnershipModal();
 
-// ── ROK Pixel Painter - VLM-guided image generation ──
+// â”€â”€ ROK Pixel Painter - VLM-guided image generation â”€â”€
 
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
-const PIXEL_PAINTER_CANVAS_SIZE = 100;
+const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
+const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
+const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
 // 2-pass generation: rough draft + refinement (only 2 API calls!)
 const PIXEL_PAINTER_PASS_1_PIXELS = 100;  // Reduced to avoid rate limits
@@ -8638,11 +8640,53 @@ class PixelCanvas {
   }
 }
 
+function getPixelPainterApiKey() {
+  try {
+    return String(localStorage.getItem(PIXEL_PAINTER_API_KEY_STORAGE_KEY) || "").trim();
+  } catch (e) {
+    return "";
+  }
+}
+
+function setPixelPainterApiKey(value) {
+  try {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      localStorage.setItem(PIXEL_PAINTER_API_KEY_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(PIXEL_PAINTER_API_KEY_STORAGE_KEY);
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+function requestPixelPainterApiKey() {
+  const existing = getPixelPainterApiKey();
+  const entered = window.prompt(
+    "Enter your own Ollama API key for Pixel Painter. It stays only in this browser on this device, and ROK's server key cannot be used for /imagine.",
+    existing || ""
+  );
+  if (entered === null) return null;
+  const normalized = String(entered || "").trim();
+  setPixelPainterApiKey(normalized);
+  return normalized;
+}
+
 // Store for active painting sessions
 let activePixelPainting = null;
 
 // Handle /imagine command
 async function handleImagineCommand(prompt) {
+  const userPixelPainterApiKey = requestPixelPainterApiKey();
+  if (userPixelPainterApiKey === null) {
+    return;
+  }
+  if (!userPixelPainterApiKey) {
+    addMessage("bot", "Pixel Painter needs your own Ollama API key before it can start.");
+    return;
+  }
+
   // Show user message
   addMessage("user", `/imagine ${prompt}`);
   
@@ -8662,7 +8706,7 @@ async function handleImagineCommand(prompt) {
   
   const header = document.createElement("div");
   header.className = "pixel-painting-header";
-  header.innerHTML = `<span class="pixel-painting-icon">🎨</span><span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>`;
+  header.innerHTML = `<span class="pixel-painting-icon">ðŸŽ¨</span><span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>`;
   
   const progressWrap = document.createElement("div");
   progressWrap.className = "pixel-painting-progress";
@@ -8739,18 +8783,22 @@ async function handleImagineCommand(prompt) {
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [PIXEL_PAINTER_USER_KEY_HEADER]: userPixelPainterApiKey
+        },
         body: JSON.stringify({
           prompt: prompt,
           canvas_base64: canvas.getBase64(),
           pass_num: passNum,
-          max_pixels: 100,  // Capped to reduce GPU time per request
+          max_pixels: 100,
           mode: "json"
         })
       });
+      const responseData = await response.json().catch(() => null);
       
       if (response.ok) {
-        const data = await response.json();
+        const data = responseData || {};
         if (data.ok && data.pixel_changes?.length > 0) {
           canvas.applyPixelChanges(data.pixel_changes);
         }
@@ -8759,14 +8807,20 @@ async function handleImagineCommand(prompt) {
       
       if (response.status === 429 && rateLimitRetries > 0) {
         rateLimitRetries--;
-        const waitMs = (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS;
-        statusText.textContent = `Rate limit, waiting ${waitMs / 1000}s...`;
+        const retryAfterSec = Number(responseData && responseData.retry_after_sec) || 0;
+        const waitMs = retryAfterSec > 0 ? retryAfterSec * 1000 : (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS;
+        statusText.textContent = `Rate limit, waiting ${Math.max(1, Math.round(waitMs / 1000))}s...`;
         await new Promise(r => setTimeout(r, waitMs));
         continue;
       }
       
+      if (response.status === 401 || response.status === 403) {
+        setPixelPainterApiKey("");
+        throw new Error((responseData && responseData.error) || "Your Ollama API key was rejected.");
+      }
+      
       if (response.status < 500) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error((responseData && responseData.error) || `API error: ${response.status}`);
       }
       
       retries--;
@@ -8826,10 +8880,10 @@ async function handleImagineCommand(prompt) {
   
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
-      <span>⏱️ ${duration}s</span>
-      <span>2-pass denoising</span>
+      <span>â±ï¸ ${duration}s</span>
+      <span>4-pass pixel painting</span>
     </div>
-    <button class="pixel-painting-save" type="button">💾 Save to Gallery</button>
+    <button class="pixel-painting-save" type="button">ðŸ’¾ Save to Gallery</button>
   `;
   detailsDiv.style.display = "block";
   
@@ -8837,7 +8891,7 @@ async function handleImagineCommand(prompt) {
   const saveBtn = detailsDiv.querySelector(".pixel-painting-save");
   saveBtn.addEventListener("click", () => {
     savePixelPainting(prompt, finalUrl, [], duration);
-    saveBtn.textContent = "✅ Saved!";
+    saveBtn.textContent = "âœ… Saved!";
     saveBtn.disabled = true;
   });
   
@@ -8868,12 +8922,12 @@ function savePixelPainting(prompt, imageUrl, logs, duration) {
 
 // escapeHtml already defined above (line ~4584)
 
-// ── ROK Pictionary ──
+// â”€â”€ ROK Pictionary â”€â”€
 const PICTIONARY_API_URL = buildApiUrl("/api/pictionary");
 
 async function handlePictionaryCommand() {
   addMessage("user", "/pictionary");
-  addMessage("bot", "🎨 **Pictionary** - Draw the prompt and I'll guess what it is!");
+  addMessage("bot", "ðŸŽ¨ **Pictionary** - Draw the prompt and I'll guess what it is!");
 
   // Fetch prompt from backend
   let prompt = "a cat"; // fallback
@@ -8898,12 +8952,12 @@ async function handlePictionaryCommand() {
   bubble.innerHTML = `
     <div class="pictionary-game" style="padding: 16px; background: #252535; border-radius: 12px; margin: 8px 0;">
       <div style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #fff;">
-        🎯 Draw this: <span style="color: #7dd3fc;">${escapeHtml(prompt)}</span>
+        ðŸŽ¯ Draw this: <span style="color: #7dd3fc;">${escapeHtml(prompt)}</span>
       </div>
       <canvas class="pictionary-canvas" width="300" height="300" style="background: #fff; border-radius: 8px; cursor: crosshair; touch-action: none;"></canvas>
       <div style="display: flex; gap: 8px; margin-top: 12px;">
-        <button class="pictionary-clear" style="padding: 8px 16px; background: #374151; border: none; border-radius: 6px; color: #fff; cursor: pointer;">🗑️ Clear</button>
-        <button class="pictionary-submit" style="padding: 8px 16px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer;">✅ Submit Drawing</button>
+        <button class="pictionary-clear" style="padding: 8px 16px; background: #374151; border: none; border-radius: 6px; color: #fff; cursor: pointer;">ðŸ—‘ï¸ Clear</button>
+        <button class="pictionary-submit" style="padding: 8px 16px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer;">âœ… Submit Drawing</button>
       </div>
       <div class="pictionary-result" style="margin-top: 12px; font-size: 14px;"></div>
     </div>
@@ -8980,7 +9034,7 @@ async function handlePictionaryCommand() {
   bubble.querySelector(".pictionary-submit").addEventListener("click", async () => {
     const imageBase64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
     const resultDiv = bubble.querySelector(".pictionary-result");
-    resultDiv.innerHTML = "🤔 AI is thinking...";
+    resultDiv.innerHTML = "ðŸ¤” AI is thinking...";
 
     try {
       const res = await fetch(`${PICTIONARY_API_URL}/judge`, {
@@ -8990,7 +9044,7 @@ async function handlePictionaryCommand() {
       });
 
       if (!res.ok) {
-        resultDiv.innerHTML = `❌ Error: ${res.status}`;
+        resultDiv.innerHTML = `âŒ Error: ${res.status}`;
         return;
       }
 
@@ -8998,27 +9052,27 @@ async function handlePictionaryCommand() {
       if (data.ok) {
         resultDiv.innerHTML = `
           <div style="background: #1e293b; padding: 12px; border-radius: 8px;">
-            <div>🤖 AI guessed: <strong>${escapeHtml(data.guess || "?")}</strong></div>
-            <div>⭐ Score: <strong>${data.score || 0}/100</strong></div>
+            <div>ðŸ¤– AI guessed: <strong>${escapeHtml(data.guess || "?")}</strong></div>
+            <div>â­ Score: <strong>${data.score || 0}/100</strong></div>
             <div style="color: #94a3b8; margin-top: 4px;">${escapeHtml(data.reaction || "")}</div>
           </div>
         `;
       } else {
-        resultDiv.innerHTML = `❌ ${escapeHtml(data.error || "Failed")}`;
+        resultDiv.innerHTML = `âŒ ${escapeHtml(data.error || "Failed")}`;
       }
     } catch (e) {
-      resultDiv.innerHTML = "❌ Network error";
+      resultDiv.innerHTML = "âŒ Network error";
       console.error("Pictionary submit error:", e);
     }
   });
 }
 
-// ── ROK Mad Libs ──
+// â”€â”€ ROK Mad Libs â”€â”€
 const MADLIBS_API_URL = buildApiUrl("/api/madlibs");
 
 async function handleMadlibsCommand() {
   addMessage("user", "/madlibs");
-  addMessage("bot", "📖 **Mad Libs** - Fill in the blanks and read your hilarious story!");
+  addMessage("bot", "ðŸ“– **Mad Libs** - Fill in the blanks and read your hilarious story!");
 
   // Fetch story template from backend
   let storyText = "The [adjective] [noun] [verb] over the [adjective] [noun].";
@@ -9077,8 +9131,8 @@ async function handleMadlibsCommand() {
       <div class="madlibs-story" style="font-size: 15px; line-height: 1.8; color: #fff; background: #1e293b; padding: 16px; border-radius: 8px; white-space: pre-wrap;">
         ${storyWithInputs}
       </div>
-      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">📖 Reveal Story</button>
-      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">🔄 New Story</button>
+      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">ðŸ“– Reveal Story</button>
+      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">ðŸ”„ New Story</button>
     </div>
   `;
 
