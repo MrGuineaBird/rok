@@ -8677,6 +8677,56 @@ function setPixelPainterRenderMode(value) {
   }
 }
 
+function preparePixelPainterReferenceImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !String(file.type || "").toLowerCase().startsWith("image/")) {
+      reject(new Error("Choose an image file."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read the reference image."));
+    reader.onload = () => {
+      const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!rawDataUrl) {
+        reject(new Error("Failed to read the reference image."));
+        return;
+      }
+
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load the reference image."));
+      img.onload = () => {
+        const maxSide = 768;
+        const scale = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
+        const width = Math.max(1, Math.round((img.width || 1) * scale));
+        const height = Math.max(1, Math.round((img.height || 1) * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context unavailable."));
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0, width, height);
+        const normalizedDataUrl = canvas.toDataURL("image/png");
+        resolve({
+          base64: normalizedDataUrl.split(",")[1],
+          previewDataUrl: normalizedDataUrl,
+          width,
+          height,
+          name: String(file.name || "Reference image")
+        });
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 let activePixelPainterApiKeyModal = null;
 
 function closePixelPainterApiKeyModal(result) {
@@ -8699,6 +8749,11 @@ function requestPixelPainterSettings() {
 
   const existing = getPixelPainterApiKey();
   let selectedMode = getPixelPainterRenderMode();
+  let referenceImageBase64 = "";
+  let referencePreviewUrl = "";
+  let referenceImageName = "";
+  let referenceImageSizeLabel = "";
+  let referenceLoading = false;
   let resolveModal = null;
   const promise = new Promise((resolve) => {
     resolveModal = resolve;
@@ -8721,7 +8776,7 @@ function requestPixelPainterSettings() {
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Choose a style, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+  hint.textContent = "Choose a style, optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
 
   const modeLabel = document.createElement("div");
   modeLabel.className = "pixel-painting-settings-label";
@@ -8768,6 +8823,123 @@ function requestPixelPainterSettings() {
   }
   renderModeOptions();
 
+  const referenceLabel = document.createElement("div");
+  referenceLabel.className = "pixel-painting-settings-label";
+  referenceLabel.textContent = "Reference image (optional)";
+
+  const referenceHint = document.createElement("div");
+  referenceHint.className = "correction-modal-hint pixel-painting-reference-hint";
+  referenceHint.textContent = "Give the model a pose, composition, or style reference. It uses the image as guidance, not an exact trace.";
+
+  const referenceCard = document.createElement("div");
+  referenceCard.className = "pixel-painting-reference-card";
+
+  const referencePreview = document.createElement("div");
+  referencePreview.className = "pixel-painting-reference-preview";
+
+  const referenceThumb = document.createElement("img");
+  referenceThumb.className = "pixel-painting-reference-thumb";
+  referenceThumb.alt = "Reference preview";
+
+  const referenceCopy = document.createElement("div");
+  referenceCopy.className = "pixel-painting-reference-copy";
+
+  const referenceName = document.createElement("div");
+  referenceName.className = "pixel-painting-reference-name";
+
+  const referenceMeta = document.createElement("div");
+  referenceMeta.className = "pixel-painting-reference-meta";
+
+  referenceCopy.appendChild(referenceName);
+  referenceCopy.appendChild(referenceMeta);
+  referencePreview.appendChild(referenceThumb);
+  referencePreview.appendChild(referenceCopy);
+
+  const referenceEmpty = document.createElement("div");
+  referenceEmpty.className = "pixel-painting-reference-empty";
+  referenceEmpty.textContent = "No reference image selected.";
+
+  const referenceActions = document.createElement("div");
+  referenceActions.className = "pixel-painting-reference-actions";
+
+  const referenceFileInput = document.createElement("input");
+  referenceFileInput.type = "file";
+  referenceFileInput.accept = "image/*";
+  referenceFileInput.className = "pixel-painting-reference-input";
+
+  const referenceSelectBtn = document.createElement("button");
+  referenceSelectBtn.type = "button";
+  referenceSelectBtn.className = "correction-modal-cancel";
+  referenceSelectBtn.textContent = "Upload Reference";
+
+  const referenceClearBtn = document.createElement("button");
+  referenceClearBtn.type = "button";
+  referenceClearBtn.className = "correction-modal-cancel";
+  referenceClearBtn.textContent = "Remove Reference";
+
+  function renderReferenceState() {
+    referencePreview.style.display = referencePreviewUrl ? "flex" : "none";
+    referenceEmpty.style.display = referencePreviewUrl ? "none" : "block";
+    referenceThumb.style.display = referencePreviewUrl ? "block" : "none";
+    referenceThumb.src = referencePreviewUrl || "";
+    referenceName.textContent = referenceImageName || "Reference image";
+    referenceMeta.textContent = referencePreviewUrl ? referenceImageSizeLabel : "Pose, layout, or style guide.";
+    referenceClearBtn.disabled = !referencePreviewUrl || referenceLoading;
+    referenceSelectBtn.disabled = referenceLoading;
+    referenceHint.textContent = referenceLoading
+      ? "Preparing reference image..."
+      : "Give the model a pose, composition, or style reference. It uses the image as guidance, not an exact trace.";
+  }
+
+  referenceSelectBtn.addEventListener("click", () => {
+    if (!referenceLoading) {
+      referenceFileInput.click();
+    }
+  });
+
+  referenceClearBtn.addEventListener("click", () => {
+    referenceImageBase64 = "";
+    referencePreviewUrl = "";
+    referenceImageName = "";
+    referenceImageSizeLabel = "";
+    referenceFileInput.value = "";
+    renderReferenceState();
+    updateSubmitState();
+  });
+
+  referenceFileInput.addEventListener("change", async () => {
+    const file = referenceFileInput.files && referenceFileInput.files[0];
+    if (!file) return;
+    referenceLoading = true;
+    renderReferenceState();
+    updateSubmitState();
+    try {
+      const prepared = await preparePixelPainterReferenceImage(file);
+      referenceImageBase64 = String(prepared.base64 || "");
+      referencePreviewUrl = String(prepared.previewDataUrl || "");
+      referenceImageName = String(prepared.name || "Reference image");
+      referenceImageSizeLabel = `${prepared.width}x${prepared.height} guide image`;
+      referenceHint.textContent = "Reference image ready. The model will use it as visual guidance.";
+    } catch (error) {
+      referenceImageBase64 = "";
+      referencePreviewUrl = "";
+      referenceImageName = "";
+      referenceImageSizeLabel = "";
+      referenceHint.textContent = error && error.message ? error.message : "Failed to load the reference image.";
+    } finally {
+      referenceLoading = false;
+      renderReferenceState();
+      updateSubmitState();
+      referenceFileInput.value = "";
+    }
+  });
+
+  referenceActions.appendChild(referenceSelectBtn);
+  referenceActions.appendChild(referenceClearBtn);
+  referenceCard.appendChild(referencePreview);
+  referenceCard.appendChild(referenceEmpty);
+  referenceCard.appendChild(referenceActions);
+
   const keyLabel = document.createElement("div");
   keyLabel.className = "pixel-painting-settings-label";
   keyLabel.textContent = "Ollama API key";
@@ -8801,7 +8973,7 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Save and Continue";
 
   function updateSubmitState() {
-    submitBtn.disabled = !String(input.value || "").trim();
+    submitBtn.disabled = referenceLoading || !String(input.value || "").trim();
   }
 
   function submitValue() {
@@ -8811,7 +8983,9 @@ function requestPixelPainterSettings() {
     setPixelPainterRenderMode(selectedMode);
     closePixelPainterApiKeyModal({
       apiKey: normalized,
-      mode: selectedMode
+      mode: selectedMode,
+      referenceImageBase64,
+      referenceImageName
     });
   }
 
@@ -8845,6 +9019,10 @@ function requestPixelPainterSettings() {
   modal.appendChild(hint);
   modal.appendChild(modeLabel);
   modal.appendChild(modeGrid);
+  modal.appendChild(referenceLabel);
+  modal.appendChild(referenceHint);
+  modal.appendChild(referenceCard);
+  modal.appendChild(referenceFileInput);
   modal.appendChild(keyLabel);
   modal.appendChild(input);
   modal.appendChild(btnRow);
@@ -8872,6 +9050,7 @@ function requestPixelPainterSettings() {
 
   document.addEventListener("keydown", keydownHandler);
   document.body.appendChild(overlay);
+  renderReferenceState();
   updateSubmitState();
   input.focus();
   input.select();
@@ -8921,6 +9100,8 @@ async function handleImagineCommand(prompt) {
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
   const renderMode = imagineSettings.mode === "pixel" ? "pixel" : "vector";
+  const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
+  const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   if (!userPixelPainterApiKey) {
     addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
     return;
@@ -8950,6 +9131,13 @@ async function handleImagineCommand(prompt) {
   const progressWrap = document.createElement("div");
   progressWrap.className = "pixel-painting-progress";
   progressWrap.innerHTML = `<div class="pixel-painting-bar"><div class="pixel-painting-fill" style="width: 0%"></div></div><span class="pixel-painting-status">Initializing...</span>`;
+
+  const referenceNote = document.createElement("div");
+  referenceNote.className = "pixel-painting-reference-note";
+  referenceNote.style.display = referenceImageBase64 ? "block" : "none";
+  referenceNote.textContent = referenceImageBase64
+    ? `Using reference image${referenceImageName ? `: ${referenceImageName}` : ""}`
+    : "";
   
   const previewDiv = document.createElement("div");
   previewDiv.className = "pixel-painting-preview";
@@ -8974,6 +9162,9 @@ async function handleImagineCommand(prompt) {
   detailsDiv.style.display = "none";
   
   container.appendChild(header);
+  if (referenceImageBase64) {
+    container.appendChild(referenceNote);
+  }
   container.appendChild(progressWrap);
   container.appendChild(previewDiv);
   container.appendChild(controlsDiv);
@@ -9031,6 +9222,7 @@ async function handleImagineCommand(prompt) {
         body: JSON.stringify({
           prompt: prompt,
           canvas_base64: canvas.getBase64(),
+          reference_image_base64: referenceImageBase64,
           pass_num: passNum,
           max_pixels: 100,
           mode: "pixel"
@@ -9092,6 +9284,7 @@ async function handleImagineCommand(prompt) {
         body: JSON.stringify({
           prompt: prompt,
           canvas_base64: currentVectorBase64 || "",
+          reference_image_base64: referenceImageBase64,
           pass_num: passNum,
           max_pixels: 100,
           mode: "vector"
@@ -9153,6 +9346,8 @@ async function handleImagineCommand(prompt) {
     vectorPromptWordCount >= 6 ||
     /\b(and|with|on|riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText)
   );
+  const relationHeavyVectorPrompt = renderMode === "vector" &&
+    /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
   let finalUrl = "";
   let generationSummary = renderMode === "vector"
     ? `${complexVectorPrompt ? 5 : 4}-pass vector SVG illustration`
@@ -9215,10 +9410,11 @@ async function handleImagineCommand(prompt) {
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
         const earlyStopStrongFirstPass = complexVectorPrompt &&
+          !relationHeavyVectorPrompt &&
           vectorPass.passNum === 1 &&
           (
-            (bestVectorResult.criticScore >= 88 && bestVectorResult.vectorSource !== "template") ||
-            bestVectorResult.criticScore >= 94
+            (bestVectorResult.criticScore >= 108 && bestVectorResult.vectorSource !== "template") ||
+            bestVectorResult.criticScore >= 120
           );
         if (earlyStopStrongFirstPass) {
           generationSummary = "1-pass critic-picked vector SVG illustration";

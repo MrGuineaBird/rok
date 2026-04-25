@@ -4183,6 +4183,70 @@ body.settings-compact .attachment-list {
   color: #a97878;
 }
 
+.pixel-painting-reference-hint {
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.pixel-painting-reference-card {
+  border: 1px dashed #4a2a2a;
+  border-radius: 12px;
+  background: #110909;
+  padding: 12px;
+}
+
+.pixel-painting-reference-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pixel-painting-reference-thumb {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #4a2a2a;
+  background: #1a0f0f;
+  flex: 0 0 auto;
+}
+
+.pixel-painting-reference-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pixel-painting-reference-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1d3d3;
+  overflow-wrap: anywhere;
+}
+
+.pixel-painting-reference-meta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #9e7676;
+}
+
+.pixel-painting-reference-empty {
+  font-size: 12px;
+  color: #8a6060;
+  line-height: 1.4;
+}
+
+.pixel-painting-reference-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pixel-painting-reference-input {
+  display: none;
+}
+
 /* Typing indicator — clean 3-dot bounce */
 .typing-dots {
   display: inline-flex;
@@ -7204,6 +7268,12 @@ button.stop-mode:hover {
 
 .pixel-painting-status {
   font-size: 13px;
+  color: var(--text-2);
+}
+
+.pixel-painting-reference-note {
+  margin: -4px 0 10px;
+  font-size: 11px;
   color: var(--text-2);
 }
 
