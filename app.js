@@ -8471,12 +8471,10 @@ showElixirPartnershipModal();
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
+const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
-// 2-pass generation: rough draft + refinement (only 2 API calls!)
-const PIXEL_PAINTER_PASS_1_PIXELS = 100;  // Reduced to avoid rate limits
-const PIXEL_PAINTER_PASS_2_PIXELS = 100;  // Reduced to avoid rate limits
 const PIXEL_PAINTER_DELAY_MS = 2000;  // 2s delay between passes to avoid rate limits
 
 class PixelCanvas {
@@ -8661,6 +8659,24 @@ function setPixelPainterApiKey(value) {
   }
 }
 
+function getPixelPainterRenderMode() {
+  try {
+    const value = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "vector").trim().toLowerCase();
+    return value === "pixel" ? "pixel" : "vector";
+  } catch (e) {
+    return "vector";
+  }
+}
+
+function setPixelPainterRenderMode(value) {
+  try {
+    const normalized = String(value || "").trim().toLowerCase();
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized === "pixel" ? "pixel" : "vector");
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
 let activePixelPainterApiKeyModal = null;
 
 function closePixelPainterApiKeyModal(result) {
@@ -8676,12 +8692,13 @@ function closePixelPainterApiKeyModal(result) {
   resolve(result);
 }
 
-function requestPixelPainterApiKey() {
+function requestPixelPainterSettings() {
   if (activePixelPainterApiKeyModal) {
     return activePixelPainterApiKeyModal.promise;
   }
 
   const existing = getPixelPainterApiKey();
+  let selectedMode = getPixelPainterRenderMode();
   let resolveModal = null;
   const promise = new Promise((resolve) => {
     resolveModal = resolve;
@@ -8700,11 +8717,60 @@ function requestPixelPainterApiKey() {
   const title = document.createElement("div");
   title.id = "pixelPainterApiKeyTitle";
   title.className = "correction-modal-title";
-  title.textContent = "Pixel Painter API Key";
+  title.textContent = "Imagine Settings";
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Enter your own Ollama API key for Pixel Painter. It stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+  hint.textContent = "Choose a style, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+
+  const modeLabel = document.createElement("div");
+  modeLabel.className = "pixel-painting-settings-label";
+  modeLabel.textContent = "Image style";
+
+  const modeGrid = document.createElement("div");
+  modeGrid.className = "pixel-painting-mode-grid";
+
+  const modeOptions = [
+    {
+      value: "vector",
+      badge: "VG",
+      title: "Vector",
+      description: "Smooth SVG illustration with clean shapes."
+    },
+    {
+      value: "pixel",
+      badge: "PX",
+      title: "Pixel",
+      description: "Classic block-by-block painter."
+    }
+  ];
+
+  function renderModeOptions() {
+    modeGrid.innerHTML = "";
+    modeOptions.forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `pixel-painting-mode-option${selectedMode === option.value ? " is-active" : ""}`;
+      button.setAttribute("aria-pressed", selectedMode === option.value ? "true" : "false");
+      button.innerHTML = `
+        <span class="pixel-painting-mode-badge" aria-hidden="true">${option.badge}</span>
+        <span class="pixel-painting-mode-copy">
+          <span class="pixel-painting-mode-title">${option.title}</span>
+          <span class="pixel-painting-mode-desc">${option.description}</span>
+        </span>
+      `;
+      button.addEventListener("click", () => {
+        selectedMode = option.value;
+        renderModeOptions();
+      });
+      modeGrid.appendChild(button);
+    });
+  }
+  renderModeOptions();
+
+  const keyLabel = document.createElement("div");
+  keyLabel.className = "pixel-painting-settings-label";
+  keyLabel.textContent = "Ollama API key";
 
   const input = document.createElement("input");
   input.className = "correction-modal-input";
@@ -8742,7 +8808,11 @@ function requestPixelPainterApiKey() {
     const normalized = String(input.value || "").trim();
     if (!normalized) return;
     setPixelPainterApiKey(normalized);
-    closePixelPainterApiKeyModal(normalized);
+    setPixelPainterRenderMode(selectedMode);
+    closePixelPainterApiKeyModal({
+      apiKey: normalized,
+      mode: selectedMode
+    });
   }
 
   input.addEventListener("input", updateSubmitState);
@@ -8773,6 +8843,9 @@ function requestPixelPainterApiKey() {
 
   modal.appendChild(title);
   modal.appendChild(hint);
+  modal.appendChild(modeLabel);
+  modal.appendChild(modeGrid);
+  modal.appendChild(keyLabel);
   modal.appendChild(input);
   modal.appendChild(btnRow);
   overlay.appendChild(modal);
@@ -8806,17 +8879,29 @@ function requestPixelPainterApiKey() {
   return promise;
 }
 
+function getPixelPainterImageUrl(data) {
+  if (!data || typeof data !== "object") return "";
+  const dataUrl = String(data.image_data_url || "").trim();
+  if (dataUrl) return dataUrl;
+  const imageBase64 = String(data.image_base64 || "").trim();
+  if (!imageBase64) return "";
+  const mimeType = String(data.mime_type || "image/png").trim() || "image/png";
+  return `data:${mimeType};base64,${imageBase64}`;
+}
+
 // Store for active painting sessions
 let activePixelPainting = null;
 
 // Handle /imagine command
 async function handleImagineCommand(prompt) {
-  const userPixelPainterApiKey = await requestPixelPainterApiKey();
-  if (userPixelPainterApiKey === null) {
+  const imagineSettings = await requestPixelPainterSettings();
+  if (imagineSettings === null) {
     return;
   }
+  const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
+  const renderMode = imagineSettings.mode === "pixel" ? "pixel" : "vector";
   if (!userPixelPainterApiKey) {
-    addMessage("bot", "Pixel Painter needs your own Ollama API key before it can start.");
+    addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
     return;
   }
 
@@ -8851,8 +8936,9 @@ async function handleImagineCommand(prompt) {
   const previewImg = document.createElement("img");
   previewImg.className = "pixel-painting-img";
   previewImg.alt = "Generated image";
+  previewImg.style.imageRendering = renderMode === "vector" ? "auto" : "pixelated";
   previewDiv.appendChild(previewImg);
-  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">PX</span><span class="pixel-painting-title">Painting: "${escapeHtml(prompt)}"</span>`;
+  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">${renderMode === "vector" ? "VG" : "PX"}</span><span class="pixel-painting-title">${renderMode === "vector" ? "Vector" : "Pixel"}: "${escapeHtml(prompt)}"</span>`;
   
   const controlsDiv = document.createElement("div");
   controlsDiv.className = "pixel-painting-controls";
@@ -8897,6 +8983,9 @@ async function handleImagineCommand(prompt) {
     statusText.textContent = "Stopped by user";
     stopBtn.disabled = true;
   });
+  if (renderMode === "vector") {
+    stopBtn.style.display = "none";
+  }
   
   // Initialize canvas with blank white (easier for AI to draw on)
   const canvas = new PixelCanvas();
@@ -8926,7 +9015,7 @@ async function handleImagineCommand(prompt) {
           canvas_base64: canvas.getBase64(),
           pass_num: passNum,
           max_pixels: 100,
-          mode: "json"
+          mode: "pixel"
         })
       });
       const responseData = await response.json().catch(() => null);
@@ -8967,11 +9056,87 @@ async function handleImagineCommand(prompt) {
     
     throw new Error("API retries exhausted");
   }
+
+  async function requestVectorArtwork() {
+    progressBar.style.width = "28%";
+    statusText.textContent = "Designing vector composition...";
+
+    let retries = 2;
+    let rateLimitRetries = 1;
+
+    while (retries > 0) {
+      const response = await fetch(PIXEL_PAINTER_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [PIXEL_PAINTER_USER_KEY_HEADER]: userPixelPainterApiKey
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          canvas_base64: canvas.getBase64(),
+          pass_num: 1,
+          max_pixels: 100,
+          mode: "vector"
+        })
+      });
+      const responseData = await response.json().catch(() => null);
+
+      if (response.ok) {
+        const data = responseData || {};
+        const imageUrl = getPixelPainterImageUrl(data);
+        if (data.ok && data.mode === "vector" && imageUrl) {
+          return imageUrl;
+        }
+        throw new Error((data && data.error) || "Vector generation returned an invalid scene.");
+      }
+
+      if (response.status === 429 && rateLimitRetries > 0) {
+        rateLimitRetries--;
+        const retryAfterSec = Number(responseData && responseData.retry_after_sec) || 0;
+        const waitMs = retryAfterSec > 0 ? retryAfterSec * 1000 : (4 - rateLimitRetries) * RATE_LIMIT_DELAY_MS;
+        statusText.textContent = `Rate limit, waiting ${Math.max(1, Math.round(waitMs / 1000))}s...`;
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        setPixelPainterApiKey("");
+        throw new Error((responseData && responseData.error) || "Your Ollama API key was rejected.");
+      }
+
+      if (response.status >= 500) {
+        retries--;
+        if (retries > 0) {
+          const waitMs = (6 - retries) * 1000;
+          statusText.textContent = `Retrying in ${waitMs / 1000}s...`;
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+      }
+
+      throw new Error((responseData && responseData.error) || `API error: ${response.status}`);
+    }
+
+    throw new Error("Vector generation retries exhausted");
+  }
   
+  let finalUrl = "";
+  let generationSummary = renderMode === "vector" ? "Vector SVG illustration" : "4-pass pixel painting";
+
   try {
-    // 4-pass drawing for better quality
-    // Pass 1: Sketch - outline and main shapes
-    if (!stopped) {
+    if (!stopped && renderMode === "vector") {
+      const vectorImageUrl = await requestVectorArtwork();
+      if (vectorImageUrl) {
+        finalUrl = vectorImageUrl;
+        generationSummary = "Vector SVG illustration";
+        progressBar.style.width = "100%";
+        statusText.textContent = "Complete";
+        previewImg.src = finalUrl;
+        previewDiv.style.display = "block";
+      }
+    }
+
+    if (!stopped && renderMode === "pixel" && !finalUrl) {
       await paintPass(1, "Sketching outline...");
       previewImg.src = canvas.getDisplayUrl();
       previewDiv.style.display = "block";
@@ -8979,32 +9144,41 @@ async function handleImagineCommand(prompt) {
     }
     
     // Pass 2: Base colors - fill in main colors
-    if (!stopped) {
+    if (!stopped && renderMode === "pixel" && !finalUrl) {
       await paintPass(2, "Adding base colors...");
       previewImg.src = canvas.getDisplayUrl();
       await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
     }
     
     // Pass 3: Details - add shading and textures
-    if (!stopped) {
+    if (!stopped && renderMode === "pixel" && !finalUrl) {
       await paintPass(3, "Adding details...");
       previewImg.src = canvas.getDisplayUrl();
       await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
     }
     
     // Pass 4: Polish - final touches
-    if (!stopped) {
+    if (!stopped && renderMode === "pixel" && !finalUrl) {
       await paintPass(4, "Final polish...");
     }
-    
-    statusText.textContent = "Complete";
+
+    if (!finalUrl && renderMode === "pixel") {
+      finalUrl = canvas.getDisplayUrl();
+      statusText.textContent = "Complete";
+    }
   } catch (error) {
     statusText.textContent = `Error: ${error.message}`;
-    console.error("Pixel painting error:", error);
+    console.error("Imagine generation error:", error);
   }
   
   // Show final result
-  const finalUrl = canvas.getDisplayUrl();
+  if (!finalUrl && renderMode === "pixel") {
+    finalUrl = canvas.getDisplayUrl();
+  }
+  if (!finalUrl) {
+    stopBtn.style.display = "none";
+    return;
+  }
   previewImg.src = finalUrl;
   previewDiv.style.display = "block";
   stopBtn.style.display = "none";
@@ -9023,7 +9197,7 @@ async function handleImagineCommand(prompt) {
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
       <span>Time: ${duration}s</span>
-      <span>4-pass pixel painting</span>
+      <span>${generationSummary}</span>
     </div>
     <button class="pixel-painting-save" type="button">Save to Gallery</button>
   `;

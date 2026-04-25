@@ -4107,6 +4107,82 @@ body.settings-compact .attachment-list {
   background: #e05555;
 }
 
+.pixel-painting-settings-label {
+  margin: 12px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d8a7a7;
+}
+
+.pixel-painting-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pixel-painting-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #361f1f;
+  border-radius: 10px;
+  background: #120a0a;
+  color: #e0b0b0;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.pixel-painting-mode-option:hover {
+  border-color: #5a3030;
+  background: #180d0d;
+}
+
+.pixel-painting-mode-option.is-active {
+  border-color: #d14b4b;
+  background: rgba(209, 75, 75, 0.14);
+  transform: translateY(-1px);
+}
+
+.pixel-painting-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 75, 75, 0.22);
+  background: rgba(209, 75, 75, 0.14);
+  color: #f0c5c5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pixel-painting-mode-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pixel-painting-mode-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f3d6d6;
+}
+
+.pixel-painting-mode-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #a97878;
+}
+
 /* Typing indicator — clean 3-dot bounce */
 .typing-dots {
   display: inline-flex;
