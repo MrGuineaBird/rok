@@ -8471,6 +8471,10 @@ showElixirPartnershipModal();
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
+const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
+const PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY = "rok_pixel_painter_comfyui_api_key";
+const PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY = "rok_pixel_painter_comfyui_url";
+const PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY = "rok_pixel_painter_comfyui_checkpoint";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
@@ -8679,6 +8683,87 @@ function setPixelPainterApiKey(value) {
   }
 }
 
+function getPixelPainterProvider() {
+  try {
+    const value = String(localStorage.getItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY) || "comfyui").trim().toLowerCase();
+    return value === "ollama" ? "ollama" : "comfyui";
+  } catch (e) {
+    return "comfyui";
+  }
+}
+
+function setPixelPainterProvider(value) {
+  try {
+    const normalized = String(value || "").trim().toLowerCase();
+    localStorage.setItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY, normalized === "ollama" ? "ollama" : "comfyui");
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+function getPixelPainterComfyUiApiKey() {
+  try {
+    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY) || "").trim();
+  } catch (e) {
+    return "";
+  }
+}
+
+function setPixelPainterComfyUiApiKey(value) {
+  try {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      localStorage.setItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY);
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+function getPixelPainterComfyUiUrl() {
+  try {
+    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY) || "").trim();
+  } catch (e) {
+    return "";
+  }
+}
+
+function setPixelPainterComfyUiUrl(value) {
+  try {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      localStorage.setItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY);
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+function getPixelPainterComfyUiCheckpoint() {
+  try {
+    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY) || "").trim();
+  } catch (e) {
+    return "";
+  }
+}
+
+function setPixelPainterComfyUiCheckpoint(value) {
+  try {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      localStorage.setItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY);
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
 function getPixelPainterRenderMode() {
   try {
     const value = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "best").trim().toLowerCase();
@@ -8770,8 +8855,10 @@ function requestPixelPainterSettings() {
     return activePixelPainterApiKeyModal.promise;
   }
 
-  const existing = getPixelPainterApiKey();
+  let selectedProvider = getPixelPainterProvider();
+  const existingOllamaKey = getPixelPainterApiKey();
   let selectedMode = getPixelPainterRenderMode();
+  let ollamaApiKey = existingOllamaKey;
   let referenceImageBase64 = "";
   let referencePreviewUrl = "";
   let referenceImageName = "";
@@ -8799,11 +8886,33 @@ function requestPixelPainterSettings() {
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Choose a style, optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+  hint.textContent = "";
+
+  const providerLabel = document.createElement("div");
+  providerLabel.className = "pixel-painting-settings-label";
+  providerLabel.textContent = "Image engine";
+
+  const providerGrid = document.createElement("div");
+  providerGrid.className = "pixel-painting-mode-grid";
+
+  const providerOptions = [
+    {
+      value: "comfyui",
+      badge: "RI",
+      title: "ROK IMAGE",
+      description: "Direct image generation for the best overall quality."
+    },
+    {
+      value: "ollama",
+      badge: "OL",
+      title: "Ollama Legacy",
+      description: "Old vector and pixel generator."
+    }
+  ];
 
   const modeLabel = document.createElement("div");
   modeLabel.className = "pixel-painting-settings-label";
-  modeLabel.textContent = "Image style";
+  modeLabel.textContent = "Legacy Ollama style";
 
   const modeGrid = document.createElement("div");
   modeGrid.className = "pixel-painting-mode-grid";
@@ -8851,6 +8960,35 @@ function requestPixelPainterSettings() {
     });
   }
   renderModeOptions();
+
+  function renderProviderOptions() {
+    providerGrid.innerHTML = "";
+    providerOptions.forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `pixel-painting-mode-option${selectedProvider === option.value ? " is-active" : ""}`;
+      button.setAttribute("aria-pressed", selectedProvider === option.value ? "true" : "false");
+      button.innerHTML = `
+        <span class="pixel-painting-mode-badge" aria-hidden="true">${option.badge}</span>
+        <span class="pixel-painting-mode-copy">
+          <span class="pixel-painting-mode-title">${option.title}</span>
+          <span class="pixel-painting-mode-desc">${option.description}</span>
+        </span>
+      `;
+      button.addEventListener("click", () => {
+        selectedProvider = option.value;
+        if (selectedProvider === "comfyui") {
+          selectedMode = "best";
+        }
+        renderProviderOptions();
+        renderModeOptions();
+        syncProviderFields();
+        updateSubmitState();
+      });
+      providerGrid.appendChild(button);
+    });
+  }
+  renderProviderOptions();
 
   const referenceLabel = document.createElement("div");
   referenceLabel.className = "pixel-painting-settings-label";
@@ -8971,16 +9109,42 @@ function requestPixelPainterSettings() {
 
   const keyLabel = document.createElement("div");
   keyLabel.className = "pixel-painting-settings-label";
-  keyLabel.textContent = "Ollama API key";
+  keyLabel.textContent = "API key";
 
   const input = document.createElement("input");
   input.className = "correction-modal-input";
   input.type = "password";
-  input.placeholder = "Paste your Ollama API key";
-  input.value = existing;
+  input.placeholder = "";
+  input.value = "";
   input.autocomplete = "off";
   input.autocapitalize = "off";
   input.spellcheck = false;
+
+  const endpointLabel = document.createElement("div");
+  endpointLabel.className = "pixel-painting-settings-label";
+  endpointLabel.textContent = "ROK IMAGE URL";
+
+  const endpointInput = document.createElement("input");
+  endpointInput.className = "correction-modal-input";
+  endpointInput.type = "url";
+  endpointInput.placeholder = "https://your-rok-image-host.example.com";
+  endpointInput.value = "";
+  endpointInput.autocomplete = "off";
+  endpointInput.autocapitalize = "off";
+  endpointInput.spellcheck = false;
+
+  const checkpointLabel = document.createElement("div");
+  checkpointLabel.className = "pixel-painting-settings-label";
+  checkpointLabel.textContent = "Checkpoint name";
+
+  const checkpointInput = document.createElement("input");
+  checkpointInput.className = "correction-modal-input";
+  checkpointInput.type = "text";
+  checkpointInput.placeholder = "sd_xl_base_1.0.safetensors";
+  checkpointInput.value = "";
+  checkpointInput.autocomplete = "off";
+  checkpointInput.autocapitalize = "off";
+  checkpointInput.spellcheck = false;
 
   const btnRow = document.createElement("div");
   btnRow.className = "correction-modal-btns";
@@ -8989,7 +9153,7 @@ function requestPixelPainterSettings() {
   forgetBtn.type = "button";
   forgetBtn.className = "correction-modal-cancel";
   forgetBtn.textContent = "Forget Saved Key";
-  forgetBtn.disabled = !existing;
+  forgetBtn.disabled = !existingOllamaKey;
 
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
@@ -9001,24 +9165,63 @@ function requestPixelPainterSettings() {
   submitBtn.className = "correction-modal-submit";
   submitBtn.textContent = "Save and Continue";
 
+  function syncProviderFields() {
+    const usingComfyUi = selectedProvider === "comfyui";
+    hint.textContent = usingComfyUi
+      ? "ROK IMAGE is configured on the server. Just choose ROK IMAGE and send your prompt. No personal API key is needed."
+      : "Choose a legacy style, optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+    modeLabel.style.display = usingComfyUi ? "none" : "block";
+    modeGrid.style.display = usingComfyUi ? "none" : "grid";
+    endpointLabel.style.display = "none";
+    endpointInput.style.display = "none";
+    checkpointLabel.style.display = "none";
+    checkpointInput.style.display = "none";
+    keyLabel.style.display = usingComfyUi ? "none" : "block";
+    input.style.display = usingComfyUi ? "none" : "block";
+    keyLabel.textContent = "Ollama API key";
+    input.placeholder = "Paste your Ollama API key";
+    input.value = ollamaApiKey;
+    forgetBtn.style.display = usingComfyUi ? "none" : "inline-flex";
+    forgetBtn.disabled = !ollamaApiKey;
+  }
+
   function updateSubmitState() {
-    submitBtn.disabled = referenceLoading || !String(input.value || "").trim();
+    const usingComfyUi = selectedProvider === "comfyui";
+    const hasKey = !!String(input.value || "").trim();
+    submitBtn.disabled = referenceLoading || (!usingComfyUi && !hasKey);
   }
 
   function submitValue() {
-    const normalized = String(input.value || "").trim();
-    if (!normalized) return;
-    setPixelPainterApiKey(normalized);
-    setPixelPainterRenderMode(selectedMode);
+    const normalizedKey = String(input.value || "").trim();
+    if (selectedProvider === "comfyui") {
+      setPixelPainterProvider("comfyui");
+      setPixelPainterComfyUiApiKey("");
+      setPixelPainterComfyUiUrl("");
+      setPixelPainterComfyUiCheckpoint("");
+      setPixelPainterRenderMode("best");
+    } else {
+      if (!normalizedKey) return;
+      ollamaApiKey = normalizedKey;
+      setPixelPainterProvider("ollama");
+      setPixelPainterApiKey(normalizedKey);
+      setPixelPainterRenderMode(selectedMode);
+    }
     closePixelPainterApiKeyModal({
-      apiKey: normalized,
-      mode: selectedMode,
+      provider: selectedProvider,
+      apiKey: selectedProvider === "comfyui" ? "" : normalizedKey,
+      providerUrl: "",
+      providerCheckpoint: "",
+      mode: selectedProvider === "comfyui" ? "best" : selectedMode,
       referenceImageBase64,
       referenceImageName
     });
   }
 
-  input.addEventListener("input", updateSubmitState);
+  input.addEventListener("input", () => {
+    ollamaApiKey = String(input.value || "").trim();
+    forgetBtn.disabled = !String(input.value || "").trim();
+    updateSubmitState();
+  });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -9027,6 +9230,7 @@ function requestPixelPainterSettings() {
   });
 
   forgetBtn.addEventListener("click", () => {
+    ollamaApiKey = "";
     setPixelPainterApiKey("");
     input.value = "";
     forgetBtn.disabled = true;
@@ -9046,12 +9250,18 @@ function requestPixelPainterSettings() {
 
   modal.appendChild(title);
   modal.appendChild(hint);
+  modal.appendChild(providerLabel);
+  modal.appendChild(providerGrid);
   modal.appendChild(modeLabel);
   modal.appendChild(modeGrid);
   modal.appendChild(referenceLabel);
   modal.appendChild(referenceHint);
   modal.appendChild(referenceCard);
   modal.appendChild(referenceFileInput);
+  modal.appendChild(endpointLabel);
+  modal.appendChild(endpointInput);
+  modal.appendChild(checkpointLabel);
+  modal.appendChild(checkpointInput);
   modal.appendChild(keyLabel);
   modal.appendChild(input);
   modal.appendChild(btnRow);
@@ -9079,10 +9289,15 @@ function requestPixelPainterSettings() {
 
   document.addEventListener("keydown", keydownHandler);
   document.body.appendChild(overlay);
+  syncProviderFields();
   renderReferenceState();
   updateSubmitState();
-  input.focus();
-  input.select();
+  if (selectedProvider === "comfyui") {
+    submitBtn.focus();
+  } else {
+    input.focus();
+    input.select();
+  }
 
   return promise;
 }
@@ -9128,6 +9343,9 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
+  const imageProvider = imagineSettings.provider === "ollama" ? "ollama" : "comfyui";
+  const providerUrl = String(imagineSettings.providerUrl || "").trim();
+  const providerCheckpoint = String(imagineSettings.providerCheckpoint || "").trim();
   const renderMode = imagineSettings.mode === "pixel"
     ? "pixel"
     : imagineSettings.mode === "vector"
@@ -9135,12 +9353,14 @@ async function handleImagineCommand(prompt) {
       : "best";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
-  const modeMeta = renderMode === "pixel"
-    ? { label: "Pixel", icon: "PX" }
-    : renderMode === "vector"
-      ? { label: "Vector", icon: "VG" }
-      : { label: "Best", icon: "HQ" };
-  if (!userPixelPainterApiKey) {
+  const modeMeta = imageProvider === "comfyui"
+    ? { label: "ROK IMAGE", icon: "RI" }
+    : renderMode === "pixel"
+      ? { label: "Pixel", icon: "PX" }
+      : renderMode === "vector"
+        ? { label: "Vector", icon: "VG" }
+        : { label: "Best", icon: "HQ" };
+  if (!userPixelPainterApiKey && imageProvider !== "comfyui") {
     addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
     return;
   }
@@ -9250,11 +9470,12 @@ async function handleImagineCommand(prompt) {
       ? Math.max(1, Math.round(options.maxPixels))
       : 160;
     const guideMode = String(options.guideMode || "").trim().toLowerCase();
+    const qualityProfile = String(options.qualityProfile || (renderMode === "best" ? "usage_safe" : "standard")).trim().toLowerCase();
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
     
-    let retries = 2;  // Reduced - backend has its own retries
-    let rateLimitRetries = 1;
+    let retries = renderMode === "best" ? 1 : 2;
+    let rateLimitRetries = renderMode === "best" ? 0 : 1;
     
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -9270,6 +9491,7 @@ async function handleImagineCommand(prompt) {
           pass_num: passNum,
           max_pixels: maxPixels,
           guide_mode: guideMode,
+          quality_profile: qualityProfile,
           mode: "pixel"
         })
       });
@@ -9316,8 +9538,8 @@ async function handleImagineCommand(prompt) {
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
 
-    let retries = 2;
-    let rateLimitRetries = 1;
+    let retries = renderMode === "best" ? 1 : 2;
+    let rateLimitRetries = renderMode === "best" ? 0 : 1;
 
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -9334,6 +9556,7 @@ async function handleImagineCommand(prompt) {
           repair_focus: String(priorRepairFocus || ""),
           pass_num: passNum,
           max_pixels: 100,
+          quality_profile: renderMode === "best" ? "usage_safe" : "standard",
           mode: "vector"
         })
       });
@@ -9391,8 +9614,46 @@ async function handleImagineCommand(prompt) {
 
     throw new Error("Vector generation retries exhausted");
   }
+
+  async function requestComfyUiArtwork() {
+    progressBar.style.width = "18%";
+    statusText.textContent = "Sending prompt to ROK IMAGE...";
+
+    const headers = {
+      "Content-Type": "application/json"
+    };
+    if (userPixelPainterApiKey) {
+      headers[PIXEL_PAINTER_USER_KEY_HEADER] = userPixelPainterApiKey;
+    }
+
+    const response = await fetch(PIXEL_PAINTER_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        prompt,
+        provider: "comfyui",
+        provider_url: providerUrl,
+        provider_checkpoint: providerCheckpoint,
+        reference_image_base64: referenceImageBase64,
+        mode: "image"
+      })
+    });
+    const responseData = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error((responseData && responseData.error) || `API error: ${response.status}`);
+    }
+    const data = responseData || {};
+    const imageUrl = getPixelPainterImageUrl(data);
+    if (!data.ok || !imageUrl) {
+      throw new Error((data && data.error) || "ROK IMAGE did not return an image.");
+    }
+    return {
+      imageUrl,
+      provider: String(data.provider || "comfyui")
+    };
+  }
   
-  const useVectorPipeline = renderMode === "vector" || renderMode === "best";
+  const useVectorPipeline = imageProvider === "ollama" && (renderMode === "vector" || renderMode === "best");
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
   const complexVectorPrompt = useVectorPipeline && (
@@ -9406,13 +9667,11 @@ async function handleImagineCommand(prompt) {
     ? (
         complexVectorPrompt
           ? [
-              { passNum: 1, progress: 14, label: "Planning structure" },
-              { passNum: 2, progress: 28, label: "Repairing layout" },
-              { passNum: 3, progress: 42, label: "Locking scaffold" }
+              { passNum: 1, progress: 18, label: "Planning structure" },
+              { passNum: 2, progress: 36, label: "Locking scaffold" }
             ]
           : [
-              { passNum: 1, progress: 18, label: "Blocking scene" },
-              { passNum: 2, progress: 34, label: "Cleaning shapes" }
+              { passNum: 1, progress: 24, label: "Blocking scene" }
             ]
       )
     : (
@@ -9440,27 +9699,35 @@ async function handleImagineCommand(prompt) {
   ];
   const hybridPixelPasses = complexVectorPrompt
     ? [
-        { passNum: 1, progress: 56, label: "Overpainting scaffold", maxPixels: 220, guideMode: "vector_scaffold" },
-        { passNum: 2, progress: 66, label: "Merging forms", maxPixels: 240, guideMode: "vector_scaffold" },
-        { passNum: 3, progress: 76, label: "Improving light and color", maxPixels: 240, guideMode: "vector_scaffold" },
-        { passNum: 4, progress: 84, label: "Fixing action details", maxPixels: 230, guideMode: "vector_scaffold" },
-        { passNum: 5, progress: 91, label: "Adding depth", maxPixels: 200, guideMode: "vector_scaffold" },
-        { passNum: 6, progress: 97, label: "Final cleanup", maxPixels: 150, guideMode: "vector_scaffold" }
+        { passNum: 1, progress: 62, label: "Overpainting scaffold", maxPixels: 150, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
+        { passNum: 2, progress: 82, label: "Fixing action details", maxPixels: 140, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
+        { passNum: 3, progress: 97, label: "Final cleanup", maxPixels: 100, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ]
     : [
-        { passNum: 1, progress: 58, label: "Overpainting scaffold", maxPixels: 200, guideMode: "vector_scaffold" },
-        { passNum: 2, progress: 70, label: "Improving forms", maxPixels: 220, guideMode: "vector_scaffold" },
-        { passNum: 3, progress: 82, label: "Adding depth", maxPixels: 190, guideMode: "vector_scaffold" },
-        { passNum: 4, progress: 92, label: "Final cleanup", maxPixels: 140, guideMode: "vector_scaffold" }
+        { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
+        { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ];
   let generationSummary = renderMode === "vector"
     ? `${vectorPasses.length}-pass vector SVG illustration`
     : renderMode === "best"
       ? `${vectorPasses.length}-pass vector scaffold + ${hybridPixelPasses.length}-pass paint refinement`
       : `${directPixelPasses.length}-pass pixel painting`;
+  if (imageProvider === "comfyui") {
+    generationSummary = "ROK IMAGE direct image generation";
+  }
 
   try {
+    if (!stopped && imageProvider === "comfyui") {
+      const comfyResult = await requestComfyUiArtwork();
+      finalUrl = comfyResult.imageUrl;
+      previewImg.src = finalUrl;
+      previewDiv.style.display = "block";
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
+    }
+
     let seedVectorResult = null;
+    let skipBestPaintStage = false;
     if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
       let currentVectorScene = null;
@@ -9468,14 +9735,23 @@ async function handleImagineCommand(prompt) {
       let bestVectorResult = null;
       for (const vectorPass of vectorPasses) {
         if (stopped) break;
-        const vectorResult = await requestVectorArtwork(
-          vectorPass.passNum,
-          vectorPass.label,
-          vectorPass.progress,
-          currentVectorBase64,
-          currentVectorScene,
-          currentRepairFocus
-        );
+        let vectorResult;
+        try {
+          vectorResult = await requestVectorArtwork(
+            vectorPass.passNum,
+            vectorPass.label,
+            vectorPass.progress,
+            currentVectorBase64,
+            currentVectorScene,
+            currentRepairFocus
+          );
+        } catch (error) {
+          if (bestVectorResult && bestVectorResult.imageUrl) {
+            statusText.textContent = "Using strongest scaffold so far";
+            break;
+          }
+          throw error;
+        }
         if (!vectorResult || !vectorResult.imageUrl) {
           continue;
         }
@@ -9535,10 +9811,21 @@ async function handleImagineCommand(prompt) {
           statusText.textContent = "Complete";
           break;
         }
+        const bestModeSkipPaint = renderMode === "best" &&
+          (
+            bestVectorResult.criticScore >= 112 ||
+            bestVectorResult.issueCount <= 1
+          );
+        if (bestModeSkipPaint) {
+          generationSummary = `${vectorPass.passNum}-pass usage-safe vector illustration`;
+          statusText.textContent = "Complete";
+          skipBestPaintStage = true;
+          break;
+        }
         const earlyStopBestScaffold = renderMode === "best" &&
           vectorPass.passNum >= 2 &&
-          bestVectorResult.criticScore >= 118 &&
-          bestVectorResult.issueCount <= 1;
+          bestVectorResult.criticScore >= 106 &&
+          bestVectorResult.issueCount <= 2;
         if (earlyStopBestScaffold) {
           statusText.textContent = "Scaffold locked";
           break;
@@ -9548,6 +9835,9 @@ async function handleImagineCommand(prompt) {
         }
       }
       if (renderMode === "vector" && finalUrl) {
+        progressBar.style.width = "100%";
+        statusText.textContent = "Complete";
+      } else if (renderMode === "best" && skipBestPaintStage && bestVectorResult) {
         progressBar.style.width = "100%";
         statusText.textContent = "Complete";
       } else if (renderMode === "best" && bestVectorResult) {
@@ -9571,7 +9861,15 @@ async function handleImagineCommand(prompt) {
 
       for (let index = 0; index < activePixelPasses.length && !stopped; index++) {
         const pixelPass = activePixelPasses[index];
-        await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
+        try {
+          await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
+        } catch (error) {
+          if (index > 0 || (seedVectorResult && seedVectorResult.imageUrl)) {
+            statusText.textContent = "Using strongest finished pass";
+            break;
+          }
+          throw error;
+        }
         previewImg.src = canvas.getDisplayUrl();
         previewDiv.style.display = "block";
         if (index < activePixelPasses.length - 1) {
@@ -9603,7 +9901,7 @@ async function handleImagineCommand(prompt) {
   }
   
   // Show final result
-  if (!finalUrl && renderMode !== "vector") {
+  if (!finalUrl && imageProvider === "ollama" && renderMode !== "vector") {
     finalUrl = canvas.getDisplayUrl();
   }
   if (!finalUrl) {
