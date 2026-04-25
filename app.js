@@ -9103,7 +9103,16 @@ async function handleImagineCommand(prompt) {
         const data = responseData || {};
         const imageUrl = getPixelPainterImageUrl(data);
         if (data.ok && data.mode === "vector" && imageUrl) {
-          return imageUrl;
+          const confidence = Number(data.confidence);
+          const elementCount = Number(data.element_count);
+          const criticScore = Number(data.critic_score);
+          return {
+            imageUrl,
+            confidence: Number.isFinite(confidence) ? confidence : 0,
+            elementCount: Number.isFinite(elementCount) ? elementCount : 0,
+            criticScore: Number.isFinite(criticScore) ? criticScore : 0,
+            vectorSource: String(data.vector_source || "model")
+          };
         }
         throw new Error((data && data.error) || "Vector generation returned an invalid scene.");
       }
@@ -9166,22 +9175,58 @@ async function handleImagineCommand(prompt) {
   try {
     if (!stopped && renderMode === "vector") {
       let currentVectorBase64 = "";
+      let bestVectorResult = null;
       for (const vectorPass of vectorPasses) {
         if (stopped) break;
-        const vectorImageUrl = await requestVectorArtwork(
+        const vectorResult = await requestVectorArtwork(
           vectorPass.passNum,
           vectorPass.label,
           vectorPass.progress,
           currentVectorBase64
         );
-        if (!vectorImageUrl) {
+        if (!vectorResult || !vectorResult.imageUrl) {
           continue;
         }
-        finalUrl = vectorImageUrl;
+        const vectorConfidence = Number(vectorResult.confidence);
+        const vectorElementCount = Number(vectorResult.elementCount);
+        const vectorCriticScore = Number(vectorResult.criticScore);
+        const safeConfidence = Number.isFinite(vectorConfidence) ? vectorConfidence : 0;
+        const safeElementCount = Number.isFinite(vectorElementCount) ? vectorElementCount : 0;
+        const safeCriticScore = Number.isFinite(vectorCriticScore) ? vectorCriticScore : 0;
+        const confidenceDroppedTooFar = !!bestVectorResult && safeConfidence < (bestVectorResult.confidence - 0.12);
+        const elementCountCollapsed = !!bestVectorResult &&
+          bestVectorResult.elementCount >= 24 &&
+          safeElementCount > 0 &&
+          safeElementCount < Math.floor(bestVectorResult.elementCount * 0.7);
+
+        if (confidenceDroppedTooFar || elementCountCollapsed) {
+          statusText.textContent = `${vectorPass.label}... keeping stronger earlier pass`;
+          continue;
+        }
+
+        bestVectorResult = {
+          imageUrl: vectorResult.imageUrl,
+          confidence: safeConfidence,
+          elementCount: safeElementCount,
+          criticScore: safeCriticScore,
+          vectorSource: vectorResult.vectorSource || "model"
+        };
+        finalUrl = bestVectorResult.imageUrl;
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
+        const earlyStopStrongFirstPass = complexVectorPrompt &&
+          vectorPass.passNum === 1 &&
+          (
+            (bestVectorResult.criticScore >= 88 && bestVectorResult.vectorSource !== "template") ||
+            bestVectorResult.criticScore >= 94
+          );
+        if (earlyStopStrongFirstPass) {
+          generationSummary = "1-pass critic-picked vector SVG illustration";
+          statusText.textContent = "Complete";
+          break;
+        }
         if (vectorPass.passNum < vectorPasses.length) {
-          currentVectorBase64 = await renderPixelPainterPreviewToBase64(vectorImageUrl);
+          currentVectorBase64 = await renderPixelPainterPreviewToBase64(finalUrl);
         }
       }
       if (finalUrl) {
