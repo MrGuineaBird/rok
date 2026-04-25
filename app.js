@@ -8889,6 +8889,27 @@ function getPixelPainterImageUrl(data) {
   return `data:${mimeType};base64,${imageBase64}`;
 }
 
+function renderPixelPainterPreviewToBase64(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const renderCanvas = document.createElement("canvas");
+      renderCanvas.width = PIXEL_PAINTER_CANVAS_SIZE;
+      renderCanvas.height = PIXEL_PAINTER_CANVAS_SIZE;
+      const renderCtx = renderCanvas.getContext("2d");
+      if (!renderCtx) {
+        reject(new Error("Canvas context unavailable."));
+        return;
+      }
+      renderCtx.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
+      renderCtx.drawImage(img, 0, 0, renderCanvas.width, renderCanvas.height);
+      resolve(renderCanvas.toDataURL("image/png").split(",")[1]);
+    };
+    img.onerror = () => reject(new Error("Failed to rasterize preview."));
+    img.src = dataUrl;
+  });
+}
+
 // Store for active painting sessions
 let activePixelPainting = null;
 
@@ -8983,9 +9004,6 @@ async function handleImagineCommand(prompt) {
     statusText.textContent = "Stopped by user";
     stopBtn.disabled = true;
   });
-  if (renderMode === "vector") {
-    stopBtn.style.display = "none";
-  }
   
   // Initialize canvas with blank white (easier for AI to draw on)
   const canvas = new PixelCanvas();
@@ -9057,9 +9075,9 @@ async function handleImagineCommand(prompt) {
     throw new Error("API retries exhausted");
   }
 
-  async function requestVectorArtwork() {
-    progressBar.style.width = "28%";
-    statusText.textContent = "Designing vector composition...";
+  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64) {
+    progressBar.style.width = `${progress}%`;
+    statusText.textContent = `${passName}...`;
 
     let retries = 2;
     let rateLimitRetries = 1;
@@ -9073,8 +9091,8 @@ async function handleImagineCommand(prompt) {
         },
         body: JSON.stringify({
           prompt: prompt,
-          canvas_base64: canvas.getBase64(),
-          pass_num: 1,
+          canvas_base64: currentVectorBase64 || "",
+          pass_num: passNum,
           max_pixels: 100,
           mode: "vector"
         })
@@ -9121,18 +9139,37 @@ async function handleImagineCommand(prompt) {
   }
   
   let finalUrl = "";
-  let generationSummary = renderMode === "vector" ? "Vector SVG illustration" : "4-pass pixel painting";
+  let generationSummary = renderMode === "vector" ? "3-pass vector SVG illustration" : "4-pass pixel painting";
+  const vectorPasses = [
+    { passNum: 1, progress: 28, label: "Blocking scene" },
+    { passNum: 2, progress: 62, label: "Correcting subjects" },
+    { passNum: 3, progress: 88, label: "Refining relationships" }
+  ];
 
   try {
     if (!stopped && renderMode === "vector") {
-      const vectorImageUrl = await requestVectorArtwork();
-      if (vectorImageUrl) {
+      let currentVectorBase64 = "";
+      for (const vectorPass of vectorPasses) {
+        if (stopped) break;
+        const vectorImageUrl = await requestVectorArtwork(
+          vectorPass.passNum,
+          vectorPass.label,
+          vectorPass.progress,
+          currentVectorBase64
+        );
+        if (!vectorImageUrl) {
+          continue;
+        }
         finalUrl = vectorImageUrl;
-        generationSummary = "Vector SVG illustration";
-        progressBar.style.width = "100%";
-        statusText.textContent = "Complete";
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
+        if (vectorPass.passNum < vectorPasses.length) {
+          currentVectorBase64 = await renderPixelPainterPreviewToBase64(vectorImageUrl);
+        }
+      }
+      if (finalUrl) {
+        progressBar.style.width = "100%";
+        statusText.textContent = "Complete";
       }
     }
 
