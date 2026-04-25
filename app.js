@@ -8510,6 +8510,26 @@ class PixelCanvas {
     this.updateCanvas();
   }
 
+  async loadFromDataUrl(dataUrl) {
+    const src = String(dataUrl || "").trim();
+    if (!src) {
+      throw new Error("Missing image data.");
+    }
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        this.ctx.clearRect(0, 0, this.size, this.size);
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.drawImage(img, 0, 0, this.size, this.size);
+        this.imageData = this.ctx.getImageData(0, 0, this.size, this.size);
+        this.data = this.imageData.data;
+        resolve();
+      };
+      img.onerror = () => reject(new Error("Failed to load the seed image."));
+      img.src = src;
+    });
+  }
+
   // Apply pixel changes from VLM response (supports single pixel, fill, and rect)
   applyPixelChanges(changes) {
     for (const change of changes) {
@@ -8661,17 +8681,20 @@ function setPixelPainterApiKey(value) {
 
 function getPixelPainterRenderMode() {
   try {
-    const value = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "vector").trim().toLowerCase();
-    return value === "pixel" ? "pixel" : "vector";
+    const value = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "best").trim().toLowerCase();
+    return value === "pixel" || value === "vector" || value === "best" ? value : "best";
   } catch (e) {
-    return "vector";
+    return "best";
   }
 }
 
 function setPixelPainterRenderMode(value) {
   try {
     const normalized = String(value || "").trim().toLowerCase();
-    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized === "pixel" ? "pixel" : "vector");
+    localStorage.setItem(
+      PIXEL_PAINTER_MODE_STORAGE_KEY,
+      normalized === "pixel" || normalized === "vector" || normalized === "best" ? normalized : "best"
+    );
   } catch (e) {
     // Ignore storage errors
   }
@@ -8786,6 +8809,12 @@ function requestPixelPainterSettings() {
   modeGrid.className = "pixel-painting-mode-grid";
 
   const modeOptions = [
+    {
+      value: "best",
+      badge: "HQ",
+      title: "Best",
+      description: "Vector planning plus paint refinement for the strongest result."
+    },
     {
       value: "vector",
       badge: "VG",
@@ -9099,9 +9128,18 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const renderMode = imagineSettings.mode === "pixel" ? "pixel" : "vector";
+  const renderMode = imagineSettings.mode === "pixel"
+    ? "pixel"
+    : imagineSettings.mode === "vector"
+      ? "vector"
+      : "best";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
+  const modeMeta = renderMode === "pixel"
+    ? { label: "Pixel", icon: "PX" }
+    : renderMode === "vector"
+      ? { label: "Vector", icon: "VG" }
+      : { label: "Best", icon: "HQ" };
   if (!userPixelPainterApiKey) {
     addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
     return;
@@ -9145,9 +9183,9 @@ async function handleImagineCommand(prompt) {
   const previewImg = document.createElement("img");
   previewImg.className = "pixel-painting-img";
   previewImg.alt = "Generated image";
-  previewImg.style.imageRendering = renderMode === "vector" ? "auto" : "pixelated";
+  previewImg.style.imageRendering = renderMode === "pixel" ? "pixelated" : "auto";
   previewDiv.appendChild(previewImg);
-  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">${renderMode === "vector" ? "VG" : "PX"}</span><span class="pixel-painting-title">${renderMode === "vector" ? "Vector" : "Pixel"}: "${escapeHtml(prompt)}"</span>`;
+  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">${modeMeta.icon}</span><span class="pixel-painting-title">${modeMeta.label}: "${escapeHtml(prompt)}"</span>`;
   
   const controlsDiv = document.createElement("div");
   controlsDiv.className = "pixel-painting-controls";
@@ -9204,8 +9242,14 @@ async function handleImagineCommand(prompt) {
   const RATE_LIMIT_DELAY_MS = 3000;
   
   // Helper to make API call with retries
-  async function paintPass(passNum, passName) {
-    const progress = passNum === 1 ? 25 : passNum === 2 ? 50 : passNum === 3 ? 75 : 95;
+  async function paintPass(passNum, passName, options = {}) {
+    const progress = Number.isFinite(options.progress)
+      ? Math.max(1, Math.min(99, Math.round(options.progress)))
+      : (passNum === 1 ? 25 : passNum === 2 ? 50 : passNum === 3 ? 75 : 95);
+    const maxPixels = Number.isFinite(options.maxPixels)
+      ? Math.max(1, Math.round(options.maxPixels))
+      : 160;
+    const guideMode = String(options.guideMode || "").trim().toLowerCase();
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
     
@@ -9224,7 +9268,8 @@ async function handleImagineCommand(prompt) {
           canvas_base64: canvas.getBase64(),
           reference_image_base64: referenceImageBase64,
           pass_num: passNum,
-          max_pixels: 100,
+          max_pixels: maxPixels,
+          guide_mode: guideMode,
           mode: "pixel"
         })
       });
@@ -9267,7 +9312,7 @@ async function handleImagineCommand(prompt) {
     throw new Error("API retries exhausted");
   }
 
-  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64) {
+  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, priorRepairFocus) {
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
 
@@ -9285,6 +9330,8 @@ async function handleImagineCommand(prompt) {
           prompt: prompt,
           canvas_base64: currentVectorBase64 || "",
           reference_image_base64: referenceImageBase64,
+          current_scene: currentVectorScene || null,
+          repair_focus: String(priorRepairFocus || ""),
           pass_num: passNum,
           max_pixels: 100,
           mode: "vector"
@@ -9299,12 +9346,17 @@ async function handleImagineCommand(prompt) {
           const confidence = Number(data.confidence);
           const elementCount = Number(data.element_count);
           const criticScore = Number(data.critic_score);
+          const issueCount = Number(data.issue_count);
           return {
             imageUrl,
             confidence: Number.isFinite(confidence) ? confidence : 0,
             elementCount: Number.isFinite(elementCount) ? elementCount : 0,
             criticScore: Number.isFinite(criticScore) ? criticScore : 0,
-            vectorSource: String(data.vector_source || "model")
+            vectorSource: String(data.vector_source || "model"),
+            issueCount: Number.isFinite(issueCount) ? issueCount : 0,
+            issues: Array.isArray(data.issues) ? data.issues.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+            repairFocus: String(data.repair_focus || "").trim(),
+            scene: data && typeof data.scene === "object" ? data.scene : null
           };
         }
         throw new Error((data && data.error) || "Vector generation returned an invalid scene.");
@@ -9340,36 +9392,79 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
   
+  const useVectorPipeline = renderMode === "vector" || renderMode === "best";
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
-  const complexVectorPrompt = renderMode === "vector" && (
+  const complexVectorPrompt = useVectorPipeline && (
     vectorPromptWordCount >= 6 ||
     /\b(and|with|on|riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText)
   );
-  const relationHeavyVectorPrompt = renderMode === "vector" &&
+  const relationHeavyVectorPrompt = useVectorPipeline &&
     /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
   let finalUrl = "";
-  let generationSummary = renderMode === "vector"
-    ? `${complexVectorPrompt ? 5 : 4}-pass vector SVG illustration`
-    : "4-pass pixel painting";
-  const vectorPasses = complexVectorPrompt
+  const vectorPasses = renderMode === "best"
+    ? (
+        complexVectorPrompt
+          ? [
+              { passNum: 1, progress: 14, label: "Planning structure" },
+              { passNum: 2, progress: 28, label: "Repairing layout" },
+              { passNum: 3, progress: 42, label: "Locking scaffold" }
+            ]
+          : [
+              { passNum: 1, progress: 18, label: "Blocking scene" },
+              { passNum: 2, progress: 34, label: "Cleaning shapes" }
+            ]
+      )
+    : (
+        complexVectorPrompt
+          ? [
+              { passNum: 1, progress: 18, label: "Blocking scene" },
+              { passNum: 2, progress: 38, label: "Separating subjects" },
+              { passNum: 3, progress: 58, label: "Fixing relationships" },
+              { passNum: 4, progress: 78, label: "Repairing anatomy and props" },
+              { passNum: 5, progress: 92, label: "Polishing silhouette" }
+            ]
+          : [
+              { passNum: 1, progress: 24, label: "Blocking scene" },
+              { passNum: 2, progress: 52, label: "Correcting shapes" },
+              { passNum: 3, progress: 78, label: "Refining details" },
+              { passNum: 4, progress: 92, label: "Final cleanup" }
+            ]
+      );
+  const directPixelPasses = [
+    { passNum: 1, progress: 22, label: "Blocking composition", maxPixels: 160, guideMode: "" },
+    { passNum: 2, progress: 42, label: "Laying base colors", maxPixels: 190, guideMode: "" },
+    { passNum: 3, progress: 60, label: "Repairing structure", maxPixels: 200, guideMode: "" },
+    { passNum: 4, progress: 78, label: "Adding details", maxPixels: 180, guideMode: "" },
+    { passNum: 5, progress: 94, label: "Final cleanup", maxPixels: 140, guideMode: "" }
+  ];
+  const hybridPixelPasses = complexVectorPrompt
     ? [
-        { passNum: 1, progress: 18, label: "Blocking scene" },
-        { passNum: 2, progress: 38, label: "Separating subjects" },
-        { passNum: 3, progress: 58, label: "Fixing relationships" },
-        { passNum: 4, progress: 78, label: "Repairing anatomy and props" },
-        { passNum: 5, progress: 92, label: "Polishing silhouette" }
+        { passNum: 1, progress: 56, label: "Overpainting scaffold", maxPixels: 220, guideMode: "vector_scaffold" },
+        { passNum: 2, progress: 66, label: "Merging forms", maxPixels: 240, guideMode: "vector_scaffold" },
+        { passNum: 3, progress: 76, label: "Improving light and color", maxPixels: 240, guideMode: "vector_scaffold" },
+        { passNum: 4, progress: 84, label: "Fixing action details", maxPixels: 230, guideMode: "vector_scaffold" },
+        { passNum: 5, progress: 91, label: "Adding depth", maxPixels: 200, guideMode: "vector_scaffold" },
+        { passNum: 6, progress: 97, label: "Final cleanup", maxPixels: 150, guideMode: "vector_scaffold" }
       ]
     : [
-        { passNum: 1, progress: 24, label: "Blocking scene" },
-        { passNum: 2, progress: 52, label: "Correcting shapes" },
-        { passNum: 3, progress: 78, label: "Refining details" },
-        { passNum: 4, progress: 92, label: "Final cleanup" }
+        { passNum: 1, progress: 58, label: "Overpainting scaffold", maxPixels: 200, guideMode: "vector_scaffold" },
+        { passNum: 2, progress: 70, label: "Improving forms", maxPixels: 220, guideMode: "vector_scaffold" },
+        { passNum: 3, progress: 82, label: "Adding depth", maxPixels: 190, guideMode: "vector_scaffold" },
+        { passNum: 4, progress: 92, label: "Final cleanup", maxPixels: 140, guideMode: "vector_scaffold" }
       ];
+  let generationSummary = renderMode === "vector"
+    ? `${vectorPasses.length}-pass vector SVG illustration`
+    : renderMode === "best"
+      ? `${vectorPasses.length}-pass vector scaffold + ${hybridPixelPasses.length}-pass paint refinement`
+      : `${directPixelPasses.length}-pass pixel painting`;
 
   try {
-    if (!stopped && renderMode === "vector") {
+    let seedVectorResult = null;
+    if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
+      let currentVectorScene = null;
+      let currentRepairFocus = "";
       let bestVectorResult = null;
       for (const vectorPass of vectorPasses) {
         if (stopped) break;
@@ -9377,7 +9472,9 @@ async function handleImagineCommand(prompt) {
           vectorPass.passNum,
           vectorPass.label,
           vectorPass.progress,
-          currentVectorBase64
+          currentVectorBase64,
+          currentVectorScene,
+          currentRepairFocus
         );
         if (!vectorResult || !vectorResult.imageUrl) {
           continue;
@@ -9385,16 +9482,25 @@ async function handleImagineCommand(prompt) {
         const vectorConfidence = Number(vectorResult.confidence);
         const vectorElementCount = Number(vectorResult.elementCount);
         const vectorCriticScore = Number(vectorResult.criticScore);
+        const vectorIssueCount = Number(vectorResult.issueCount);
         const safeConfidence = Number.isFinite(vectorConfidence) ? vectorConfidence : 0;
         const safeElementCount = Number.isFinite(vectorElementCount) ? vectorElementCount : 0;
         const safeCriticScore = Number.isFinite(vectorCriticScore) ? vectorCriticScore : 0;
+        const safeIssueCount = Number.isFinite(vectorIssueCount) ? vectorIssueCount : 0;
         const confidenceDroppedTooFar = !!bestVectorResult && safeConfidence < (bestVectorResult.confidence - 0.12);
         const elementCountCollapsed = !!bestVectorResult &&
           bestVectorResult.elementCount >= 24 &&
           safeElementCount > 0 &&
           safeElementCount < Math.floor(bestVectorResult.elementCount * 0.7);
+        const criticDroppedTooFar = !!bestVectorResult &&
+          safeCriticScore > 0 &&
+          bestVectorResult.criticScore > 0 &&
+          safeCriticScore < (bestVectorResult.criticScore - 10);
+        const issueCountWorsened = !!bestVectorResult &&
+          safeIssueCount > 0 &&
+          safeIssueCount > (bestVectorResult.issueCount + 2);
 
-        if (confidenceDroppedTooFar || elementCountCollapsed) {
+        if (confidenceDroppedTooFar || elementCountCollapsed || criticDroppedTooFar || issueCountWorsened) {
           statusText.textContent = `${vectorPass.label}... keeping stronger earlier pass`;
           continue;
         }
@@ -9404,61 +9510,91 @@ async function handleImagineCommand(prompt) {
           confidence: safeConfidence,
           elementCount: safeElementCount,
           criticScore: safeCriticScore,
-          vectorSource: vectorResult.vectorSource || "model"
+          vectorSource: vectorResult.vectorSource || "model",
+          issueCount: safeIssueCount,
+          issues: Array.isArray(vectorResult.issues) ? vectorResult.issues : [],
+          repairFocus: String(vectorResult.repairFocus || "").trim(),
+          scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null
         };
         finalUrl = bestVectorResult.imageUrl;
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
-        const earlyStopStrongFirstPass = complexVectorPrompt &&
+        currentVectorScene = bestVectorResult.scene;
+        currentRepairFocus = bestVectorResult.repairFocus;
+        const earlyStopStrongFirstPass = renderMode === "vector" &&
+          complexVectorPrompt &&
           !relationHeavyVectorPrompt &&
           vectorPass.passNum === 1 &&
           (
-            (bestVectorResult.criticScore >= 108 && bestVectorResult.vectorSource !== "template") ||
-            bestVectorResult.criticScore >= 120
+            ((bestVectorResult.criticScore >= 108 && bestVectorResult.vectorSource !== "template") ||
+            bestVectorResult.criticScore >= 120) &&
+            bestVectorResult.issueCount <= 1
           );
         if (earlyStopStrongFirstPass) {
           generationSummary = "1-pass critic-picked vector SVG illustration";
           statusText.textContent = "Complete";
           break;
         }
+        const earlyStopBestScaffold = renderMode === "best" &&
+          vectorPass.passNum >= 2 &&
+          bestVectorResult.criticScore >= 118 &&
+          bestVectorResult.issueCount <= 1;
+        if (earlyStopBestScaffold) {
+          statusText.textContent = "Scaffold locked";
+          break;
+        }
         if (vectorPass.passNum < vectorPasses.length) {
           currentVectorBase64 = await renderPixelPainterPreviewToBase64(finalUrl);
         }
       }
-      if (finalUrl) {
+      if (renderMode === "vector" && finalUrl) {
         progressBar.style.width = "100%";
         statusText.textContent = "Complete";
+      } else if (renderMode === "best" && bestVectorResult) {
+        seedVectorResult = bestVectorResult;
+        finalUrl = "";
       }
     }
 
-    if (!stopped && renderMode === "pixel" && !finalUrl) {
-      await paintPass(1, "Sketching outline...");
-      previewImg.src = canvas.getDisplayUrl();
-      previewDiv.style.display = "block";
-      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
-    }
-    
-    // Pass 2: Base colors - fill in main colors
-    if (!stopped && renderMode === "pixel" && !finalUrl) {
-      await paintPass(2, "Adding base colors...");
-      previewImg.src = canvas.getDisplayUrl();
-      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
-    }
-    
-    // Pass 3: Details - add shading and textures
-    if (!stopped && renderMode === "pixel" && !finalUrl) {
-      await paintPass(3, "Adding details...");
-      previewImg.src = canvas.getDisplayUrl();
-      await new Promise(r => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
-    }
-    
-    // Pass 4: Polish - final touches
-    if (!stopped && renderMode === "pixel" && !finalUrl) {
-      await paintPass(4, "Final polish...");
+    if (!stopped && renderMode === "best" && !finalUrl) {
+      let activePixelPasses = hybridPixelPasses;
+      if (seedVectorResult && seedVectorResult.imageUrl) {
+        statusText.textContent = "Seeding paint canvas...";
+        await canvas.loadFromDataUrl(seedVectorResult.imageUrl);
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+      } else {
+        statusText.textContent = "Falling back to direct painting...";
+        activePixelPasses = directPixelPasses;
+        generationSummary = `${directPixelPasses.length}-pass paint fallback`;
+      }
+
+      for (let index = 0; index < activePixelPasses.length && !stopped; index++) {
+        const pixelPass = activePixelPasses[index];
+        await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+        if (index < activePixelPasses.length - 1) {
+          await new Promise((r) => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+        }
+      }
+      finalUrl = canvas.getDisplayUrl();
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
     }
 
-    if (!finalUrl && renderMode === "pixel") {
+    if (!stopped && renderMode === "pixel" && !finalUrl) {
+      for (let index = 0; index < directPixelPasses.length && !stopped; index++) {
+        const pixelPass = directPixelPasses[index];
+        await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+        if (index < directPixelPasses.length - 1) {
+          await new Promise((r) => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+        }
+      }
       finalUrl = canvas.getDisplayUrl();
+      progressBar.style.width = "100%";
       statusText.textContent = "Complete";
     }
   } catch (error) {
@@ -9467,7 +9603,7 @@ async function handleImagineCommand(prompt) {
   }
   
   // Show final result
-  if (!finalUrl && renderMode === "pixel") {
+  if (!finalUrl && renderMode !== "vector") {
     finalUrl = canvas.getDisplayUrl();
   }
   if (!finalUrl) {
