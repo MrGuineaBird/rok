@@ -9138,13 +9138,30 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
   
+  const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
+  const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
+  const complexVectorPrompt = renderMode === "vector" && (
+    vectorPromptWordCount >= 6 ||
+    /\b(and|with|on|riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText)
+  );
   let finalUrl = "";
-  let generationSummary = renderMode === "vector" ? "3-pass vector SVG illustration" : "4-pass pixel painting";
-  const vectorPasses = [
-    { passNum: 1, progress: 28, label: "Blocking scene" },
-    { passNum: 2, progress: 62, label: "Correcting subjects" },
-    { passNum: 3, progress: 88, label: "Refining relationships" }
-  ];
+  let generationSummary = renderMode === "vector"
+    ? `${complexVectorPrompt ? 5 : 4}-pass vector SVG illustration`
+    : "4-pass pixel painting";
+  const vectorPasses = complexVectorPrompt
+    ? [
+        { passNum: 1, progress: 18, label: "Blocking scene" },
+        { passNum: 2, progress: 38, label: "Separating subjects" },
+        { passNum: 3, progress: 58, label: "Fixing relationships" },
+        { passNum: 4, progress: 78, label: "Repairing anatomy and props" },
+        { passNum: 5, progress: 92, label: "Polishing silhouette" }
+      ]
+    : [
+        { passNum: 1, progress: 24, label: "Blocking scene" },
+        { passNum: 2, progress: 52, label: "Correcting shapes" },
+        { passNum: 3, progress: 78, label: "Refining details" },
+        { passNum: 4, progress: 92, label: "Final cleanup" }
+      ];
 
   try {
     if (!stopped && renderMode === "vector") {
