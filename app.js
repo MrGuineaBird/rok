@@ -8534,12 +8534,83 @@ class PixelCanvas {
     });
   }
 
-  // Apply pixel changes from VLM response (supports single pixel, fill, and rect)
+  setPixelRgb(x, y, r, g, b) {
+    const px = Math.max(0, Math.min(this.size - 1, Math.round(Number.isFinite(x) ? x : 0)));
+    const py = Math.max(0, Math.min(this.size - 1, Math.round(Number.isFinite(y) ? y : 0)));
+    const idx = (py * this.size + px) * 4;
+    this.data[idx] = r;
+    this.data[idx + 1] = g;
+    this.data[idx + 2] = b;
+    this.data[idx + 3] = 255;
+  }
+
+  fillCircleRgb(cx, cy, radius, r, g, b) {
+    const centerX = Number.isFinite(cx) ? cx : 0;
+    const centerY = Number.isFinite(cy) ? cy : 0;
+    const normalizedRadius = Math.max(0.5, Number.isFinite(radius) ? radius : 1);
+    const minX = Math.max(0, Math.floor(centerX - normalizedRadius));
+    const maxX = Math.min(this.size - 1, Math.ceil(centerX + normalizedRadius));
+    const minY = Math.max(0, Math.floor(centerY - normalizedRadius));
+    const maxY = Math.min(this.size - 1, Math.ceil(centerY + normalizedRadius));
+    const radiusSq = normalizedRadius * normalizedRadius;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const dx = x - centerX;
+        const dy = y - centerY;
+        if (dx * dx + dy * dy <= radiusSq) {
+          this.setPixelRgb(x, y, r, g, b);
+        }
+      }
+    }
+  }
+
+  fillEllipseRgb(cx, cy, rx, ry, r, g, b) {
+    const centerX = Number.isFinite(cx) ? cx : 0;
+    const centerY = Number.isFinite(cy) ? cy : 0;
+    const radiusX = Math.max(0.5, Number.isFinite(rx) ? rx : 1);
+    const radiusY = Math.max(0.5, Number.isFinite(ry) ? ry : 1);
+    const minX = Math.max(0, Math.floor(centerX - radiusX));
+    const maxX = Math.min(this.size - 1, Math.ceil(centerX + radiusX));
+    const minY = Math.max(0, Math.floor(centerY - radiusY));
+    const maxY = Math.min(this.size - 1, Math.ceil(centerY + radiusY));
+    const invRadiusXSq = 1 / (radiusX * radiusX);
+    const invRadiusYSq = 1 / (radiusY * radiusY);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const dx = x - centerX;
+        const dy = y - centerY;
+        if ((dx * dx) * invRadiusXSq + (dy * dy) * invRadiusYSq <= 1) {
+          this.setPixelRgb(x, y, r, g, b);
+        }
+      }
+    }
+  }
+
+  drawLineRgb(x1, y1, x2, y2, width, r, g, b) {
+    const startX = Number.isFinite(x1) ? x1 : 0;
+    const startY = Number.isFinite(y1) ? y1 : 0;
+    const endX = Number.isFinite(x2) ? x2 : 0;
+    const endY = Number.isFinite(y2) ? y2 : 0;
+    const normalizedWidth = Math.max(1, Number.isFinite(width) ? width : 1);
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(endX - startX), Math.abs(endY - startY))));
+    const brushRadius = Math.max(0.5, normalizedWidth / 2);
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps;
+      const x = startX + (endX - startX) * t;
+      const y = startY + (endY - startY) * t;
+      this.fillCircleRgb(x, y, brushRadius, r, g, b);
+    }
+  }
+
+  // Apply pixel changes from VLM response (supports pixel, rect, fill, line, circle, and ellipse)
   applyPixelChanges(changes) {
     for (const change of changes) {
       const type = change.type || "pixel";
-      const color = change.color;
-      
+      const color = String(change.color || "").trim();
+      if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+        continue;
+      }
+
       // Parse hex color
       const r = parseInt(color.slice(1, 3), 16);
       const g = parseInt(color.slice(3, 5), 16);
@@ -8548,12 +8619,42 @@ class PixelCanvas {
       if (type === "fill") {
         // Flood fill from point (x,y) with color
         this.floodFill(change.x, change.y, r, g, b, change.tolerance || 0);
+      } else if (type === "line") {
+        this.drawLineRgb(
+          Number(change.x1),
+          Number(change.y1),
+          Number(change.x2),
+          Number(change.y2),
+          Math.max(1, Math.min(this.size, Math.round(Number(change.width) || 1))),
+          r,
+          g,
+          b
+        );
+      } else if (type === "circle") {
+        this.fillCircleRgb(
+          Number(change.cx),
+          Number(change.cy),
+          Math.max(0.5, Math.min(this.size, Number(change.r) || 1)),
+          r,
+          g,
+          b
+        );
+      } else if (type === "ellipse") {
+        this.fillEllipseRgb(
+          Number(change.cx),
+          Number(change.cy),
+          Math.max(0.5, Math.min(this.size, Number(change.rx) || 1)),
+          Math.max(0.5, Math.min(this.size, Number(change.ry) || 1)),
+          r,
+          g,
+          b
+        );
       } else if (type === "rect") {
         // Fill rectangle from (x,y) with width w and height h
-        const x = Math.max(0, Math.min(this.size - 1, change.x));
-        const y = Math.max(0, Math.min(this.size - 1, change.y));
-        const w = Math.min(change.w || 1, this.size - x);
-        const h = Math.min(change.h || 1, this.size - y);
+        const x = Math.max(0, Math.min(this.size - 1, Math.round(Number(change.x) || 0)));
+        const y = Math.max(0, Math.min(this.size - 1, Math.round(Number(change.y) || 0)));
+        const w = Math.max(1, Math.min(Math.round(Number(change.w) || 1), this.size - x));
+        const h = Math.max(1, Math.min(Math.round(Number(change.h) || 1), this.size - y));
         for (let dy = 0; dy < h; dy++) {
           for (let dx = 0; dx < w; dx++) {
             const idx = ((y + dy) * this.size + (x + dx)) * 4;
@@ -8565,13 +8666,7 @@ class PixelCanvas {
         }
       } else {
         // Single pixel (default)
-        const x = Math.max(0, Math.min(this.size - 1, change.x));
-        const y = Math.max(0, Math.min(this.size - 1, change.y));
-        const idx = (y * this.size + x) * 4;
-        this.data[idx] = r;
-        this.data[idx + 1] = g;
-        this.data[idx + 2] = b;
-        this.data[idx + 3] = 255;
+        this.setPixelRgb(Number(change.x), Number(change.y), r, g, b);
       }
     }
     this.updateCanvas();
@@ -8630,19 +8725,34 @@ class PixelCanvas {
     this.ctx.putImageData(this.imageData, 0, 0);
   }
 
-  // Get base64 PNG (scaled up for AI vision - each pixel is 4x4 block)
-  getBase64(scaleFactor = 4) {
-    if (scaleFactor <= 1) {
-      return this.canvas.toDataURL("image/png").split(",")[1];
+  // Get base64 PNG, optionally through a smaller working canvas for coarse-to-fine passes.
+  getBase64(scaleFactor = 4, workSize = this.size) {
+    const normalizedScaleFactor = Number.isFinite(scaleFactor) ? Math.max(1, Math.round(scaleFactor)) : 4;
+    const normalizedWorkSize = Number.isFinite(workSize)
+      ? Math.max(16, Math.min(this.size, Math.round(workSize)))
+      : this.size;
+    let exportCanvas = this.canvas;
+    if (normalizedWorkSize !== this.size) {
+      const workCanvas = document.createElement("canvas");
+      workCanvas.width = normalizedWorkSize;
+      workCanvas.height = normalizedWorkSize;
+      const workCtx = workCanvas.getContext("2d");
+      workCtx.imageSmoothingEnabled = true;
+      workCtx.clearRect(0, 0, normalizedWorkSize, normalizedWorkSize);
+      workCtx.drawImage(this.canvas, 0, 0, normalizedWorkSize, normalizedWorkSize);
+      exportCanvas = workCanvas;
     }
-    // Create scaled canvas for AI to see pixels better
+    if (normalizedScaleFactor <= 1) {
+      return exportCanvas.toDataURL("image/png").split(",")[1];
+    }
+    // Create scaled canvas for AI to see coarse blocks clearly.
     const scaledCanvas = document.createElement("canvas");
-    scaledCanvas.width = this.size * scaleFactor;
-    scaledCanvas.height = this.size * scaleFactor;
+    scaledCanvas.width = exportCanvas.width * normalizedScaleFactor;
+    scaledCanvas.height = exportCanvas.height * normalizedScaleFactor;
     const scaledCtx = scaledCanvas.getContext("2d");
-    // Use nearest-neighbor scaling to preserve pixel blocks
+    // Use nearest-neighbor scaling after the optional downscale step.
     scaledCtx.imageSmoothingEnabled = false;
-    scaledCtx.drawImage(this.canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+    scaledCtx.drawImage(exportCanvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
     return scaledCanvas.toDataURL("image/png").split(",")[1];
   }
 
@@ -9437,10 +9547,17 @@ async function handleImagineCommand(prompt) {
     const maxPixels = Number.isFinite(options.maxPixels)
       ? Math.max(1, Math.round(options.maxPixels))
       : 160;
+    const workSize = Number.isFinite(options.workSize)
+      ? Math.max(48, Math.min(PIXEL_PAINTER_CANVAS_SIZE, Math.round(options.workSize)))
+      : PIXEL_PAINTER_CANVAS_SIZE;
+    const visionScaleFactor = Number.isFinite(options.scaleFactor)
+      ? Math.max(1, Math.round(options.scaleFactor))
+      : 4;
     const guideMode = String(options.guideMode || "").trim().toLowerCase();
     const qualityProfile = String(options.qualityProfile || "standard").trim().toLowerCase();
     progressBar.style.width = `${progress}%`;
-    statusText.textContent = `${passName}...`;
+    const draftTag = workSize < PIXEL_PAINTER_CANVAS_SIZE ? ` (${workSize}x${workSize} draft)` : "";
+    statusText.textContent = `${passName}${draftTag}...`;
     
     let retries = 2;
     let rateLimitRetries = 1;
@@ -9454,10 +9571,11 @@ async function handleImagineCommand(prompt) {
         },
         body: JSON.stringify({
           prompt: prompt,
-          canvas_base64: canvas.getBase64(),
+          canvas_base64: canvas.getBase64(visionScaleFactor, workSize),
           reference_image_base64: referenceImageBase64,
           pass_num: passNum,
           max_pixels: maxPixels,
+          work_size: workSize,
           guide_mode: guideMode,
           quality_profile: qualityProfile,
           mode: "pixel"
@@ -9659,11 +9777,12 @@ async function handleImagineCommand(prompt) {
             ]
       );
   const directPixelPasses = [
-    { passNum: 1, progress: 22, label: "Blocking composition", maxPixels: 160, guideMode: "" },
-    { passNum: 2, progress: 42, label: "Laying base colors", maxPixels: 190, guideMode: "" },
-    { passNum: 3, progress: 60, label: "Repairing structure", maxPixels: 200, guideMode: "" },
-    { passNum: 4, progress: 78, label: "Adding details", maxPixels: 180, guideMode: "" },
-    { passNum: 5, progress: 94, label: "Final cleanup", maxPixels: 140, guideMode: "" }
+    { passNum: 1, progress: 14, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5 },
+    { passNum: 2, progress: 28, label: "Separating big shapes", maxPixels: 112, guideMode: "coarse_shape", workSize: 128, scaleFactor: 5 },
+    { passNum: 3, progress: 44, label: "Laying major colors", maxPixels: 128, guideMode: "coarse_color", workSize: 176, scaleFactor: 4 },
+    { passNum: 4, progress: 62, label: "Refining structure", maxPixels: 148, guideMode: "mid_refine", workSize: 224, scaleFactor: 4 },
+    { passNum: 5, progress: 80, label: "Sharpening features", maxPixels: 132, guideMode: "detail_refine", workSize: 272, scaleFactor: 4 },
+    { passNum: 6, progress: 96, label: "Final cleanup", maxPixels: 96, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4 }
   ];
   const hybridPixelPasses = complexVectorPrompt
     ? [
@@ -9675,7 +9794,7 @@ async function handleImagineCommand(prompt) {
         { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
         { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ];
-  let generationSummary = `${directPixelPasses.length}-pass ROK IMAGE painting`;
+  let generationSummary = `${directPixelPasses.length}-pass coarse-to-fine ROK IMAGE painting`;
 
   try {
     if (!stopped && imageProvider === "comfyui") {
