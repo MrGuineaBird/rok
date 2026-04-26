@@ -8855,9 +8855,9 @@ function requestPixelPainterSettings() {
     return activePixelPainterApiKeyModal.promise;
   }
 
-  let selectedProvider = getPixelPainterProvider();
+  let selectedProvider = "ollama";
   const existingOllamaKey = getPixelPainterApiKey();
-  let selectedMode = getPixelPainterRenderMode();
+  let selectedMode = "pixel";
   let ollamaApiKey = existingOllamaKey;
   let referenceImageBase64 = "";
   let referencePreviewUrl = "";
@@ -8882,7 +8882,7 @@ function requestPixelPainterSettings() {
   const title = document.createElement("div");
   title.id = "pixelPainterApiKeyTitle";
   title.className = "correction-modal-title";
-  title.textContent = "Imagine Settings";
+  title.textContent = "ROK IMAGE Settings";
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
@@ -9166,52 +9166,42 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Save and Continue";
 
   function syncProviderFields() {
-    const usingComfyUi = selectedProvider === "comfyui";
-    hint.textContent = usingComfyUi
-      ? "ROK IMAGE is configured on the server. Just choose ROK IMAGE and send your prompt. No personal API key is needed."
-      : "Choose a legacy style, optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
-    modeLabel.style.display = usingComfyUi ? "none" : "block";
-    modeGrid.style.display = usingComfyUi ? "none" : "grid";
+    hint.textContent = "ROK IMAGE uses the pixel painter. Optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+    providerLabel.style.display = "none";
+    providerGrid.style.display = "none";
+    modeLabel.style.display = "none";
+    modeGrid.style.display = "none";
     endpointLabel.style.display = "none";
     endpointInput.style.display = "none";
     checkpointLabel.style.display = "none";
     checkpointInput.style.display = "none";
-    keyLabel.style.display = usingComfyUi ? "none" : "block";
-    input.style.display = usingComfyUi ? "none" : "block";
+    keyLabel.style.display = "block";
+    input.style.display = "block";
     keyLabel.textContent = "Ollama API key";
     input.placeholder = "Paste your Ollama API key";
     input.value = ollamaApiKey;
-    forgetBtn.style.display = usingComfyUi ? "none" : "inline-flex";
+    forgetBtn.style.display = "inline-flex";
     forgetBtn.disabled = !ollamaApiKey;
   }
 
   function updateSubmitState() {
-    const usingComfyUi = selectedProvider === "comfyui";
     const hasKey = !!String(input.value || "").trim();
-    submitBtn.disabled = referenceLoading || (!usingComfyUi && !hasKey);
+    submitBtn.disabled = referenceLoading || !hasKey;
   }
 
   function submitValue() {
     const normalizedKey = String(input.value || "").trim();
-    if (selectedProvider === "comfyui") {
-      setPixelPainterProvider("comfyui");
-      setPixelPainterComfyUiApiKey("");
-      setPixelPainterComfyUiUrl("");
-      setPixelPainterComfyUiCheckpoint("");
-      setPixelPainterRenderMode("best");
-    } else {
-      if (!normalizedKey) return;
-      ollamaApiKey = normalizedKey;
-      setPixelPainterProvider("ollama");
-      setPixelPainterApiKey(normalizedKey);
-      setPixelPainterRenderMode(selectedMode);
-    }
+    if (!normalizedKey) return;
+    ollamaApiKey = normalizedKey;
+    setPixelPainterProvider("ollama");
+    setPixelPainterApiKey(normalizedKey);
+    setPixelPainterRenderMode("pixel");
     closePixelPainterApiKeyModal({
-      provider: selectedProvider,
-      apiKey: selectedProvider === "comfyui" ? "" : normalizedKey,
+      provider: "ollama",
+      apiKey: normalizedKey,
       providerUrl: "",
       providerCheckpoint: "",
-      mode: selectedProvider === "comfyui" ? "best" : selectedMode,
+      mode: "pixel",
       referenceImageBase64,
       referenceImageName
     });
@@ -9250,18 +9240,10 @@ function requestPixelPainterSettings() {
 
   modal.appendChild(title);
   modal.appendChild(hint);
-  modal.appendChild(providerLabel);
-  modal.appendChild(providerGrid);
-  modal.appendChild(modeLabel);
-  modal.appendChild(modeGrid);
   modal.appendChild(referenceLabel);
   modal.appendChild(referenceHint);
   modal.appendChild(referenceCard);
   modal.appendChild(referenceFileInput);
-  modal.appendChild(endpointLabel);
-  modal.appendChild(endpointInput);
-  modal.appendChild(checkpointLabel);
-  modal.appendChild(checkpointInput);
   modal.appendChild(keyLabel);
   modal.appendChild(input);
   modal.appendChild(btnRow);
@@ -9292,12 +9274,8 @@ function requestPixelPainterSettings() {
   syncProviderFields();
   renderReferenceState();
   updateSubmitState();
-  if (selectedProvider === "comfyui") {
-    submitBtn.focus();
-  } else {
-    input.focus();
-    input.select();
-  }
+  input.focus();
+  input.select();
 
   return promise;
 }
@@ -9343,24 +9321,14 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const imageProvider = imagineSettings.provider === "ollama" ? "ollama" : "comfyui";
+  const imageProvider = "ollama";
   const providerUrl = String(imagineSettings.providerUrl || "").trim();
   const providerCheckpoint = String(imagineSettings.providerCheckpoint || "").trim();
-  const renderMode = imagineSettings.mode === "pixel"
-    ? "pixel"
-    : imagineSettings.mode === "vector"
-      ? "vector"
-      : "best";
+  const renderMode = "pixel";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
-  const modeMeta = imageProvider === "comfyui"
-    ? { label: "ROK IMAGE", icon: "RI" }
-    : renderMode === "pixel"
-      ? { label: "Pixel", icon: "PX" }
-      : renderMode === "vector"
-        ? { label: "Vector", icon: "VG" }
-        : { label: "Best", icon: "HQ" };
-  if (!userPixelPainterApiKey && imageProvider !== "comfyui") {
+  const modeMeta = { label: "ROK IMAGE", icon: "RI" };
+  if (!userPixelPainterApiKey) {
     addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
     return;
   }
@@ -9470,12 +9438,12 @@ async function handleImagineCommand(prompt) {
       ? Math.max(1, Math.round(options.maxPixels))
       : 160;
     const guideMode = String(options.guideMode || "").trim().toLowerCase();
-    const qualityProfile = String(options.qualityProfile || (renderMode === "best" ? "usage_safe" : "standard")).trim().toLowerCase();
+    const qualityProfile = String(options.qualityProfile || "standard").trim().toLowerCase();
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
     
-    let retries = renderMode === "best" ? 1 : 2;
-    let rateLimitRetries = renderMode === "best" ? 0 : 1;
+    let retries = 2;
+    let rateLimitRetries = 1;
     
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -9653,7 +9621,7 @@ async function handleImagineCommand(prompt) {
     };
   }
   
-  const useVectorPipeline = imageProvider === "ollama" && (renderMode === "vector" || renderMode === "best");
+  const useVectorPipeline = false;
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
   const complexVectorPrompt = useVectorPipeline && (
@@ -9707,14 +9675,7 @@ async function handleImagineCommand(prompt) {
         { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
         { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ];
-  let generationSummary = renderMode === "vector"
-    ? `${vectorPasses.length}-pass vector SVG illustration`
-    : renderMode === "best"
-      ? `${vectorPasses.length}-pass vector scaffold + ${hybridPixelPasses.length}-pass paint refinement`
-      : `${directPixelPasses.length}-pass pixel painting`;
-  if (imageProvider === "comfyui") {
-    generationSummary = "ROK IMAGE direct image generation";
-  }
+  let generationSummary = `${directPixelPasses.length}-pass ROK IMAGE painting`;
 
   try {
     if (!stopped && imageProvider === "comfyui") {
