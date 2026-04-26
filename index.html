@@ -348,7 +348,7 @@ Change Scope: Short</p>
           </div>
           <div id="mathChatMessages" class="math-chat-messages"></div>
           <div class="math-chat-input-row">
-            <input id="mathChatInput" class="math-chat-input" type="text" placeholder="Ask a math question or type an equation..." autocomplete="off" />
+            <input id="mathChatInput" class="math-chat-input" type="text" placeholder="Ask a math question, or say 'graph y=x^2'..." autocomplete="off" />
             <button id="mathChatSendBtn" class="math-chat-send-btn" type="button">Ask</button>
           </div>
         </div>
@@ -685,6 +685,26 @@ Change Scope: Short</p>
         </div>
       </div>
       <button id="elixirOkBtn" class="burnout-btn" type="button" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">Got it!</button>
+    </div>
+  </section>
+
+  <!-- ROK IMAGE Introduction Modal -->
+  <section id="rokImageModal" class="burnout-modal" hidden aria-hidden="true">
+    <div class="burnout-card" role="dialog" aria-modal="true" aria-labelledby="rokImageTitle">
+      <div class="burnout-head">
+        <span class="burnout-badge" style="background: linear-gradient(135deg, #f97316, #ef4444);">Experimental Feature</span>
+        <button id="rokImageCloseBtn" class="burnout-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div style="padding: 20px 0;">
+        <h2 id="rokImageTitle" style="font-size: 20px; margin-bottom: 16px;">ROK IMAGE is here.</h2>
+        <div class="burnout-body" style="text-align: left; line-height: 1.6;">
+          <p>ROK IMAGE is ROK's experimental AI image generation mode powered by Ollama.</p>
+          <p>To use it, type <code>/imagine (prompt)</code> and ROK will walk you through the rest.</p>
+          <p><strong>About your Ollama API key:</strong> if you choose to save a key, it stays only in this browser on this device, and ROK does not add that key to its shared server-managed key pool.</p>
+          <p>It is still experimental, so expect occasional weird generations while we keep improving it.</p>
+        </div>
+      </div>
+      <button id="rokImageOkBtn" class="burnout-btn" type="button" style="background: linear-gradient(135deg, #f97316, #ef4444);">I'll try /imagine</button>
     </div>
   </section>
 

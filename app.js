@@ -118,6 +118,10 @@ const elixirPartnershipModal = document.getElementById("elixirPartnershipModal")
 const elixirCloseBtn = document.getElementById("elixirCloseBtn");
 const elixirOkBtn = document.getElementById("elixirOkBtn");
 const ELIXIR_PARTNERSHIP_SEEN_KEY = "rok_elixir_partnership_seen";
+const rokImageModal = document.getElementById("rokImageModal");
+const rokImageCloseBtn = document.getElementById("rokImageCloseBtn");
+const rokImageOkBtn = document.getElementById("rokImageOkBtn");
+const ROK_IMAGE_MODAL_SEEN_KEY = "rok_image_intro_seen";
 const legalTermsTab = document.getElementById("legalTermsTab");
 const legalPrivacyTab = document.getElementById("legalPrivacyTab");
 const legalCreditsTab = document.getElementById("legalCreditsTab");
@@ -158,6 +162,8 @@ const DEFAULT_CLIENT_LIMITS = {
   historyLimit: 20,          // was 200 â€” large history balloons every request payload
   maxHistoryMessages: 20,    // was 200
   maxAttachments: 3,
+  maxImageAttachmentBytes: 8 * 1024 * 1024,
+  maxTotalImageBytes: 16 * 1024 * 1024,
   maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
   maxFileChars: 8000,        // was 12000
   maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
@@ -1657,6 +1663,18 @@ function applyClientLimitsFromServer(rawLimits) {
     clientLimits.maxFileSizeBytes,
     1,
     1024 * 1024 * 1024
+  );
+  clientLimits.maxImageAttachmentBytes = normalizeClientLimit(
+    rawLimits.max_image_attachment_bytes,
+    clientLimits.maxImageAttachmentBytes,
+    1,
+    64 * 1024 * 1024
+  );
+  clientLimits.maxTotalImageBytes = normalizeClientLimit(
+    rawLimits.max_total_image_bytes,
+    clientLimits.maxTotalImageBytes,
+    1,
+    128 * 1024 * 1024
   );
   clientLimits.maxFileChars = normalizeClientLimit(
     rawLimits.max_file_chars,
@@ -3750,6 +3768,99 @@ async function requestWorkspaceSuggestions() {
   }
 }
 
+const DESMOS_PLOT_COLOR = "#2d70b3";
+const MATH_GRAPH_REQUEST_PATTERN = /\b(graph|plot|draw|sketch|visuali[sz]e|chart|show(?: me)?(?: the)? graph|put (?:it|this|that) on (?:the )?graph)\b/i;
+const MATH_NON_GRAPH_QUESTION_PATTERN = /\b(what|what's|how|why|explain|find|solve|compare|different|difference|intercept|slope|domain|range|factor|simplify|evaluate|calculate|compute|mean|average)\b/i;
+
+function stripMathGraphDirective(reply = "") {
+  return String(reply || "").replace(/\n?\s*GRAPH:\s*[^\n]+/i, "").trim();
+}
+
+function looksLikeBareGraphExpression(text = "") {
+  const value = String(text || "").trim();
+  if (!value || value.length > 120 || value.includes("?")) return false;
+  if (MATH_NON_GRAPH_QUESTION_PATTERN.test(value)) return false;
+
+  const normalized = value.replace(/\u03b8/gi, "theta");
+  const hasVariable = /\b(?:x|y|t|theta)\b/i.test(normalized);
+  const hasMathStructure = /[=^]/.test(normalized) || /[+\-*/]/.test(normalized) || /\b(?:sin|cos|tan|log|ln|sqrt|abs)\b/i.test(normalized);
+  const strippedKnownTokens = normalized
+    .replace(/\b(?:sin|cos|tan|log|ln|sqrt|abs|pi|e|x|y|t|theta)\b/gi, "")
+    .replace(/[0-9+\-*/^=().,\s|]/g, "");
+
+  return hasVariable && hasMathStructure && strippedKnownTokens.length === 0;
+}
+
+function shouldGraphMathRequest(text = "") {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  return MATH_GRAPH_REQUEST_PATTERN.test(value) || looksLikeBareGraphExpression(value);
+}
+
+function extractSimpleMathExpression(text = "") {
+  let candidate = String(text || "")
+    .trim()
+    .replace(/^what(?:'s| is)\s+/i, "")
+    .replace(/^(?:please\s+)?(?:calculate|compute|evaluate)\s+/i, "")
+    .replace(/\?+$/g, "")
+    .replace(/,+/g, "");
+
+  if (!candidate) return "";
+  if (shouldGraphMathRequest(candidate)) return "";
+  if (/\b(?:x|y|t|theta|\u03b8)\b/i.test(candidate)) return "";
+  if (!/[0-9)]/.test(candidate)) return "";
+  if (!/^[0-9+\-*/().,%^\sA-Za-z]+$/.test(candidate)) return "";
+
+  const remainingLetters = candidate.replace(/\b(?:sqrt|abs|ceil|floor|round|sin|cos|tan|log|pi|e)\b/gi, "").replace(/[^A-Za-z]/g, "");
+  return remainingLetters ? "" : candidate;
+}
+
+function formatSimpleMathResult(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return String(value);
+  }
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+  return Number(value.toPrecision(12)).toString();
+}
+
+function evaluateSimpleMathExpression(expression = "") {
+  const safeExpr = String(expression || "")
+    .replace(/\^/g, "**")
+    .replace(/sqrt\(/gi, "Math.sqrt(")
+    .replace(/abs\(/gi, "Math.abs(")
+    .replace(/ceil\(/gi, "Math.ceil(")
+    .replace(/floor\(/gi, "Math.floor(")
+    .replace(/round\(/gi, "Math.round(")
+    .replace(/sin\(/gi, "Math.sin(")
+    .replace(/cos\(/gi, "Math.cos(")
+    .replace(/tan\(/gi, "Math.tan(")
+    .replace(/log\(/gi, "Math.log(")
+    .replace(/\bpi\b/gi, "Math.PI")
+    .replace(/\be\b/g, "Math.E");
+
+  return new Function(`return (${safeExpr})`)();
+}
+
+function tryAnswerSimpleMathLocally(text = "") {
+  const expression = extractSimpleMathExpression(text);
+  if (!expression) return "";
+
+  let result;
+  try {
+    result = evaluateSimpleMathExpression(expression);
+  } catch (err) {
+    return "";
+  }
+
+  if (typeof result !== "number" || !Number.isFinite(result)) {
+    return "";
+  }
+
+  return `${expression} = ${formatSimpleMathResult(result)}`;
+}
+
 function initDesmosIfNeeded() {
   if (desmosCalculator) return;
   const container = document.getElementById("desmosContainer");
@@ -3760,10 +3871,10 @@ function initDesmosIfNeeded() {
     settingsMenu: false,
     zoomButtons: true,
     border: false,
-    backgroundColor: "#0d0f14",
-    textColor: "#f3ecec",
-    axisColor: "#3a1f24",
-    gridColor: "#1e2530",
+    backgroundColor: "#ffffff",
+    textColor: "#18324f",
+    axisColor: "#6b7a8f",
+    gridColor: "#d7e0ea",
     defaultViewport: { xmin: -10, xmax: 10, ymin: -10, ymax: 10 }
   });
 }
@@ -3878,6 +3989,8 @@ async function sendMathChatMessage() {
   if (!mathChatInput || !mathChatMessages) return;
   const text = mathChatInput.value.trim();
   if (!text) return;
+  const graphRequested = shouldGraphMathRequest(text);
+  const localMathAnswer = graphRequested ? "" : tryAnswerSimpleMathLocally(text);
 
   mathChatInput.value = "";
 
@@ -3895,9 +4008,25 @@ async function sendMathChatMessage() {
   mathChatMessages.appendChild(botMsg);
   mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
 
+  if (localMathAnswer) {
+    botMsg.textContent = localMathAnswer;
+    mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+    return;
+  }
+
   try {
     const sessionModel = getCurrentSessionModel();
-    const prompt = `You are a math assistant inside a Desmos graphing calculator. The user asked: "${text}"\n\nRespond helpfully. If the question involves an equation or function that can be graphed, end your response with a line that says exactly: GRAPH: followed by the Desmos expression (e.g. GRAPH: y=x^2). Only include one GRAPH line if relevant.`;
+    const prompt = `You are a helpful math assistant inside a Desmos graphing calculator.
+
+User request: "${text}"
+Graph requested: ${graphRequested ? "yes" : "no"}
+
+Rules:
+- Answer the user's question directly and clearly before anything else.
+- Only end your response with a line in the exact format GRAPH: <expression> if the user explicitly asked to graph or plot something, or if the user's input is only a bare graph expression.
+- Do not include GRAPH for simple arithmetic, explanations, definitions, or questions that can be answered normally without plotting.
+- If a graph might help but the user did not ask for one, mention that briefly but do not include a GRAPH line.
+- If you include GRAPH, provide exactly one valid Desmos expression and nothing else on that line.`;
 
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
@@ -3914,15 +4043,15 @@ async function sendMathChatMessage() {
     const reply = await readChatTextResponse(res);
 
     // Check for GRAPH: directive and plot it
-    const graphMatch = reply.match(/GRAPH:\s*(.+)/i);
+    const graphMatch = graphRequested ? reply.match(/GRAPH:\s*(.+)/i) : null;
     if (graphMatch && desmosCalculator) {
       const expression = graphMatch[1].trim();
-      desmosCalculator.setExpression({ id: `math-${Date.now()}`, latex: expression, color: "#d14b4b" });
+      desmosCalculator.setExpression({ id: `math-${Date.now()}`, latex: expression, color: DESMOS_PLOT_COLOR });
     }
 
     // Show reply without the GRAPH line
-    const displayReply = reply.replace(/GRAPH:\s*.+/i, "").trim();
-    botMsg.textContent = displayReply || "Done! Check the graph.";
+    const displayReply = stripMathGraphDirective(reply);
+    botMsg.textContent = displayReply || (graphMatch ? "Graphed it." : "Done.");
     mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
   } catch (err) {
     botMsg.textContent = "Error: " + err.message;
@@ -5322,28 +5451,148 @@ function buildIntentAttachmentsPayload(attachedFiles = []) {
   });
 }
 
-function readImageFileAsBase64(file) {
+function estimateBase64ByteSize(base64Text = "") {
+  const normalized = String(base64Text || "").replace(/\s+/g, "");
+  if (!normalized) return 0;
+  const padding = normalized.endsWith("==") ? 2 : (normalized.endsWith("=") ? 1 : 0);
+  return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+}
+
+function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      const commaIndex = result.indexOf(",");
-      if (commaIndex < 0) {
-        reject(new Error("Invalid image data URL."));
-        return;
-      }
-      const payload = result.slice(commaIndex + 1).trim();
-      if (!payload) {
-        reject(new Error("Image encoding failed."));
-        return;
-      }
-      resolve(payload);
+      resolve(typeof reader.result === "string" ? reader.result : "");
     };
     reader.onerror = () => {
       reject(new Error("Image read failed."));
     };
     reader.readAsDataURL(file);
   });
+}
+
+function parseImageDataUrl(dataUrl, fallbackMimeType = "image/png") {
+  const value = String(dataUrl || "").trim();
+  const match = value.match(/^data:([^;,]+)?;base64,(.+)$/i);
+  if (!match) {
+    throw new Error("Invalid image data URL.");
+  }
+
+  const mimeType = String(match[1] || fallbackMimeType).trim().toLowerCase() || fallbackMimeType;
+  const contentBase64 = String(match[2] || "").trim();
+  if (!contentBase64) {
+    throw new Error("Image encoding failed.");
+  }
+
+  return {
+    mimeType,
+    contentBase64,
+    sizeBytes: estimateBase64ByteSize(contentBase64)
+  };
+}
+
+function readImageFileAsBase64(file) {
+  return readFileAsDataUrl(file).then((dataUrl) => parseImageDataUrl(dataUrl, (file && file.type) || "image/png").contentBase64);
+}
+
+function loadImageElementFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load image preview."));
+    img.src = dataUrl;
+  });
+}
+
+function exportCanvasImage(canvas, mimeType, quality) {
+  const safeMimeType = String(mimeType || "image/jpeg").trim().toLowerCase() || "image/jpeg";
+  const dataUrl = safeMimeType === "image/png"
+    ? canvas.toDataURL(safeMimeType)
+    : canvas.toDataURL(safeMimeType, quality);
+  return parseImageDataUrl(dataUrl, safeMimeType);
+}
+
+async function normalizeImageFileForAttachment(file) {
+  const maxImageBytes = normalizeClientLimit(
+    clientLimits.maxImageAttachmentBytes,
+    DEFAULT_CLIENT_LIMITS.maxImageAttachmentBytes,
+    1,
+    64 * 1024 * 1024
+  );
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  const original = parseImageDataUrl(sourceDataUrl, (file && file.type) || "image/png");
+  if (original.sizeBytes > 0 && original.sizeBytes <= maxImageBytes) {
+    return {
+      mimeType: original.mimeType,
+      contentBase64: original.contentBase64,
+      sizeBytes: original.sizeBytes,
+      wasCompressed: false
+    };
+  }
+
+  const img = await loadImageElementFromDataUrl(sourceDataUrl);
+  const sourceWidth = Math.max(1, img.naturalWidth || img.width || 1);
+  const sourceHeight = Math.max(1, img.naturalHeight || img.height || 1);
+  const longestSide = Math.max(sourceWidth, sourceHeight);
+  const baseScale = Math.min(1, 2200 / longestSide);
+  const dimensionFactors = [1, 0.88, 0.76, 0.64, 0.52, 0.42, 0.34];
+  const qualitySteps = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5, 0.42];
+  const mimeTypes = ["image/webp", "image/jpeg"];
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) {
+    throw new Error("Image upload could not prepare a canvas.");
+  }
+
+  let smallestCandidate = null;
+
+  for (const factor of dimensionFactors) {
+    const scale = Math.max(0.12, baseScale * factor);
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    canvas.width = width;
+    canvas.height = height;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, width, height);
+
+    for (const mimeType of mimeTypes) {
+      for (const quality of qualitySteps) {
+        const exported = exportCanvasImage(canvas, mimeType, quality);
+        if (!smallestCandidate || exported.sizeBytes < smallestCandidate.sizeBytes) {
+          smallestCandidate = exported;
+        }
+        if (exported.sizeBytes > 0 && exported.sizeBytes <= maxImageBytes) {
+          return {
+            mimeType: exported.mimeType,
+            contentBase64: exported.contentBase64,
+            sizeBytes: exported.sizeBytes,
+            wasCompressed: true
+          };
+        }
+      }
+    }
+  }
+
+  if (smallestCandidate && smallestCandidate.sizeBytes > 0) {
+    throw new Error(`${file.name} is too large to upload, even after compressing it.`);
+  }
+
+  throw new Error(`Could not process image ${file.name}.`);
+}
+
+function getCurrentAttachedImageBytes() {
+  return attachments.reduce((total, item) => {
+    if (!item || item.kind !== "image") {
+      return total;
+    }
+    const size = Number(item.size) || 0;
+    return total + Math.max(0, size);
+  }, 0);
 }
 
 async function addSelectedFiles(fileList) {
@@ -5357,12 +5606,12 @@ async function addSelectedFiles(fileList) {
       addMessage("system", `Attachment limit reached (${clientLimits.maxAttachments} files).`);
       break;
     }
-    if (file.size > clientLimits.maxFileSizeBytes) {
-      addMessage("system", `${file.name} is too large. Max ${formatFileSize(clientLimits.maxFileSizeBytes)} per file.`);
-      continue;
-    }
 
     if (isTextLikeFile(file)) {
+      if (file.size > clientLimits.maxFileSizeBytes) {
+        addMessage("system", `${file.name} is too large. Max ${formatFileSize(clientLimits.maxFileSizeBytes)} per file.`);
+        continue;
+      }
       try {
         const content = await file.text();
         attachments.push({
@@ -5384,21 +5633,31 @@ async function addSelectedFiles(fileList) {
 
     if (isImageLikeFile(file)) {
       try {
-        const contentBase64 = await readImageFileAsBase64(file);
+        const normalizedImage = await normalizeImageFileForAttachment(file);
+        const maxTotalImageBytes = normalizeClientLimit(
+          clientLimits.maxTotalImageBytes,
+          DEFAULT_CLIENT_LIMITS.maxTotalImageBytes,
+          1,
+          128 * 1024 * 1024
+        );
+        if (getCurrentAttachedImageBytes() + normalizedImage.sizeBytes > maxTotalImageBytes) {
+          addMessage("system", `Image limit reached. Max ${formatFileSize(maxTotalImageBytes)} total image data per message.`);
+          continue;
+        }
         attachments.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           kind: "image",
           name: file.name,
-          size: file.size,
-          mimeType: (file.type || "image/png").toLowerCase(),
-          contentBase64
+          size: normalizedImage.sizeBytes,
+          mimeType: normalizedImage.mimeType || (file.type || "image/png").toLowerCase(),
+          contentBase64: normalizedImage.contentBase64
         });
         renderAttachments();
         if (fileInput) {
           fileInput.value = "";
         }
-      } catch {
-        addMessage("system", `Could not read image ${file.name}.`);
+      } catch (error) {
+        addMessage("system", error && error.message ? error.message : `Could not read image ${file.name}.`);
       }
       continue;
     }
@@ -8430,16 +8689,18 @@ fetchAndRenderKnowledge();
 
 // Elixir Network Partnership Modal - One time popup
 function showElixirPartnershipModal() {
-  if (!elixirPartnershipModal) return;
+  if (!elixirPartnershipModal) return false;
   try {
     const hasSeen = localStorage.getItem(ELIXIR_PARTNERSHIP_SEEN_KEY);
-    if (hasSeen) return; // Already shown
+    if (hasSeen) return false; // Already shown
     elixirPartnershipModal.hidden = false;
     elixirPartnershipModal.setAttribute("aria-hidden", "false");
+    return true;
   } catch (e) {
     // Ignore storage errors, still show modal
     elixirPartnershipModal.hidden = false;
     elixirPartnershipModal.setAttribute("aria-hidden", "false");
+    return true;
   }
 }
 
@@ -8449,6 +8710,33 @@ function hideElixirPartnershipModal() {
   elixirPartnershipModal.setAttribute("aria-hidden", "true");
   try {
     localStorage.setItem(ELIXIR_PARTNERSHIP_SEEN_KEY, "1");
+  } catch (e) {
+    // Ignore storage errors
+  }
+  showRokImageModal();
+}
+
+function showRokImageModal() {
+  if (!rokImageModal) return false;
+  try {
+    const hasSeen = localStorage.getItem(ROK_IMAGE_MODAL_SEEN_KEY);
+    if (hasSeen) return false;
+    rokImageModal.hidden = false;
+    rokImageModal.setAttribute("aria-hidden", "false");
+    return true;
+  } catch (e) {
+    rokImageModal.hidden = false;
+    rokImageModal.setAttribute("aria-hidden", "false");
+    return true;
+  }
+}
+
+function hideRokImageModal() {
+  if (!rokImageModal) return;
+  rokImageModal.hidden = true;
+  rokImageModal.setAttribute("aria-hidden", "true");
+  try {
+    localStorage.setItem(ROK_IMAGE_MODAL_SEEN_KEY, "1");
   } catch (e) {
     // Ignore storage errors
   }
@@ -8463,8 +8751,18 @@ if (elixirOkBtn) {
   elixirOkBtn.addEventListener("click", hideElixirPartnershipModal);
 }
 
-// Show Elixir partnership modal on first visit
-showElixirPartnershipModal();
+if (rokImageCloseBtn) {
+  rokImageCloseBtn.addEventListener("click", hideRokImageModal);
+}
+
+if (rokImageOkBtn) {
+  rokImageOkBtn.addEventListener("click", hideRokImageModal);
+}
+
+// Show first-visit announcement modals in sequence
+if (!showElixirPartnershipModal()) {
+  showRokImageModal();
+}
 
 // â”€â”€ ROK Pixel Painter - VLM-guided image generation â”€â”€
 
@@ -8532,6 +8830,50 @@ class PixelCanvas {
       img.onerror = () => reject(new Error("Failed to load the seed image."));
       img.src = src;
     });
+  }
+
+  captureSnapshot() {
+    return new Uint8ClampedArray(this.data);
+  }
+
+  restoreSnapshot(snapshot) {
+    if (!(snapshot instanceof Uint8ClampedArray) || snapshot.length !== this.data.length) {
+      return;
+    }
+    this.data.set(snapshot);
+    this.updateCanvas();
+  }
+
+  measureDifference(snapshot) {
+    if (!(snapshot instanceof Uint8ClampedArray) || snapshot.length !== this.data.length) {
+      return {
+        changedPixels: 0,
+        changedRatio: 0,
+        strongChangedPixels: 0,
+        strongChangedRatio: 0
+      };
+    }
+    let changedPixels = 0;
+    let strongChangedPixels = 0;
+    const totalPixels = this.size * this.size;
+    for (let i = 0; i < this.data.length; i += 4) {
+      const diff =
+        Math.abs(this.data[i] - snapshot[i]) +
+        Math.abs(this.data[i + 1] - snapshot[i + 1]) +
+        Math.abs(this.data[i + 2] - snapshot[i + 2]);
+      if (diff >= 24) {
+        changedPixels++;
+      }
+      if (diff >= 96) {
+        strongChangedPixels++;
+      }
+    }
+    return {
+      changedPixels,
+      changedRatio: totalPixels > 0 ? changedPixels / totalPixels : 0,
+      strongChangedPixels,
+      strongChangedRatio: totalPixels > 0 ? strongChangedPixels / totalPixels : 0
+    };
   }
 
   setPixelRgb(x, y, r, g, b) {
@@ -8770,6 +9112,68 @@ class PixelCanvas {
     thumbCtx.drawImage(this.canvas, 0, 0, 64, 64);
     return thumbCanvas.toDataURL("image/png");
   }
+}
+
+function clampPixelPainterConfidence(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function getPixelPainterPromptProfile(promptText) {
+  const normalized = ` ${String(promptText || "").toLowerCase()} `;
+  const wordCount = (normalized.match(/[a-z0-9']+/g) || []).length;
+  const relationHeavy = /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over|inside|outside|hugging|fighting)\b/.test(normalized);
+  const multiSubject = relationHeavy || /\b(and|with|group|crowd|scene|background|next to|in front of|behind)\b/.test(normalized);
+  if (relationHeavy || wordCount >= 7) {
+    return {
+      name: "complex",
+      minPassesBeforeStop: 5,
+      targetConfidence: 0.86
+    };
+  }
+  if (!multiSubject && wordCount <= 3) {
+    return {
+      name: "simple",
+      minPassesBeforeStop: 3,
+      targetConfidence: 0.74
+    };
+  }
+  return {
+    name: "medium",
+    minPassesBeforeStop: 4,
+    targetConfidence: 0.80
+  };
+}
+
+function buildAdaptivePixelPasses(promptProfile) {
+  if (promptProfile && promptProfile.name === "simple") {
+    return [
+      { passNum: 1, progress: 18, label: "Blocking silhouette", maxPixels: 92, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 0.92 },
+      { passNum: 2, progress: 40, label: "Laying major colors", maxPixels: 110, guideMode: "coarse_color", workSize: 160, scaleFactor: 4, maxChangedRatio: 0.56 },
+      { passNum: 3, progress: 68, label: "Refining structure", maxPixels: 92, guideMode: "mid_refine", workSize: 236, scaleFactor: 4, maxChangedRatio: 0.22 },
+      { passNum: 4, progress: 96, label: "Final cleanup", maxPixels: 34, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.06 }
+    ];
+  }
+  if (promptProfile && promptProfile.name === "medium") {
+    return [
+      { passNum: 1, progress: 16, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 0.96 },
+      { passNum: 2, progress: 32, label: "Separating big shapes", maxPixels: 108, guideMode: "coarse_shape", workSize: 136, scaleFactor: 5, maxChangedRatio: 0.68 },
+      { passNum: 3, progress: 50, label: "Laying major colors", maxPixels: 118, guideMode: "coarse_color", workSize: 188, scaleFactor: 4, maxChangedRatio: 0.46 },
+      { passNum: 4, progress: 72, label: "Refining structure", maxPixels: 102, guideMode: "mid_refine", workSize: 244, scaleFactor: 4, maxChangedRatio: 0.20 },
+      { passNum: 5, progress: 96, label: "Final cleanup", maxPixels: 36, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.07 }
+    ];
+  }
+  return [
+    { passNum: 1, progress: 14, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 1.0 },
+    { passNum: 2, progress: 28, label: "Separating big shapes", maxPixels: 112, guideMode: "coarse_shape", workSize: 128, scaleFactor: 5, maxChangedRatio: 0.72 },
+    { passNum: 3, progress: 44, label: "Laying major colors", maxPixels: 124, guideMode: "coarse_color", workSize: 176, scaleFactor: 4, maxChangedRatio: 0.54 },
+    { passNum: 4, progress: 62, label: "Refining structure", maxPixels: 120, guideMode: "mid_refine", workSize: 224, scaleFactor: 4, maxChangedRatio: 0.28 },
+    { passNum: 5, progress: 80, label: "Sharpening features", maxPixels: 82, guideMode: "detail_refine", workSize: 272, scaleFactor: 4, maxChangedRatio: 0.15 },
+    { passNum: 6, progress: 96, label: "Final cleanup", maxPixels: 42, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.08 }
+  ];
 }
 
 function getPixelPainterApiKey() {
@@ -9620,6 +10024,120 @@ async function handleImagineCommand(prompt) {
     throw new Error("API retries exhausted");
   }
 
+  async function runProtectedPixelPassSequence(passList, options = {}) {
+    let strongestSnapshot = canvas.captureSnapshot();
+    let strongestScore = -Infinity;
+    let strongestConfidence = 0;
+    let lastAcceptedConfidence = 0;
+    let completedPasses = 0;
+    const minPassesBeforeStop = Number.isFinite(options.minPassesBeforeStop)
+      ? Math.max(1, Math.round(options.minPassesBeforeStop))
+      : 3;
+    const targetConfidence = Number.isFinite(options.targetConfidence)
+      ? Math.max(0.5, Math.min(0.98, Number(options.targetConfidence)))
+      : 0.8;
+
+    for (let index = 0; index < passList.length && !stopped; index++) {
+      const pixelPass = passList[index];
+      const beforeSnapshot = canvas.captureSnapshot();
+      let passResult;
+      try {
+        passResult = await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
+      } catch (error) {
+        if (index > 0 || options.allowPartialResult) {
+          canvas.restoreSnapshot(strongestSnapshot);
+          previewImg.src = canvas.getDisplayUrl();
+          previewDiv.style.display = "block";
+          statusText.textContent = "Using strongest finished pass";
+          break;
+        }
+        throw error;
+      }
+
+      const diffStats = canvas.measureDifference(beforeSnapshot);
+      const safeConfidence = clampPixelPainterConfidence(passResult && passResult.confidence);
+      const progressAssessment = String((passResult && passResult.progress_assessment) || "").trim().toLowerCase();
+      const rawFocusRegion = String((passResult && passResult.focus_region) || "").trim().toLowerCase();
+      const focusRegion = ["full", "subject", "local_detail", "none"].includes(rawFocusRegion) ? rawFocusRegion : "";
+      const stopRecommended = !!(passResult && passResult.should_stop);
+      const allowedChangeRatio = Number.isFinite(pixelPass.maxChangedRatio)
+        ? Math.max(0.02, Math.min(1, pixelPass.maxChangedRatio))
+        : 1;
+      const effectiveAllowedChangeRatio = focusRegion === "none"
+        ? Math.min(allowedChangeRatio, 0.03)
+        : focusRegion === "local_detail"
+          ? Math.min(allowedChangeRatio, 0.12)
+          : focusRegion === "subject"
+            ? Math.min(allowedChangeRatio, 0.22)
+            : allowedChangeRatio;
+      const lateProtection = allowedChangeRatio <= 0.35 || /detail|cleanup/i.test(String(pixelPass.guideMode || ""));
+      const destructiveArea = diffStats.changedRatio > effectiveAllowedChangeRatio;
+      const destructiveIntensity = lateProtection &&
+        diffStats.strongChangedRatio > Math.max(0.03, effectiveAllowedChangeRatio * 0.7);
+      const confidenceDrop = lastAcceptedConfidence > 0 &&
+        safeConfidence > 0 &&
+        safeConfidence < (lastAcceptedConfidence - 0.10);
+      const textLooksDone = /\b(complete|completed|done|finished|stable|good enough|already works|stop)\b/.test(progressAssessment);
+      const noOpPass = Array.isArray(passResult && passResult.pixel_changes) && passResult.pixel_changes.length === 0;
+      const stopSignal = stopRecommended || textLooksDone || focusRegion === "none" || noOpPass;
+      const passScore =
+        safeConfidence * 1.08 -
+        (lateProtection ? diffStats.changedRatio * 0.60 : diffStats.changedRatio * 0.18) -
+        (lateProtection ? diffStats.strongChangedRatio * 0.95 : diffStats.strongChangedRatio * 0.24) +
+        (stopSignal ? 0.03 : 0);
+      const clearlyWeakerLatePass = lateProtection &&
+        strongestScore > -Infinity &&
+        passScore < (strongestScore - 0.08);
+
+      if ((destructiveArea || destructiveIntensity || clearlyWeakerLatePass) && (lateProtection || confidenceDrop)) {
+        canvas.restoreSnapshot(strongestSnapshot);
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+        completedPasses = Math.max(completedPasses, Math.max(1, pixelPass.passNum - 1));
+        statusText.textContent = "Keeping stronger earlier pass";
+        break;
+      }
+
+      completedPasses = Math.max(completedPasses, pixelPass.passNum);
+      lastAcceptedConfidence = safeConfidence > 0 ? safeConfidence : lastAcceptedConfidence;
+
+      const shouldRefreshStrongestPass = strongestScore === -Infinity ||
+        passScore > strongestScore ||
+        (passScore >= strongestScore - 0.02 && safeConfidence >= strongestConfidence);
+      if (shouldRefreshStrongestPass) {
+        strongestSnapshot = canvas.captureSnapshot();
+        strongestScore = passScore;
+        strongestConfidence = safeConfidence;
+      }
+
+      previewImg.src = canvas.getDisplayUrl();
+      previewDiv.style.display = "block";
+
+      const lowImpactLatePass = lateProtection &&
+        diffStats.changedRatio < Math.max(0.005, effectiveAllowedChangeRatio * 0.24);
+      const stableEnoughToStop = completedPasses >= minPassesBeforeStop &&
+        strongestConfidence >= targetConfidence &&
+        diffStats.changedRatio < Math.max(0.022, effectiveAllowedChangeRatio * 0.55);
+      const latePassPlateau = completedPasses >= minPassesBeforeStop &&
+        strongestScore > -Infinity &&
+        passScore < (strongestScore + 0.015) &&
+        diffStats.changedRatio < Math.max(0.04, effectiveAllowedChangeRatio * 0.75);
+
+      if ((stopSignal && completedPasses >= minPassesBeforeStop) || lowImpactLatePass || stableEnoughToStop || latePassPlateau) {
+        statusText.textContent = "Image locked";
+        break;
+      }
+
+      if (index < passList.length - 1) {
+        await new Promise((r) => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
+      }
+    }
+
+    return {
+      completedPasses: Math.max(1, completedPasses)
+    };
+  }
+
   async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, priorRepairFocus) {
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
@@ -9748,6 +10266,7 @@ async function handleImagineCommand(prompt) {
   );
   const relationHeavyVectorPrompt = useVectorPipeline &&
     /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
+  const pixelPromptProfile = getPixelPainterPromptProfile(prompt);
   let finalUrl = "";
   const vectorPasses = renderMode === "best"
     ? (
@@ -9776,14 +10295,7 @@ async function handleImagineCommand(prompt) {
               { passNum: 4, progress: 92, label: "Final cleanup" }
             ]
       );
-  const directPixelPasses = [
-    { passNum: 1, progress: 14, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5 },
-    { passNum: 2, progress: 28, label: "Separating big shapes", maxPixels: 112, guideMode: "coarse_shape", workSize: 128, scaleFactor: 5 },
-    { passNum: 3, progress: 44, label: "Laying major colors", maxPixels: 128, guideMode: "coarse_color", workSize: 176, scaleFactor: 4 },
-    { passNum: 4, progress: 62, label: "Refining structure", maxPixels: 148, guideMode: "mid_refine", workSize: 224, scaleFactor: 4 },
-    { passNum: 5, progress: 80, label: "Sharpening features", maxPixels: 132, guideMode: "detail_refine", workSize: 272, scaleFactor: 4 },
-    { passNum: 6, progress: 96, label: "Final cleanup", maxPixels: 96, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4 }
-  ];
+  const directPixelPasses = buildAdaptivePixelPasses(pixelPromptProfile);
   const hybridPixelPasses = complexVectorPrompt
     ? [
         { passNum: 1, progress: 62, label: "Overpainting scaffold", maxPixels: 150, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
@@ -9794,7 +10306,7 @@ async function handleImagineCommand(prompt) {
         { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
         { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ];
-  let generationSummary = `${directPixelPasses.length}-pass coarse-to-fine ROK IMAGE painting`;
+  let generationSummary = `${directPixelPasses.length}-pass adaptive coarse-to-fine ROK IMAGE painting`;
 
   try {
     if (!stopped && imageProvider === "comfyui") {
@@ -9939,38 +10451,24 @@ async function handleImagineCommand(prompt) {
         generationSummary = `${directPixelPasses.length}-pass paint fallback`;
       }
 
-      for (let index = 0; index < activePixelPasses.length && !stopped; index++) {
-        const pixelPass = activePixelPasses[index];
-        try {
-          await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
-        } catch (error) {
-          if (index > 0 || (seedVectorResult && seedVectorResult.imageUrl)) {
-            statusText.textContent = "Using strongest finished pass";
-            break;
-          }
-          throw error;
-        }
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
-        if (index < activePixelPasses.length - 1) {
-          await new Promise((r) => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
-        }
-      }
+      const pixelRun = await runProtectedPixelPassSequence(activePixelPasses, {
+        allowPartialResult: !!(seedVectorResult && seedVectorResult.imageUrl),
+        minPassesBeforeStop: Math.max(2, pixelPromptProfile.minPassesBeforeStop - 1),
+        targetConfidence: Math.max(0.72, pixelPromptProfile.targetConfidence - 0.03)
+      });
+      generationSummary = `${pixelRun.completedPasses}-pass protected paint fallback`;
       finalUrl = canvas.getDisplayUrl();
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";
     }
 
     if (!stopped && renderMode === "pixel" && !finalUrl) {
-      for (let index = 0; index < directPixelPasses.length && !stopped; index++) {
-        const pixelPass = directPixelPasses[index];
-        await paintPass(pixelPass.passNum, pixelPass.label, pixelPass);
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
-        if (index < directPixelPasses.length - 1) {
-          await new Promise((r) => setTimeout(r, PIXEL_PAINTER_DELAY_MS));
-        }
-      }
+      const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
+        allowPartialResult: false,
+        minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
+        targetConfidence: pixelPromptProfile.targetConfidence
+      });
+      generationSummary = `${pixelRun.completedPasses}-pass protected adaptive ROK IMAGE painting`;
       finalUrl = canvas.getDisplayUrl();
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";

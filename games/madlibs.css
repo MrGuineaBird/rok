@@ -71,6 +71,38 @@ body {
   padding: 28px;
 }
 
+.madlibs-status {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.madlibs-status[hidden] {
+  display: none;
+}
+
+.madlibs-status.is-success {
+  border-color: rgba(55, 194, 126, 0.45);
+  background: rgba(55, 194, 126, 0.12);
+  color: #9fe3be;
+}
+
+.madlibs-status.is-warning {
+  border-color: rgba(244, 180, 0, 0.4);
+  background: rgba(244, 180, 0, 0.1);
+  color: #ffd667;
+}
+
+.madlibs-status.is-error {
+  border-color: rgba(209, 75, 75, 0.5);
+  background: rgba(209, 75, 75, 0.12);
+  color: #ff8f8f;
+}
+
 /* Intro */
 .madlibs-intro h2 {
   margin: 0 0 12px;

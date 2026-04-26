@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ROK Mad Libs · ROK Games</title>
-  <link rel="stylesheet" href="madlibs.css?v=1" />
+  <link rel="stylesheet" href="madlibs.css?v=2" />
 </head>
 <body>
   <div class="madlibs-root">
@@ -16,11 +16,13 @@
 
     <main class="madlibs-main">
       <div class="madlibs-workspace">
+        <p id="storyStatus" class="madlibs-status" hidden></p>
+
         <!-- Input Phase -->
         <section id="inputPhase" class="madlibs-phase">
           <div class="madlibs-intro">
             <h2>How to play</h2>
-            <p>The AI will generate a story with blanks. You fill them in without seeing the full context. Then read the hilarious result!</p>
+            <p>The AI will generate a story with blanks. You fill them in without seeing the full context. If the AI is unavailable, ROK will switch to a built-in story pack so the game still works.</p>
           </div>
           
           <div class="madlibs-actions">
@@ -86,13 +88,13 @@
     </main>
 
     <footer class="madlibs-footer">
-      <span>Powered by your ROK backend · AI-generated stories</span>
+      <span>Powered by ROK stories - AI when available, built-in when needed</span>
     </footer>
   </div>
 
   <script>
     window.ROK_API_BASE = "https://rokbackendreal.kyklos.online";
   </script>
-  <script src="madlibs.js?v=20" defer></script>
+  <script src="madlibs.js?v=21" defer></script>
 </body>
 </html>

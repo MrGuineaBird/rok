@@ -372,7 +372,7 @@
     </div>
     <div class="rok-msgs" id="rokMsgs"></div>
     <div class="rok-input-row">
-      <input class="rok-input" id="rokInput" type="text" placeholder="Ask a math question..." autocomplete="off" />
+      <input class="rok-input" id="rokInput" type="text" placeholder="Ask a math question, or say 'graph y=x^2'..." autocomplete="off" />
       <button class="rok-send" id="rokSend" type="button">Ask</button>
     </div>
   </div>
@@ -422,6 +422,80 @@
     const input = document.getElementById("rokInput");
     const sendBtn = document.getElementById("rokSend");
     let open = false;
+    const DESMOS_PLOT_COLOR = "#2d70b3";
+    const MATH_GRAPH_REQUEST_PATTERN = /\b(graph|plot|draw|sketch|visuali[sz]e|chart|show(?: me)?(?: the)? graph|put (?:it|this|that) on (?:the )?graph)\b/i;
+    const MATH_NON_GRAPH_QUESTION_PATTERN = /\b(what|what's|how|why|explain|find|solve|compare|different|difference|intercept|slope|domain|range|factor|simplify|evaluate|calculate|compute|mean|average)\b/i;
+
+    function stripMathGraphDirective(reply = "") {
+      return String(reply || "").replace(/\n?\s*GRAPH:\s*[^\n]+/i, "").trim();
+    }
+
+    function looksLikeBareGraphExpression(text = "") {
+      const value = String(text || "").trim();
+      if (!value || value.length > 120 || value.includes("?")) return false;
+      if (MATH_NON_GRAPH_QUESTION_PATTERN.test(value)) return false;
+
+      const normalized = value.replace(/\u03b8/gi, "theta");
+      const hasVariable = /\b(?:x|y|t|theta)\b/i.test(normalized);
+      const hasMathStructure = /[=^]/.test(normalized) || /[+\-*/]/.test(normalized) || /\b(?:sin|cos|tan|log|ln|sqrt|abs)\b/i.test(normalized);
+      const strippedKnownTokens = normalized
+        .replace(/\b(?:sin|cos|tan|log|ln|sqrt|abs|pi|e|x|y|t|theta)\b/gi, "")
+        .replace(/[0-9+\-*/^=().,\s|]/g, "");
+
+      return hasVariable && hasMathStructure && strippedKnownTokens.length === 0;
+    }
+
+    function shouldGraphMathRequest(text = "") {
+      const value = String(text || "").trim();
+      if (!value) return false;
+      return MATH_GRAPH_REQUEST_PATTERN.test(value) || looksLikeBareGraphExpression(value);
+    }
+
+    function extractSimpleMathExpression(text = "") {
+      let candidate = String(text || "")
+        .trim()
+        .replace(/^what(?:'s| is)\s+/i, "")
+        .replace(/^(?:please\s+)?(?:calculate|compute|evaluate)\s+/i, "")
+        .replace(/\?+$/g, "")
+        .replace(/,+/g, "");
+
+      if (!candidate) return "";
+      if (shouldGraphMathRequest(candidate)) return "";
+      if (/\b(?:x|y|t|theta|\u03b8)\b/i.test(candidate)) return "";
+      if (!/[0-9)]/.test(candidate)) return "";
+      if (!/^[0-9+\-*/().,%^\sA-Za-z]+$/.test(candidate)) return "";
+
+      const remainingLetters = candidate.replace(/\b(?:sqrt|abs|ceil|floor|round|sin|cos|tan|log|pi|e)\b/gi, "").replace(/[^A-Za-z]/g, "");
+      return remainingLetters ? "" : candidate;
+    }
+
+    function tryAnswerSimpleMathLocally(text = "") {
+      const expression = extractSimpleMathExpression(text);
+      if (!expression) return "";
+
+      const safeExpr = expression
+        .replace(/\^/g, "**")
+        .replace(/sqrt\(/gi, "Math.sqrt(")
+        .replace(/abs\(/gi, "Math.abs(")
+        .replace(/ceil\(/gi, "Math.ceil(")
+        .replace(/floor\(/gi, "Math.floor(")
+        .replace(/round\(/gi, "Math.round(")
+        .replace(/sin\(/gi, "Math.sin(")
+        .replace(/cos\(/gi, "Math.cos(")
+        .replace(/tan\(/gi, "Math.tan(")
+        .replace(/log\(/gi, "Math.log(")
+        .replace(/\bpi\b/gi, "Math.PI")
+        .replace(/\be\b/g, "Math.E");
+
+      try {
+        const result = new Function("return (" + safeExpr + ")")();
+        if (typeof result !== "number" || !isFinite(result)) return "";
+        const formatted = Number.isInteger(result) ? String(result) : Number(result.toPrecision(12)).toString();
+        return `${expression} = ${formatted}`;
+      } catch {
+        return "";
+      }
+    }
 
     function toggleDrawer(next) {
       open = next;
@@ -436,6 +510,8 @@
     async function sendMsg() {
       const text = input.value.trim();
       if (!text) return;
+      const graphRequested = shouldGraphMathRequest(text);
+      const localMathAnswer = graphRequested ? "" : tryAnswerSimpleMathLocally(text);
       input.value = "";
 
       const userEl = document.createElement("div");
@@ -449,8 +525,24 @@
       msgs.appendChild(botEl);
       msgs.scrollTop = msgs.scrollHeight;
 
+      if (localMathAnswer) {
+        botEl.textContent = localMathAnswer;
+        msgs.scrollTop = msgs.scrollHeight;
+        return;
+      }
+
       try {
-        const prompt = `You are a math assistant inside a Desmos graphing calculator. The user asked: "${text}"\n\nRespond helpfully and concisely. If the question involves an equation or function that can be graphed, end your response with a line that says exactly: GRAPH: followed by the Desmos LaTeX expression (e.g. GRAPH: y=x^2). Only one GRAPH line if relevant.`;
+        const prompt = `You are a helpful math assistant inside a Desmos graphing calculator.
+
+User request: "${text}"
+Graph requested: ${graphRequested ? "yes" : "no"}
+
+Rules:
+- Answer the user's question directly and clearly before anything else.
+- Only end your response with a line in the exact format GRAPH: <expression> if the user explicitly asked to graph or plot something, or if the user's input is only a bare graph expression.
+- Do not include GRAPH for simple arithmetic, explanations, definitions, or questions that can be answered normally without plotting.
+- If a graph might help but the user did not ask for one, mention that briefly but do not include a GRAPH line.
+- If you include GRAPH, provide exactly one valid Desmos expression and nothing else on that line.`;
 
         const res = await fetch(API_URL, {
           method: "POST",
@@ -495,17 +587,17 @@
           reply = await res.text();
         }
 
-        const graphMatch = reply.match(/GRAPH:\s*(.+)/i);
+        const graphMatch = graphRequested ? reply.match(/GRAPH:\s*(.+)/i) : null;
         if (graphMatch && calculator) {
           const latex = graphMatch[1].trim();
-          calculator.setExpression({ id: "g" + Date.now(), latex, color: "#2d70b3" });
+          calculator.setExpression({ id: "g" + Date.now(), latex, color: DESMOS_PLOT_COLOR });
           const note = document.createElement("div");
           note.className = "rok-msg rok-msg-bot";
           note.textContent = "Graphed: " + latex;
           msgs.appendChild(note);
         }
 
-        botEl.textContent = reply.replace(/GRAPH:\s*.+/i, "").trim() || "Done! Check the graph.";
+        botEl.textContent = stripMathGraphDirective(reply) || (graphMatch ? "Graphed it." : "Done.");
         msgs.scrollTop = msgs.scrollHeight;
       } catch (err) {
         botEl.textContent = "Error: " + err.message;
