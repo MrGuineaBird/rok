@@ -128,15 +128,6 @@ const legalCreditsTab = document.getElementById("legalCreditsTab");
 const legalTermsPanel = document.getElementById("legalTermsPanel");
 const legalPrivacyPanel = document.getElementById("legalPrivacyPanel");
 const legalCreditsPanel = document.getElementById("legalCreditsPanel");
-const legalAnalyticsKeyInput = document.getElementById("legalAnalyticsKeyInput");
-const legalAnalyticsFetchBtn = document.getElementById("legalAnalyticsFetchBtn");
-const legalAnalyticsResetBtn = document.getElementById("legalAnalyticsResetBtn");
-const legalAnalyticsStatus = document.getElementById("legalAnalyticsStatus");
-const legalAnalyticsLiveNow = document.getElementById("legalAnalyticsLiveNow");
-const legalAnalyticsVisitsToday = document.getElementById("legalAnalyticsVisitsToday");
-const legalAnalyticsVisitsTotal = document.getElementById("legalAnalyticsVisitsTotal");
-const legalAnalyticsSessionsTracked = document.getElementById("legalAnalyticsSessionsTracked");
-const legalAnalyticsRecentDays = document.getElementById("legalAnalyticsRecentDays");
 const legalLinkButtons = document.querySelectorAll("[data-legal]");
 const composerWrap = document.querySelector(".composer-wrap");
 const sidebar = document.querySelector(".sidebar");
@@ -164,8 +155,6 @@ const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
-const ADMIN_ANALYTICS_URL = buildApiUrl("/api/admin/analytics");
-const BLOG_ADMIN_HEADER_NAME = "X-ROK-Blog-Admin-Key";
 const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
@@ -4464,119 +4453,10 @@ function openLegalModal(tab) {
   legalModal.setAttribute("aria-hidden", "false");
 }
 
-function formatAdminAnalyticsNumber(value) {
-  return Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "--";
-}
-
-function setLegalAnalyticsStatus(message, tone = "") {
-  if (!legalAnalyticsStatus) return;
-  legalAnalyticsStatus.textContent = String(message || "").trim() || "Enter the admin key to view the visitor snapshot.";
-  legalAnalyticsStatus.classList.remove("is-success", "is-error");
-  if (tone === "success") {
-    legalAnalyticsStatus.classList.add("is-success");
-  } else if (tone === "error") {
-    legalAnalyticsStatus.classList.add("is-error");
-  }
-}
-
-function resetLegalAnalyticsCard(options = {}) {
-  const preserveKey = Boolean(options && options.preserveKey);
-  if (legalAnalyticsKeyInput && !preserveKey) {
-    legalAnalyticsKeyInput.value = "";
-  }
-  if (legalAnalyticsLiveNow) legalAnalyticsLiveNow.textContent = "--";
-  if (legalAnalyticsVisitsToday) legalAnalyticsVisitsToday.textContent = "--";
-  if (legalAnalyticsVisitsTotal) legalAnalyticsVisitsTotal.textContent = "--";
-  if (legalAnalyticsSessionsTracked) legalAnalyticsSessionsTracked.textContent = "--";
-  if (legalAnalyticsRecentDays) {
-    legalAnalyticsRecentDays.textContent = "No stats loaded yet.";
-  }
-  setLegalAnalyticsStatus("Enter the admin key to view the visitor snapshot.");
-}
-
-function renderLegalAnalyticsStats(stats) {
-  const safeStats = stats && typeof stats === "object" ? stats : {};
-  if (legalAnalyticsLiveNow) {
-    legalAnalyticsLiveNow.textContent = formatAdminAnalyticsNumber(safeStats.live_now);
-  }
-  if (legalAnalyticsVisitsToday) {
-    legalAnalyticsVisitsToday.textContent = formatAdminAnalyticsNumber(safeStats.visits_today);
-  }
-  if (legalAnalyticsVisitsTotal) {
-    legalAnalyticsVisitsTotal.textContent = formatAdminAnalyticsNumber(safeStats.visits_total);
-  }
-  if (legalAnalyticsSessionsTracked) {
-    legalAnalyticsSessionsTracked.textContent = formatAdminAnalyticsNumber(safeStats.sessions_in_memory);
-  }
-  if (legalAnalyticsRecentDays) {
-    const recentDays = Array.isArray(safeStats.recent_days) ? safeStats.recent_days : [];
-    legalAnalyticsRecentDays.innerHTML = recentDays.length
-      ? recentDays
-        .map((entry) => {
-          const day = escapeHtml(entry && entry.day ? entry.day : "--");
-          const count = escapeHtml(formatAdminAnalyticsNumber(entry && entry.sessions));
-          return `<div>${day}: <strong>${count}</strong></div>`;
-        })
-        .join("")
-      : "No historical counts yet.";
-  }
-  const liveWindowSec = Number(safeStats.live_window_sec);
-  const liveWindowMinutes = Number.isFinite(liveWindowSec) ? Math.max(1, Math.round(liveWindowSec / 60)) : 5;
-  setLegalAnalyticsStatus(
-    `Visitor snapshot loaded. "Live now" means sessions active in roughly the last ${liveWindowMinutes} minute${liveWindowMinutes === 1 ? "" : "s"}.`,
-    "success"
-  );
-}
-
-async function loadLegalAnalytics() {
-  if (!legalAnalyticsKeyInput || !legalAnalyticsFetchBtn) return;
-  const adminKey = String(legalAnalyticsKeyInput.value || "").trim();
-  if (!adminKey) {
-    setLegalAnalyticsStatus("Paste the admin key first.", "error");
-    legalAnalyticsKeyInput.focus();
-    return;
-  }
-
-  legalAnalyticsFetchBtn.disabled = true;
-  if (legalAnalyticsResetBtn) {
-    legalAnalyticsResetBtn.disabled = true;
-  }
-  setLegalAnalyticsStatus("Loading visitor snapshot...");
-
-  try {
-    const res = await fetchWithBanGuard(ADMIN_ANALYTICS_URL, {
-      headers: {
-        [BLOG_ADMIN_HEADER_NAME]: adminKey
-      }
-    });
-    const rawText = await safeReadResponseText(res);
-    let data = null;
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      data = null;
-    }
-    if (!res.ok) {
-      const errorMessage = data && typeof data.error === "string" ? data.error : `Request failed (${res.status}).`;
-      setLegalAnalyticsStatus(errorMessage, "error");
-      return;
-    }
-    renderLegalAnalyticsStats(data && data.stats ? data.stats : {});
-  } catch (err) {
-    setLegalAnalyticsStatus(`Failed to load stats: ${err && err.message ? err.message : "Network error."}`, "error");
-  } finally {
-    legalAnalyticsFetchBtn.disabled = false;
-    if (legalAnalyticsResetBtn) {
-      legalAnalyticsResetBtn.disabled = false;
-    }
-  }
-}
-
 function closeLegalModal() {
   if (!legalModal) return;
   legalModal.hidden = true;
   legalModal.setAttribute("aria-hidden", "true");
-  resetLegalAnalyticsCard();
 }
 
 function handleWorkspaceApplyModalKeydown(e) {
@@ -6544,14 +6424,6 @@ async function send() {
     return;
   }
 
-  // Handle /madlibs command
-  if (text && text.startsWith("/madlibs")) {
-    input.value = "";
-    autoResizeInput();
-    handleMadlibsCommand();
-    return;
-  }
-
   const sessionModel = getCurrentSessionModel();
   const wasWorkspaceActive = isWorkspaceSessionActive();
   const sandboxActive = isSandboxSessionActive();
@@ -8154,30 +8026,6 @@ if (legalPrivacyTab) {
 if (legalCreditsTab) {
   legalCreditsTab.addEventListener("click", () => {
     setActiveLegalTab("credits");
-  });
-}
-
-if (legalAnalyticsFetchBtn) {
-  legalAnalyticsFetchBtn.addEventListener("click", () => {
-    loadLegalAnalytics();
-  });
-}
-
-if (legalAnalyticsResetBtn) {
-  legalAnalyticsResetBtn.addEventListener("click", () => {
-    resetLegalAnalyticsCard();
-    if (legalAnalyticsKeyInput) {
-      legalAnalyticsKeyInput.focus();
-    }
-  });
-}
-
-if (legalAnalyticsKeyInput) {
-  legalAnalyticsKeyInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      loadLegalAnalytics();
-    }
   });
 }
 
@@ -10853,164 +10701,3 @@ async function handlePictionaryCommand() {
   });
 }
 
-// â”€â”€ ROK Mad Libs â”€â”€
-const MADLIBS_API_URL = buildApiUrl("/api/madlibs");
-const INLINE_MADLIBS_BLANK_PATTERN = /\[([A-Za-z][A-Za-z\s-]*)\]/g;
-const INLINE_MADLIBS_FALLBACK_STORIES = [
-  `At the [PLACE] talent show, my [ADJECTIVE] [ANIMAL] insisted on performing a [ADJECTIVE] dance while balancing a [NOUN] on its nose.
-
-The judges started to [VERB] so [ADVERB] that one of them shouted "[EXCLAMATION]!" and awarded us a lifetime supply of [NOUN].`,
-  `Yesterday, our class took a field trip to [PLACE], where a [ADJECTIVE] guide taught us how to [VERB] using only a [NOUN] and an [ANIMAL].
-
-Everything was going well until the loudspeaker screamed "[EXCLAMATION]!" and everyone ran [ADVERB] toward the gift shop.`,
-  `During my vacation on [PLACE], I discovered a [ADJECTIVE] machine that could turn any [NOUN] into an [ANIMAL].
-
-I decided to [VERB] with it [ADVERB], but the mayor burst in yelling "[EXCLAMATION]!" and demanded I hand over the instruction manual.`
-];
-
-function getInlineMadlibsFallbackStory() {
-  return INLINE_MADLIBS_FALLBACK_STORIES[Math.floor(Math.random() * INLINE_MADLIBS_FALLBACK_STORIES.length)];
-}
-
-function normalizeInlineMadlibsBlankType(rawType) {
-  const cleaned = String(rawType || "word")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
-  if (!cleaned) {
-    return "word";
-  }
-  const aliases = {
-    adj: "adjective",
-    adjective: "adjective",
-    adverb: "adverb",
-    animal: "animal",
-    bodypart: "body part",
-    color: "color",
-    exclamation: "exclamation",
-    interjection: "exclamation",
-    food: "food",
-    location: "place",
-    noun: "noun",
-    number: "number",
-    person: "person",
-    place: "place",
-    pluralnoun: "plural noun",
-    profession: "profession",
-    verb: "verb"
-  };
-  const compact = cleaned.replace(/\s+/g, "");
-  return aliases[cleaned] || aliases[compact] || cleaned;
-}
-
-async function handleMadlibsCommand() {
-  addMessage("user", "/madlibs");
-  addMessage("bot", "**Mad Libs** - Fill in the blanks and read your hilarious story!");
-
-  // Fetch story template from backend
-  let storyText = getInlineMadlibsFallbackStory();
-  try {
-    const res = await fetchWithBanGuard(`${MADLIBS_API_URL}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.ok && data.story) {
-        storyText = data.story;
-      }
-    }
-  } catch (e) {
-    console.error("Failed to fetch madlibs story:", e);
-  }
-
-  // Parse blanks from story (find all [TYPE] patterns)
-  const blankMatches = [...storyText.matchAll(INLINE_MADLIBS_BLANK_PATTERN)];
-  const blanks = blankMatches.map((match) => ({
-    type: normalizeInlineMadlibsBlankType(match[1]),
-    full: match[0]
-  }));
-
-  if (blanks.length === 0) {
-    addMessage("bot", escapeHtml(storyText));
-    return;
-  }
-
-  // Build UI
-  const row = document.createElement("div");
-  row.className = "chat-row bot-row";
-  const bubble = document.createElement("div");
-  bubble.className = "chat-bubble bot-bubble";
-
-  const uniqueBlanks = [];
-  const seen = new Set();
-  blanks.forEach((b, i) => {
-    if (!seen.has(i)) {
-      uniqueBlanks.push({ ...b, index: i });
-      seen.add(i);
-    }
-  });
-
-  const blanksHtml = blanks.map((b, i) =>
-    `<input type="text" class="madlibs-input-${i}" placeholder="${escapeHtml(b.type)}" style="padding: 6px 10px; background: #1e293b; border: 1px solid #475569; border-radius: 4px; color: #fff; width: 100px; margin: 2px; font-size: 13px;">`
-  ).join("");
-
-  // Show story with blanks replaced by input fields
-  let storyWithInputs = escapeHtml(storyText);
-  blanks.forEach((b, i) => {
-    storyWithInputs = storyWithInputs.replace(escapeHtml(b.full), `<span class="madlibs-blank-${i}">[${escapeHtml(b.type)}]</span>`);
-  });
-
-  bubble.innerHTML = `
-    <div class="madlibs-game" style="padding: 16px; background: #252535; border-radius: 12px; margin: 8px 0;">
-      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 12px;">Fill in the blanks:</div>
-      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px;">
-        ${blanksHtml}
-      </div>
-      <div class="madlibs-story" style="font-size: 15px; line-height: 1.8; color: #fff; background: #1e293b; padding: 16px; border-radius: 8px; white-space: pre-wrap;">
-        ${storyWithInputs}
-      </div>
-      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">Reveal Story</button>
-      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">New Story</button>
-    </div>
-  `;
-
-  row.appendChild(bubble);
-  if (!chat) {
-    addMessage("bot", "Mad Libs couldn't open because the chat panel is unavailable.");
-    return;
-  }
-  chat.appendChild(row);
-  scrollToBottom();
-
-  // Update story as user types
-  const updateStory = () => {
-    let updatedStory = escapeHtml(storyText);
-    blanks.forEach((b, i) => {
-      const input = bubble.querySelector(`.madlibs-input-${i}`);
-      const val = input?.value?.trim() || `[${b.type}]`;
-      updatedStory = updatedStory.replace(escapeHtml(b.full), `<strong style="color: #7dd3fc;">${escapeHtml(val)}</strong>`);
-    });
-    bubble.querySelector(".madlibs-story").innerHTML = updatedStory;
-  };
-
-  blanks.forEach((_, i) => {
-    const input = bubble.querySelector(`.madlibs-input-${i}`);
-    if (input) input.addEventListener("input", updateStory);
-  });
-
-  // Reveal button
-  bubble.querySelector(".madlibs-reveal").addEventListener("click", () => {
-    updateStory();
-    bubble.querySelector(".madlibs-reveal").style.display = "none";
-    // Scroll inputs into view
-    bubble.querySelector(".madlibs-story").scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-
-  // New story button
-  bubble.querySelector(".madlibs-new").addEventListener("click", () => {
-    handleMadlibsCommand();
-  });
-}
