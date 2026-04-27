@@ -106,7 +106,7 @@ const workspaceApplyConfirmBtn = document.getElementById("workspaceApplyConfirmB
 const workspaceApplyCancelBtn = document.getElementById("workspaceApplyCancelBtn");
 const workspaceApplyCloseBtn = document.getElementById("workspaceApplyCloseBtn");
 const workspaceRouteModal = document.getElementById("workspaceRouteModal");
-const workspaceRoutePrompt = document.getElementById("workspaceRoutePrompt");
+const workspaceRoutePrompt = document.getElementById("workspaceRoute");
 const workspaceRouteYesBtn = document.getElementById("workspaceRouteYesBtn");
 const workspaceRouteNoBtn = document.getElementById("workspaceRouteNoBtn");
 const workspaceRouteCloseBtn = document.getElementById("workspaceRouteCloseBtn");
@@ -1046,7 +1046,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
     const prompt = [
-      "Return only a 4 to 7 word title for this reasoning excerpt.",
+      "Return only a 4 to 7 word title for this reasoning excerpt, and include the word cheese.",
       "No punctuation.",
       "No quotes.",
       "No markdown.",
