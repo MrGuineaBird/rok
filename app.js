@@ -203,8 +203,7 @@ const DEFAULT_USER_SETTINGS = {
 const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
   { id: "gpt-oss:20b-cloud", label: "ROK Hermes" },
-  { id: "gpt-oss:120b-cloud", label: "ROK Titan" },
-  { id: "glm-5.1:cloud", label: "ROK Daedalus" }
+  { id: "gpt-oss:120b-cloud", label: "ROK Titan" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
@@ -221,7 +220,7 @@ const MODEL_DESCRIPTIONS = {
 };
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
-const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud", "glm-5.1:cloud"];
+const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
   "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
@@ -522,7 +521,23 @@ function normalizeModelOptions(rawOptions) {
 function resolveDefaultModelId(options, rawDefaultModel) {
   const candidates = Array.isArray(options) && options.length ? options : normalizeModelOptions([]);
   const modelIds = new Set(candidates.map((item) => item.id));
+  const selectableOptions = candidates.filter((item) => COMPOSER_TEXT_MODEL_ORDER.includes(item.id));
+  const selectableIds = new Set(selectableOptions.map((item) => item.id));
   const requestedDefault = sanitizeModelId(rawDefaultModel);
+  if (requestedDefault && selectableIds.has(requestedDefault)) {
+    return requestedDefault;
+  }
+  if (selectableIds.has(DEFAULT_CHAT_MODEL)) {
+    return DEFAULT_CHAT_MODEL;
+  }
+  if (selectableIds.has(HERMES_MODEL_ID)) {
+    return HERMES_MODEL_ID;
+  }
+  for (const item of selectableOptions) {
+    if (item && item.id) {
+      return item.id;
+    }
+  }
   if (requestedDefault && modelIds.has(requestedDefault)) {
     return requestedDefault;
   }
@@ -10587,7 +10602,11 @@ async function handlePictionaryCommand() {
   `;
 
   row.appendChild(bubble);
-  chatContainer.appendChild(row);
+  if (!chat) {
+    addMessage("bot", "Pictionary couldn't open because the chat panel is unavailable.");
+    return;
+  }
+  chat.appendChild(row);
   scrollToBottom();
 
   // Setup canvas drawing
@@ -10692,15 +10711,67 @@ async function handlePictionaryCommand() {
 
 // â”€â”€ ROK Mad Libs â”€â”€
 const MADLIBS_API_URL = buildApiUrl("/api/madlibs");
+const INLINE_MADLIBS_BLANK_PATTERN = /\[([A-Za-z][A-Za-z\s-]*)\]/g;
+const INLINE_MADLIBS_FALLBACK_STORIES = [
+  `At the [PLACE] talent show, my [ADJECTIVE] [ANIMAL] insisted on performing a [ADJECTIVE] dance while balancing a [NOUN] on its nose.
+
+The judges started to [VERB] so [ADVERB] that one of them shouted "[EXCLAMATION]!" and awarded us a lifetime supply of [NOUN].`,
+  `Yesterday, our class took a field trip to [PLACE], where a [ADJECTIVE] guide taught us how to [VERB] using only a [NOUN] and an [ANIMAL].
+
+Everything was going well until the loudspeaker screamed "[EXCLAMATION]!" and everyone ran [ADVERB] toward the gift shop.`,
+  `During my vacation on [PLACE], I discovered a [ADJECTIVE] machine that could turn any [NOUN] into an [ANIMAL].
+
+I decided to [VERB] with it [ADVERB], but the mayor burst in yelling "[EXCLAMATION]!" and demanded I hand over the instruction manual.`
+];
+
+function getInlineMadlibsFallbackStory() {
+  return INLINE_MADLIBS_FALLBACK_STORIES[Math.floor(Math.random() * INLINE_MADLIBS_FALLBACK_STORIES.length)];
+}
+
+function normalizeInlineMadlibsBlankType(rawType) {
+  const cleaned = String(rawType || "word")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  if (!cleaned) {
+    return "word";
+  }
+  const aliases = {
+    adj: "adjective",
+    adjective: "adjective",
+    adverb: "adverb",
+    animal: "animal",
+    bodypart: "body part",
+    color: "color",
+    exclamation: "exclamation",
+    interjection: "exclamation",
+    food: "food",
+    location: "place",
+    noun: "noun",
+    number: "number",
+    person: "person",
+    place: "place",
+    pluralnoun: "plural noun",
+    profession: "profession",
+    verb: "verb"
+  };
+  const compact = cleaned.replace(/\s+/g, "");
+  return aliases[cleaned] || aliases[compact] || cleaned;
+}
 
 async function handleMadlibsCommand() {
   addMessage("user", "/madlibs");
-  addMessage("bot", "ðŸ“– **Mad Libs** - Fill in the blanks and read your hilarious story!");
+  addMessage("bot", "**Mad Libs** - Fill in the blanks and read your hilarious story!");
 
   // Fetch story template from backend
-  let storyText = "The [adjective] [noun] [verb] over the [adjective] [noun].";
+  let storyText = getInlineMadlibsFallbackStory();
   try {
-    const res = await fetch(`${MADLIBS_API_URL}/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const res = await fetchWithBanGuard(`${MADLIBS_API_URL}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.ok && data.story) {
@@ -10712,8 +10783,11 @@ async function handleMadlibsCommand() {
   }
 
   // Parse blanks from story (find all [TYPE] patterns)
-  const blankMatches = [...storyText.matchAll(/\[([a-z]+)\]/gi)];
-  const blanks = blankMatches.map(m => ({ type: m[1], full: m[0] }));
+  const blankMatches = [...storyText.matchAll(INLINE_MADLIBS_BLANK_PATTERN)];
+  const blanks = blankMatches.map((match) => ({
+    type: normalizeInlineMadlibsBlankType(match[1]),
+    full: match[0]
+  }));
 
   if (blanks.length === 0) {
     addMessage("bot", escapeHtml(storyText));
@@ -10754,13 +10828,17 @@ async function handleMadlibsCommand() {
       <div class="madlibs-story" style="font-size: 15px; line-height: 1.8; color: #fff; background: #1e293b; padding: 16px; border-radius: 8px; white-space: pre-wrap;">
         ${storyWithInputs}
       </div>
-      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">ðŸ“– Reveal Story</button>
-      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">ðŸ”„ New Story</button>
+      <button class="madlibs-reveal" style="padding: 10px 20px; background: #7dd3fc; border: none; border-radius: 6px; color: #0f172a; font-weight: 600; cursor: pointer; margin-top: 12px;">Reveal Story</button>
+      <button class="madlibs-new" style="padding: 10px 20px; background: #475569; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;">New Story</button>
     </div>
   `;
 
   row.appendChild(bubble);
-  chatContainer.appendChild(row);
+  if (!chat) {
+    addMessage("bot", "Mad Libs couldn't open because the chat panel is unavailable.");
+    return;
+  }
+  chat.appendChild(row);
   scrollToBottom();
 
   // Update story as user types

@@ -1,7 +1,23 @@
 (function () {
   "use strict";
 
-  const API_BASE = window.ROK_API_BASE || "http://localhost:5000";
+  function getStoredApiBase() {
+    try {
+      return localStorage.getItem("rok_api_base") || localStorage.getItem("apiBase") || "";
+    } catch {
+      return "";
+    }
+  }
+
+  const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
+  const runtimeApiBase =
+    (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
+  const API_BASE = String(
+    runtimeApiBase ||
+    runtimeConfig.apiBase ||
+    getStoredApiBase() ||
+    "https://rokbackendreal.kyklos.online"
+  ).trim().replace(/\/+$/, "");
   const STORY_CACHE_KEY = "rok_madlibs_current";
   const GENERATION_TIMEOUT_MS = 12000;
   const BLANK_PATTERN = /\[([A-Za-z][A-Za-z\s-]*)\]/g;
@@ -48,6 +64,24 @@ I tried to [VERB] the situation, but the crowd only cheered more [ADVERB] and ke
   let filledWords = {};
   let countdownTimer = null;
   const ESTIMATED_SECONDS = 20;
+  let sessionBootstrapPromise = null;
+
+  function ensureServerSession() {
+    if (sessionBootstrapPromise) {
+      return sessionBootstrapPromise;
+    }
+    sessionBootstrapPromise = fetch(`${API_BASE}/api/auth/session`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+      headers: {
+        Accept: "application/json"
+      }
+    }).catch(() => {
+      // Mad Libs can still try to run even if session bootstrap is unavailable.
+    });
+    return sessionBootstrapPromise;
+  }
 
   async function generateStory() {
     showLoading();
@@ -78,6 +112,7 @@ I tried to [VERB] the situation, but the crowd only cheered more [ADVERB] and ke
   }
 
   async function fetchStoryTemplate() {
+    await ensureServerSession();
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     let timeoutId = null;
 
@@ -88,6 +123,7 @@ I tried to [VERB] the situation, but the crowd only cheered more [ADVERB] and ke
     try {
       const response = await fetch(`${API_BASE}/api/madlibs/generate`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

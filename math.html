@@ -378,15 +378,202 @@
   </div>
 
   <script>
-    // Match however app.js gets the backend URL - check localStorage first,
-    // then fall back to same origin (for when served by Flask directly)
-   const ROK_API_BASE = (
-  localStorage.getItem("rok_api_base") ||
-  localStorage.getItem("apiBase") ||
-  "https://rokbackendreal.kyklos.online"  // correct fallback
-).replace(/\/+$/, "");
+    function getStoredApiBase() {
+      try {
+        return localStorage.getItem("rok_api_base") || localStorage.getItem("apiBase") || "";
+      } catch {
+        return "";
+      }
+    }
+
+    const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
+    const runtimeApiBase =
+      (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
+    const ROK_API_BASE = String(
+      runtimeApiBase ||
+      runtimeConfig.apiBase ||
+      getStoredApiBase() ||
+      "https://rokbackendreal.kyklos.online"
+    ).trim().replace(/\/+$/, "");
 
     const API_URL = ROK_API_BASE + "/api/chat";
+    const AUTH_SESSION_URL = ROK_API_BASE + "/api/auth/session";
+    const MATH_CHAT_MODEL = "gpt-oss:20b-cloud";
+    let serverSessionReady = null;
+
+    function ensureServerSession() {
+      if (serverSessionReady) {
+        return serverSessionReady;
+      }
+      serverSessionReady = fetch(AUTH_SESSION_URL, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          Accept: "application/json"
+        }
+      }).catch(() => {
+        // The standalone page can still attempt a chat even if session bootstrap fails.
+      });
+      return serverSessionReady;
+    }
+
+    async function fetchWithSession(url, options = {}) {
+      const requestOptions = { ...options, credentials: options.credentials ?? "include" };
+      return fetch(url, requestOptions);
+    }
+
+    async function safeReadText(response) {
+      if (!response) return "";
+      try {
+        return await response.text();
+      } catch {
+        return "";
+      }
+    }
+
+    function extractReplyFromPayload(rawPayload = "") {
+      const raw = String(rawPayload || "").trim();
+      if (!raw) return { token: "", done: false, error: "" };
+      if (raw === "[DONE]") return { token: "", done: true, error: "" };
+      if (raw[0] !== "{") return { token: raw, done: false, error: "" };
+
+      try {
+        const parsed = JSON.parse(raw);
+        const error = typeof parsed.error === "string" ? parsed.error : "";
+        for (const key of ["token", "response", "reply", "text", "message", "content"]) {
+          if (typeof parsed[key] === "string") {
+            return { token: parsed[key], done: Boolean(parsed.done), error };
+          }
+        }
+        if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
+          return { token: parsed.message.content, done: Boolean(parsed.done), error };
+        }
+        if (Array.isArray(parsed.choices)) {
+          const joined = parsed.choices.map((choice) => {
+            if (!choice || typeof choice !== "object") return "";
+            if (typeof choice.text === "string") return choice.text;
+            if (choice.delta && typeof choice.delta === "object" && typeof choice.delta.content === "string") {
+              return choice.delta.content;
+            }
+            if (choice.message && typeof choice.message === "object" && typeof choice.message.content === "string") {
+              return choice.message.content;
+            }
+            return "";
+          }).join("");
+          return { token: joined, done: Boolean(parsed.done), error };
+        }
+        return { token: "", done: Boolean(parsed.done), error };
+      } catch {
+        return { token: raw, done: false, error: "" };
+      }
+    }
+
+    async function readChatReply(response) {
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!response.ok) {
+        const bodyText = await safeReadText(response);
+        try {
+          const parsed = JSON.parse(bodyText || "{}");
+          throw new Error(parsed.error || parsed.reply || bodyText || `Request failed (${response.status})`);
+        } catch (error) {
+          if (error instanceof Error && error.message && error.message !== "Unexpected end of JSON input") {
+            throw error;
+          }
+          throw new Error(bodyText || `Request failed (${response.status})`);
+        }
+      }
+
+      const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+      if (!reader) {
+        return safeReadText(response);
+      }
+
+      const decoder = new TextDecoder("utf-8");
+      const isEventStream = contentType.includes("text/event-stream");
+      const isJsonLines = !isEventStream && (contentType.includes("json") || contentType.includes("ndjson"));
+      let buffer = "";
+      let plainBuffer = "";
+      let reply = "";
+      let done = false;
+
+      const appendParsedPayload = (payload) => {
+        const parsed = extractReplyFromPayload(payload);
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+        if (parsed.token) {
+          reply += parsed.token;
+        }
+        if (parsed.done) {
+          done = true;
+        }
+      };
+
+      const flushEventBuffer = () => {
+        let index;
+        while ((index = buffer.indexOf("\n")) >= 0) {
+          let line = buffer.slice(0, index);
+          buffer = buffer.slice(index + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line || line.startsWith(":") || !line.startsWith("data:")) continue;
+          appendParsedPayload(line.slice(5).trim());
+          if (done) return;
+        }
+      };
+
+      const flushPlainBuffer = (flushRemainder = false) => {
+        let index;
+        while ((index = plainBuffer.indexOf("\n")) >= 0) {
+          let line = plainBuffer.slice(0, index);
+          plainBuffer = plainBuffer.slice(index + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.trim()) continue;
+          appendParsedPayload(line.trim());
+          if (done) return;
+        }
+        if (!flushRemainder) return;
+        const remainder = plainBuffer.trim();
+        plainBuffer = "";
+        if (remainder) {
+          appendParsedPayload(remainder);
+        }
+      };
+
+      while (true) {
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        if (isEventStream) {
+          buffer += chunk;
+          flushEventBuffer();
+        } else if (isJsonLines) {
+          plainBuffer += chunk;
+          flushPlainBuffer(false);
+        } else {
+          reply += chunk;
+        }
+        if (done) break;
+      }
+
+      const tail = decoder.decode();
+      if (tail) {
+        if (isEventStream) {
+          buffer += tail;
+          flushEventBuffer();
+        } else if (isJsonLines) {
+          plainBuffer += tail;
+          flushPlainBuffer(true);
+        } else {
+          reply += tail;
+        }
+      } else if (isJsonLines) {
+        flushPlainBuffer(true);
+      }
+
+      return reply.trim();
+    }
 
     function resizeDesmos() {
       const el = document.getElementById("desmosContainer");
@@ -532,6 +719,7 @@
       }
 
       try {
+        await ensureServerSession();
         const prompt = `You are a helpful math assistant inside a Desmos graphing calculator.
 
 User request: "${text}"
@@ -544,7 +732,7 @@ Rules:
 - If a graph might help but the user did not ask for one, mention that briefly but do not include a GRAPH line.
 - If you include GRAPH, provide exactly one valid Desmos expression and nothing else on that line.`;
 
-        const res = await fetch(API_URL, {
+        const res = await fetchWithSession(API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -552,40 +740,12 @@ Rules:
           body: JSON.stringify({
             message: prompt,
             history: [],
-            model: "qwen3:8b",
+            model: MATH_CHAT_MODEL,
             max_tokens: 400,
             enable_thinking: false
           })
         });
-
-        const contentType = (res.headers.get("content-type") || "").toLowerCase();
-        let reply = "";
-
-        if (res.body && res.body.getReader) {
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          const isSSE = contentType.includes("text/event-stream");
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            if (isSSE) {
-              for (const line of chunk.split("\n")) {
-                if (!line.startsWith("data:")) continue;
-                const data = line.slice(5).trim();
-                if (data === "[DONE]") break;
-                try {
-                  const parsed = JSON.parse(data);
-                  reply += parsed.token || parsed.response || parsed.text || "";
-                } catch { reply += data; }
-              }
-            } else {
-              reply += chunk;
-            }
-          }
-        } else {
-          reply = await res.text();
-        }
+        const reply = await readChatReply(res);
 
         const graphMatch = graphRequested ? reply.match(/GRAPH:\s*(.+)/i) : null;
         if (graphMatch && calculator) {
