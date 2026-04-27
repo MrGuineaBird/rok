@@ -8746,7 +8746,7 @@ function openCorrectionModal() {
     if (!correction) return;
     submitBtn.disabled = true;
     submitBtn.textContent = "Saving...";
-    submitCorrection(correction, _correctionTargetText, function (ok, msg) {
+    submitLocalCorrection(correction, _correctionTargetText, function (ok, msg) {
       overlay.remove();
       addMessage("system", msg);
     });
@@ -8861,23 +8861,23 @@ function deleteKnowledgeFact(id) {
 }
 
 // Load knowledge list on startup and after learning
-fetchAndRenderKnowledge();
+renderLocalKnowledgeList();
 
-function submitCorrection(correction, botResponse, callback) {
+function submitLocalCorrection(correction, botResponse, callback) {
   try {
     var saved = upsertLocalKnowledgeFact(correction, String(botResponse || "").slice(0, 200));
     if (!saved) {
       if (callback) callback(false, "Couldn't save that correction. Try a clearer factual sentence.");
       return;
     }
-    fetchAndRenderKnowledge();
+    renderLocalKnowledgeList();
     if (callback) callback(true, "Saved on this browser. ROK will use that correction in future replies here.");
   } catch (e) {
     if (callback) callback(false, "Failed to save locally: " + e.message);
   }
 }
 
-function fetchAndRenderKnowledge() {
+function renderLocalKnowledgeList() {
   if (!knowledgeListEl) return;
   var entries = loadLocalKnowledge();
   if (knowledgeCountEl) knowledgeCountEl.textContent = String(entries.length);
@@ -8898,24 +8898,24 @@ function fetchAndRenderKnowledge() {
       ev.stopPropagation();
       var id = btn.getAttribute("data-delete-knowledge-id");
       if (!id) return;
-      deleteKnowledgeFact(id);
+      deleteLocalKnowledgeFact(id);
     });
   });
 }
 
-function deleteKnowledgeFact(id) {
+function deleteLocalKnowledgeFact(id) {
   var targetId = sanitizeLocalKnowledgeText(id, 64);
   if (!targetId) return;
   var remaining = loadLocalKnowledge().filter(function (entry) {
     return String(entry.id || "") !== targetId;
   });
   saveLocalKnowledge(remaining);
-  fetchAndRenderKnowledge();
+  renderLocalKnowledgeList();
 }
 
 window.addEventListener("storage", function (event) {
   if (event && event.key === LOCAL_KNOWLEDGE_KEY) {
-    fetchAndRenderKnowledge();
+    renderLocalKnowledgeList();
   }
 });
 
