@@ -4580,6 +4580,26 @@ body.settings-compact .attachment-list {
   display: none !important;
 }
 
+.composer-model-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.composer-model-picker-group + .composer-model-picker-group {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(197, 143, 143, 0.16);
+}
+
+.composer-model-picker-group-label {
+  padding: 4px 10px 2px;
+  color: #c9aaaa;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .composer-model-picker-option {
   display: flex;
   align-items: center;

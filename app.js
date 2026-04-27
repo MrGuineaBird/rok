@@ -205,16 +205,26 @@ const DEFAULT_USER_SETTINGS = {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
+const HERMES_MODEL_ID = "gpt-oss:20b-cloud";
+const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
+const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
+const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
+const CHESS_MODEL_ID = "gpt-oss:20b-chess";
+const UNOFFICIAL_MODEL_IDS = new Set([CHEESE_MODEL_ID, CHESS_MODEL_ID]);
 const DEFAULT_MODEL_OPTIONS = [
-  { id: "gpt-oss:20b-cloud", label: "ROK Hermes" },
-  { id: "gpt-oss:120b-cloud", label: "ROK Titan" }
+  { id: HERMES_MODEL_ID, label: "ROK Hermes" },
+  { id: TITAN_MODEL_ID, label: "ROK Titan" },
+  { id: CHEESE_MODEL_ID, label: "ROK Cheese" },
+  { id: CHESS_MODEL_ID, label: "ROK Chess" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
-  "gpt-oss:20b-cloud": "ROK Hermes",
-  "gpt-oss:120b-cloud": "ROK Titan",
+  [HERMES_MODEL_ID]: "ROK Hermes",
+  [TITAN_MODEL_ID]: "ROK Titan",
+  [CHEESE_MODEL_ID]: "ROK Cheese",
+  [CHESS_MODEL_ID]: "ROK Chess",
   "kimi-k2.5:cloud": "kimi-k2.5:cloud",
-  "glm-5.1:cloud": "ROK Daedalus"
+  [DAEDALUS_MODEL_ID]: "ROK Daedalus"
 };
 const MODEL_DESCRIPTIONS = {
   "qwen3.5:9b": "Hermes â€” swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
@@ -222,18 +232,28 @@ const MODEL_DESCRIPTIONS = {
   "gpt-oss:120b-cloud": "ROK Titan â€” largest cloud model for deeper reasoning.",
   "glm-5.1:cloud": "ROK Daedalus â€” specialized cloud model with its own daily message limit."
 };
+Object.assign(MODEL_DESCRIPTIONS, {
+  [HERMES_MODEL_ID]: "ROK Hermes - fast cloud replies for everyday questions.",
+  [TITAN_MODEL_ID]: "ROK Titan - largest cloud model for deeper reasoning.",
+  [CHEESE_MODEL_ID]: "ROK Cheese - unofficial GPT OSS 20B mode that only replies with cheese.",
+  [CHESS_MODEL_ID]: "ROK Chess - unofficial GPT OSS 20B mode that only replies with chess piece names.",
+  [DAEDALUS_MODEL_ID]: "ROK Daedalus - specialized cloud model with its own daily message limit."
+});
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
 /** Text chat models shown in the composer (vision model is server-selected when images are attached). */
-const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
+const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, TITAN_MODEL_ID, CHEESE_MODEL_ID, CHESS_MODEL_ID];
+const COMPOSER_MODEL_GROUPS = [
+  { label: "ROK", modelIds: [HERMES_MODEL_ID, TITAN_MODEL_ID] },
+  { label: "Unoffical", modelIds: [CHEESE_MODEL_ID, CHESS_MODEL_ID] }
+];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
-  "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
-  "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
-  "glm-5.1:cloud": { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
+  [HERMES_MODEL_ID]: { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
+  [TITAN_MODEL_ID]: { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
+  [CHEESE_MODEL_ID]: { label: "ROK Cheese", icon: "rokhermes.png", alt: "ROK Cheese" },
+  [CHESS_MODEL_ID]: { label: "ROK Chess", icon: "rokhermes.png", alt: "ROK Chess" },
+  [DAEDALUS_MODEL_ID]: { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
 };
-const HERMES_MODEL_ID = "gpt-oss:20b-cloud";
-const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
-const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const SANDBOX_DEFAULT_PROMPT = "Analyze this sandbox and propose the next file-by-file code changes.";
@@ -1062,7 +1082,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
       body: JSON.stringify({
         message: prompt,
         history: [],
-        model: modelId || getCurrentSessionModel(),
+        model: getOperationalModelId(modelId || getCurrentSessionModel()),
         max_tokens: 24,
         skip_tools: true,
         enable_thinking: false
@@ -2814,6 +2834,49 @@ function getComposerSelectableModels() {
   }));
 }
 
+function getComposerSelectableModelGroups(rows = []) {
+  const availableRows = Array.isArray(rows) ? rows : [];
+  const rowById = new Map(availableRows.map((item) => [item.id, item]));
+  const groupedIds = new Set();
+  const groups = [];
+  COMPOSER_MODEL_GROUPS.forEach((group) => {
+    const items = group.modelIds.map((id) => rowById.get(id)).filter(Boolean);
+    if (!items.length) return;
+    items.forEach((item) => groupedIds.add(item.id));
+    groups.push({ label: group.label, items });
+  });
+  const remainingItems = availableRows.filter((item) => !groupedIds.has(item.id));
+  if (remainingItems.length) {
+    groups.push({ label: groups.length ? "More models" : "", items: remainingItems });
+  }
+  return groups;
+}
+
+function getOperationalModelId(modelId = "") {
+  const normalized = normalizeSessionModel(modelId || getCurrentSessionModel());
+  if (UNOFFICIAL_MODEL_IDS.has(normalized)) {
+    return HERMES_MODEL_ID;
+  }
+  return normalized;
+}
+
+function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked) {
+  const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+  const safeId = escapeHtml(item.id);
+  const active = item.id === sessionModel;
+  const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
+  const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
+    ? "Temporarily locked. Use ROK Hermes until reset."
+    : daedalusLocked && item.id === DAEDALUS_MODEL_ID
+    ? "Daily limit reached. Use ROK Hermes until reset."
+    : "";
+  const iconHtml = meta.icon
+    ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
+    : "";
+  const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? ` disabled title="${escapeHtml(lockTitle)}"` : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+}
+
 function setModelPickerOpen(nextOpen) {
   modelPickerOpen = Boolean(nextOpen);
   if (modelPickerMenu) {
@@ -2828,24 +2891,18 @@ function refreshComposerModelPicker() {
   if (!modelPickerMenu || !modelPickerBtn) return;
   const sessionModel = getCurrentSessionModel();
   const rows = getComposerSelectableModels();
+  const groups = getComposerSelectableModelGroups(rows);
   const titanLocked = isTitanQuotaLocked();
   const daedalusLocked = isDaedalusQuotaLocked();
-  modelPickerMenu.innerHTML = rows
-    .map((item) => {
-      const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
-      const safeId = escapeHtml(item.id);
-      const active = item.id === sessionModel;
-      const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
-      const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
-        ? "Temporarily locked. Use ROK Hermes until reset."
-        : daedalusLocked && item.id === DAEDALUS_MODEL_ID
-        ? "Daily limit reached. Use ROK Hermes until reset."
+  modelPickerMenu.innerHTML = groups
+    .map((group) => {
+      const labelHtml = group.label
+        ? `<div class="composer-model-picker-group-label">${escapeHtml(group.label)}</div>`
         : "";
-      const iconHtml = meta.icon
-        ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
-        : "";
-      const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
-      return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? ` disabled title="${escapeHtml(lockTitle)}"` : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+      const itemsHtml = group.items
+        .map((item) => buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked))
+        .join("");
+      return `<div class="composer-model-picker-group" role="presentation">${labelHtml}${itemsHtml}</div>`;
     })
     .join("");
 
@@ -3125,7 +3182,7 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
         workspace_context: workspaceValue,
         attachments: buildIntentAttachmentsPayload(attachedFiles),
         history: safeHistory,
-        model: modelId
+        model: getOperationalModelId(modelId)
       })
     });
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -4246,6 +4303,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
   renderSandboxUI();
 
   try {
+    const analysisModel = getOperationalModelId(sessionModel);
     activeRequestController = new AbortController();
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
@@ -4255,7 +4313,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
         message: buildSandboxAnalysisPrompt(promptText, sandbox),
         attachments: buildAttachmentsPayload(),
         history: recentHistory,
-        model: sessionModel,
+        model: analysisModel,
         max_tokens: clientLimits.maxResponseTokens,
         enable_thinking: true
       }))
@@ -4263,7 +4321,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     applyThinkingQuotaFromHeaders(res);
     applyDaedalusQuotaFromHeaders(res);
     const reply = await readChatTextResponse(res);
-    const analysis = parseSandboxAnalysisResponse(reply, promptText, sessionModel);
+    const analysis = parseSandboxAnalysisResponse(reply, promptText, analysisModel);
     sandbox.analysis = analysis;
     sandbox.statusText = analysis.files.length
       ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
@@ -6783,7 +6841,7 @@ async function send() {
         setBubbleContent(bubble, "Analyzing sandbox...", false);
       }
       const analysis = await runSandboxAnalysis(text || SANDBOX_DEFAULT_PROMPT, recentHistory, sessionModel);
-      const chatSummary = buildSandboxChatSummary(analysis, sessionModel);
+      const chatSummary = buildSandboxChatSummary(analysis);
       if (bubble) {
         setBubbleContent(bubble, chatSummary, true);
       }
