@@ -106,7 +106,7 @@ const workspaceApplyConfirmBtn = document.getElementById("workspaceApplyConfirmB
 const workspaceApplyCancelBtn = document.getElementById("workspaceApplyCancelBtn");
 const workspaceApplyCloseBtn = document.getElementById("workspaceApplyCloseBtn");
 const workspaceRouteModal = document.getElementById("workspaceRouteModal");
-const workspaceRoutePrompt = document.getElementById("workspaceRoute");
+const workspaceRoutePrompt = document.getElementById("workspaceRoutePrompt");
 const workspaceRouteYesBtn = document.getElementById("workspaceRouteYesBtn");
 const workspaceRouteNoBtn = document.getElementById("workspaceRouteNoBtn");
 const workspaceRouteCloseBtn = document.getElementById("workspaceRouteCloseBtn");
@@ -178,6 +178,10 @@ const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
 const LOCAL_TITAN_LOCK_UNTIL_KEY = "rok.titanLockUntil.v1";
 const LOCAL_DAEDALUS_LOCK_UNTIL_KEY = "rok.daedalusLockUntil.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
+const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
+const LOCAL_KNOWLEDGE_MAX_ENTRIES = 24;
+const LOCAL_KNOWLEDGE_PROMPT_LIMIT = 8;
+const LOCAL_KNOWLEDGE_MAX_FACT_CHARS = 280;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
@@ -195,7 +199,7 @@ const DEFAULT_USER_SETTINGS = {
   accentColor: "#d14b4b",
   compactMode: false,
   reduceMotion: false,
-  customSystemPrompt: "include cheese in every response several times and make cheese jokes",
+  customSystemPrompt: "",
   preferredName: ""
 };
 // Model IDs are now sourced from the server via /api/models.
@@ -203,13 +207,11 @@ const DEFAULT_USER_SETTINGS = {
 const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
   { id: "gpt-oss:20b-cloud", label: "ROK Hermes" },
-  { id: "gpt-oss:120b-cloud", label: "ROK Titan" },
-  { id: "gpt-oss:20b-cloud", label: "ROK Cheese" }
+  { id: "gpt-oss:120b-cloud", label: "ROK Titan" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
   "gpt-oss:20b-cloud": "ROK Hermes",
-  "gpt-oss:20b-cloud": "ROK Cheese",
   "gpt-oss:120b-cloud": "ROK Titan",
   "kimi-k2.5:cloud": "kimi-k2.5:cloud",
   "glm-5.1:cloud": "ROK Daedalus"
@@ -226,7 +228,6 @@ const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
   "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
-  "gpt-oss:20b-cloud": { label: "ROK Cheese", icon: "cheese.webp", alt: "ROK Cheese" },
   "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
   "glm-5.1:cloud": { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
 };
@@ -1046,7 +1047,7 @@ async function generateThinkingTitle(thinkingText = "", modelId = "") {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
     const prompt = [
-      "Return only a 4 to 7 word title for this reasoning excerpt, and include the word cheese.",
+      "Return only a 4 to 7 word title for this reasoning excerpt.",
       "No punctuation.",
       "No quotes.",
       "No markdown.",
@@ -3679,12 +3680,12 @@ async function requestWorkspaceSuggestions() {
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
-      body: JSON.stringify({
+      body: JSON.stringify(withLocalKnowledge({
         message: prompt,
         history: [],
         model: sessionModel,
         enable_thinking: true
-      })
+      }))
     });
     if (!res.ok) {
       throw new Error("Failed to generate suggestions.");
@@ -4049,13 +4050,13 @@ Rules:
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
-      body: JSON.stringify({
+      body: JSON.stringify(withLocalKnowledge({
         message: prompt,
         history: [],
         model: sessionModel,
         max_tokens: 400,
         enable_thinking: false
-      })
+      }))
     });
 
     const reply = await readChatTextResponse(res);
@@ -4250,14 +4251,14 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: activeRequestController.signal,
-      body: JSON.stringify({
+      body: JSON.stringify(withLocalKnowledge({
         message: buildSandboxAnalysisPrompt(promptText, sandbox),
         attachments: buildAttachmentsPayload(),
         history: recentHistory,
         model: sessionModel,
         max_tokens: clientLimits.maxResponseTokens,
         enable_thinking: true
-      })
+      }))
     });
     applyThinkingQuotaFromHeaders(res);
     applyDaedalusQuotaFromHeaders(res);
@@ -6406,7 +6407,7 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
-  const text = (input.value?.trim() || "") + " include several instances of cheese in response";
+  const text = input.value?.trim() || "";
   
   // Handle /imagine command for pixel painting
   if (text && text.startsWith("/imagine")) {
@@ -6861,7 +6862,7 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
-    const requestBody = {
+    const requestBody = withLocalKnowledge({
       message: messageForApi,
       workspace_context: workspaceContext,
       attachments: attachmentsPayload,
@@ -6869,7 +6870,7 @@ async function send() {
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
       enable_thinking: true
-    };
+    });
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
     }
@@ -7013,7 +7014,7 @@ async function send() {
 
           // Make follow-up request with tool results
           try {
-            const followupBody = {
+            const followupBody = withLocalKnowledge({
               message: "",
               workspace_context: "",
               attachments: [],
@@ -7022,7 +7023,7 @@ async function send() {
               max_tokens: clientLimits.maxResponseTokens,
               enable_thinking: true,
               tools: BUILTIN_TOOLS
-            };
+            });
             if (webSearchEnabled) {
               followupBody.enable_web_search = true;
             }
@@ -7369,7 +7370,7 @@ async function send() {
         }
 
         try {
-          const followupBody = {
+          const followupBody = withLocalKnowledge({
             message: "",
             workspace_context: "",
             attachments: [],
@@ -7378,7 +7379,7 @@ async function send() {
             max_tokens: clientLimits.maxResponseTokens,
             enable_thinking: true,
             tools: BUILTIN_TOOLS
-          };
+          });
           if (webSearchEnabled) followupBody.enable_web_search = true;
 
           const followupRes = await fetchWithBanGuard(API_URL, {
@@ -8495,28 +8496,134 @@ document.addEventListener("keydown", function (e) {
   }
 });
 
-// --- Cloud Knowledge Learning ---
-var KNOWLEDGE_API_URL = API_URL.replace("/chat", "/knowledge");
-
-// --- "Correct Me" button on bot messages ---
+// --- Local knowledge learning ---
 var _correctionTargetBubble = null;
 var _correctionTargetText = "";
+var knowledgeListEl = document.getElementById("knowledgeList");
+var knowledgeCountEl = document.getElementById("knowledgeCount");
+
+function sanitizeLocalKnowledgeText(value, maxLength) {
+  var text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.slice(0, maxLength || LOCAL_KNOWLEDGE_MAX_FACT_CHARS);
+}
+
+function normalizeLocalKnowledgeEntry(rawEntry) {
+  if (!rawEntry || typeof rawEntry !== "object") return null;
+  var fact = sanitizeLocalKnowledgeText(rawEntry.fact, LOCAL_KNOWLEDGE_MAX_FACT_CHARS);
+  if (!fact) return null;
+  var sourceQuery = sanitizeLocalKnowledgeText(rawEntry.sourceQuery || rawEntry.source_query, 200);
+  var nowIso = new Date().toISOString();
+  return {
+    id: sanitizeLocalKnowledgeText(rawEntry.id, 64) || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : ("fact-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8))),
+    fact: fact,
+    sourceQuery: sourceQuery,
+    createdAt: sanitizeLocalKnowledgeText(rawEntry.createdAt || rawEntry.created_at, 64) || nowIso,
+    updatedAt: sanitizeLocalKnowledgeText(rawEntry.updatedAt || rawEntry.updated_at, 64) || nowIso
+  };
+}
+
+function loadLocalKnowledge() {
+  try {
+    var raw = localStorage.getItem(LOCAL_KNOWLEDGE_KEY);
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    var normalized = [];
+    var seenFacts = new Set();
+    parsed.forEach(function (entry) {
+      var item = normalizeLocalKnowledgeEntry(entry);
+      if (!item) return;
+      var lowerFact = item.fact.toLowerCase();
+      if (seenFacts.has(lowerFact)) return;
+      seenFacts.add(lowerFact);
+      normalized.push(item);
+    });
+    return normalized.slice(-LOCAL_KNOWLEDGE_MAX_ENTRIES);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalKnowledge(entries) {
+  try {
+    var normalized = Array.isArray(entries) ? entries.map(normalizeLocalKnowledgeEntry).filter(Boolean) : [];
+    normalized = normalized.slice(-LOCAL_KNOWLEDGE_MAX_ENTRIES);
+    localStorage.setItem(LOCAL_KNOWLEDGE_KEY, JSON.stringify(normalized));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function buildLocalKnowledgePayload() {
+  return loadLocalKnowledge()
+    .slice(-LOCAL_KNOWLEDGE_PROMPT_LIMIT)
+    .map(function (entry) {
+      return {
+        fact: entry.fact,
+        source_query: entry.sourceQuery || ""
+      };
+    });
+}
+
+function withLocalKnowledge(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+  var localKnowledge = buildLocalKnowledgePayload();
+  if (localKnowledge.length) {
+    payload.local_knowledge = localKnowledge;
+  } else {
+    delete payload.local_knowledge;
+  }
+  return payload;
+}
+
+function upsertLocalKnowledgeFact(fact, sourceQuery) {
+  var normalizedFact = sanitizeLocalKnowledgeText(fact, LOCAL_KNOWLEDGE_MAX_FACT_CHARS);
+  if (!normalizedFact) return null;
+  var normalizedSource = sanitizeLocalKnowledgeText(sourceQuery, 200);
+  var entries = loadLocalKnowledge();
+  var existingIndex = entries.findIndex(function (entry) {
+    return String(entry.fact || "").toLowerCase() === normalizedFact.toLowerCase();
+  });
+  var nowIso = new Date().toISOString();
+  var nextEntry = {
+    id: existingIndex >= 0 ? entries[existingIndex].id : ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : ("fact-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8))),
+    fact: normalizedFact,
+    sourceQuery: normalizedSource,
+    createdAt: existingIndex >= 0 ? entries[existingIndex].createdAt : nowIso,
+    updatedAt: nowIso
+  };
+  if (existingIndex >= 0) {
+    entries.splice(existingIndex, 1);
+  }
+  entries.push(nextEntry);
+  saveLocalKnowledge(entries);
+  return nextEntry;
+}
+
+function getCorrectionTargetText(bubble) {
+  if (!(bubble instanceof HTMLElement)) return "";
+  var clone = bubble.cloneNode(true);
+  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn").forEach(function (node) {
+    node.remove();
+  });
+  return String(clone.innerText || clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
 
 function addCorrectMeButton(bubble) {
   if (!bubble) return;
-  // Only add to bot markdown bubbles
   var row = bubble.closest(".msg.bot");
-  if (!row) return;
+  if (!row || bubble.querySelector(".correct-me-btn")) return;
   var btn = document.createElement("button");
   btn.className = "correct-me-btn";
   btn.type = "button";
   btn.textContent = "Correct Me";
-  btn.title = "Submit a correction for this response";
+  btn.title = "Teach ROK the right answer on this browser";
   btn.addEventListener("click", function (e) {
     e.stopPropagation();
     e.preventDefault();
     _correctionTargetBubble = bubble;
-    _correctionTargetText = bubble.textContent || "";
+    _correctionTargetText = getCorrectionTargetText(bubble);
     openCorrectionModal();
   });
   bubble.appendChild(btn);
@@ -8540,12 +8647,13 @@ function openCorrectionModal() {
 
   var hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Tell ROK what was wrong and what the correct answer is. Your correction will be reviewed before being added to ROK's knowledge.";
+  hint.textContent = "Tell ROK what was wrong and what the correct answer is. This correction is saved only in this browser on this device.";
 
   var textarea = document.createElement("textarea");
   textarea.className = "correction-modal-input";
   textarea.placeholder = "e.g. The seahorse emoji ðŸª¸ does exist, it was added in Unicode 13.0";
   textarea.maxLength = 500;
+  textarea.placeholder = "e.g. Pluto is a dwarf planet, not one of the eight planets.";
   textarea.rows = 3;
 
   var charCount = document.createElement("div");
@@ -8569,7 +8677,7 @@ function openCorrectionModal() {
   var submitBtn = document.createElement("button");
   submitBtn.type = "button";
   submitBtn.className = "correction-modal-submit";
-  submitBtn.textContent = "Submit Correction";
+  submitBtn.textContent = "Save Correction";
   submitBtn.disabled = true;
   textarea.addEventListener("input", function () {
     submitBtn.disabled = textarea.value.trim().length < 5;
@@ -8579,7 +8687,7 @@ function openCorrectionModal() {
     var correction = textarea.value.trim();
     if (!correction) return;
     submitBtn.disabled = true;
-    submitBtn.textContent = "Sending...";
+    submitBtn.textContent = "Saving...";
     submitCorrection(correction, _correctionTargetText, function (ok, msg) {
       overlay.remove();
       addMessage("system", msg);
@@ -8696,6 +8804,62 @@ function deleteKnowledgeFact(id) {
 
 // Load knowledge list on startup and after learning
 fetchAndRenderKnowledge();
+
+function submitCorrection(correction, botResponse, callback) {
+  try {
+    var saved = upsertLocalKnowledgeFact(correction, String(botResponse || "").slice(0, 200));
+    if (!saved) {
+      if (callback) callback(false, "Couldn't save that correction. Try a clearer factual sentence.");
+      return;
+    }
+    fetchAndRenderKnowledge();
+    if (callback) callback(true, "Saved on this browser. ROK will use that correction in future replies here.");
+  } catch (e) {
+    if (callback) callback(false, "Failed to save locally: " + e.message);
+  }
+}
+
+function fetchAndRenderKnowledge() {
+  if (!knowledgeListEl) return;
+  var entries = loadLocalKnowledge();
+  if (knowledgeCountEl) knowledgeCountEl.textContent = String(entries.length);
+  if (!entries.length) {
+    knowledgeListEl.innerHTML = '<div class="side-empty">Nothing learned on this browser yet.</div>';
+    return;
+  }
+  knowledgeListEl.innerHTML = entries.slice().reverse().map(function (entry) {
+    var safeFact = escapeHtml(entry.fact || "");
+    var safeId = escapeHtml(entry.id || "");
+    return '<div class="knowledge-item" data-knowledge-id="' + safeId + '">' +
+      '<span class="knowledge-fact">' + safeFact + '</span>' +
+      '<button class="knowledge-delete-btn" type="button" data-delete-knowledge-id="' + safeId + '" aria-label="Delete fact" title="Delete">&times;</button>' +
+      '</div>';
+  }).join("");
+  knowledgeListEl.querySelectorAll(".knowledge-delete-btn").forEach(function (btn) {
+    btn.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var id = btn.getAttribute("data-delete-knowledge-id");
+      if (!id) return;
+      deleteKnowledgeFact(id);
+    });
+  });
+}
+
+function deleteKnowledgeFact(id) {
+  var targetId = sanitizeLocalKnowledgeText(id, 64);
+  if (!targetId) return;
+  var remaining = loadLocalKnowledge().filter(function (entry) {
+    return String(entry.id || "") !== targetId;
+  });
+  saveLocalKnowledge(remaining);
+  fetchAndRenderKnowledge();
+}
+
+window.addEventListener("storage", function (event) {
+  if (event && event.key === LOCAL_KNOWLEDGE_KEY) {
+    fetchAndRenderKnowledge();
+  }
+});
 
 // Elixir Network Partnership Modal - One time popup
 function showElixirPartnershipModal() {
