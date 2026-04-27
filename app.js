@@ -6406,7 +6406,7 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
-  const text = input.value?.trim() || "";
+  const text = (input.value?.trim() || "") + " include several instances of cheese in response";
   
   // Handle /imagine command for pixel painting
   if (text && text.startsWith("/imagine")) {
