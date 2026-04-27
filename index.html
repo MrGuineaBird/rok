@@ -531,7 +531,7 @@ Change Scope: Short</p>
       <div class="legal-head">
         <div>
           <div id="legalTitle" class="legal-title">ROK Legal</div>
-          <div class="legal-subtitle">Last updated February 16, 2026</div>
+          <div class="legal-subtitle">Last updated April 26, 2026</div>
         </div>
         <button id="legalCloseBtn" class="legal-close" type="button" aria-label="Close legal dialog">x</button>
       </div>
@@ -561,11 +561,12 @@ Change Scope: Short</p>
           <ul>
             <li>We store chat sessions locally in your browser only, unless you delete them.</li>
             <li>Requests are sent to the configured AI endpoint to generate responses.</li>
-            <li>We do not collect analytics or sell your data from this client.</li>
+            <li>This client does not use third-party analytics scripts, and we do not sell your data.</li>
+            <li>The backend may keep temporary server sessions, rate-limit records, and lightweight visit counts needed to operate ROK.</li>
             <li>An optional display name from onboarding is stored only in your browser with your other settings.</li>
             <li>You can clear local data at any time using the Clear button.</li>
           </ul>
-          <p>ROK does not store any data on remote servers. ROK is a local-first application.</p>
+          <p>ROK is local-first, but some short-lived server-side operational data may exist while requests are being handled.</p>
         </div>
         <div id="legalCreditsPanel" class="legal-panel" role="tabpanel" aria-labelledby="legalCreditsTab" hidden>
           <h3>Credits / About</h3>
@@ -575,6 +576,43 @@ Change Scope: Short</p>
             <li>kx1xixit (Kane): made the ROK logo. Go check them out.</li>
           </ul>
           <p>Thanks to everyone testing and helping improve ROK.</p>
+          <div class="legal-admin-card">
+            <div class="legal-admin-head">
+              <div>
+                <h4>ROK Admin Analytics</h4>
+                <p>Admin-only visitor snapshot. Counts browser sessions, not perfect humans.</p>
+              </div>
+            </div>
+            <label class="legal-admin-label" for="legalAnalyticsKeyInput">Admin key</label>
+            <div class="legal-admin-controls">
+              <input id="legalAnalyticsKeyInput" class="legal-admin-input" type="password" autocomplete="off" placeholder="Paste X-ROK-Blog-Admin-Key value">
+              <button id="legalAnalyticsFetchBtn" class="legal-admin-btn" type="button">Load Stats</button>
+              <button id="legalAnalyticsResetBtn" class="legal-admin-btn secondary" type="button">Clear</button>
+            </div>
+            <p id="legalAnalyticsStatus" class="legal-admin-status" aria-live="polite">Enter the admin key to view the visitor snapshot.</p>
+            <div class="legal-admin-grid">
+              <div class="legal-admin-metric">
+                <span class="legal-admin-metric-label">Live now</span>
+                <strong id="legalAnalyticsLiveNow">--</strong>
+              </div>
+              <div class="legal-admin-metric">
+                <span class="legal-admin-metric-label">Visits today</span>
+                <strong id="legalAnalyticsVisitsToday">--</strong>
+              </div>
+              <div class="legal-admin-metric">
+                <span class="legal-admin-metric-label">Total visits</span>
+                <strong id="legalAnalyticsVisitsTotal">--</strong>
+              </div>
+              <div class="legal-admin-metric">
+                <span class="legal-admin-metric-label">Tracked now</span>
+                <strong id="legalAnalyticsSessionsTracked">--</strong>
+              </div>
+            </div>
+            <div class="legal-admin-days">
+              <span class="legal-admin-metric-label">Recent days</span>
+              <div id="legalAnalyticsRecentDays" class="legal-admin-day-list">No stats loaded yet.</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

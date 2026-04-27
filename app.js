@@ -128,6 +128,15 @@ const legalCreditsTab = document.getElementById("legalCreditsTab");
 const legalTermsPanel = document.getElementById("legalTermsPanel");
 const legalPrivacyPanel = document.getElementById("legalPrivacyPanel");
 const legalCreditsPanel = document.getElementById("legalCreditsPanel");
+const legalAnalyticsKeyInput = document.getElementById("legalAnalyticsKeyInput");
+const legalAnalyticsFetchBtn = document.getElementById("legalAnalyticsFetchBtn");
+const legalAnalyticsResetBtn = document.getElementById("legalAnalyticsResetBtn");
+const legalAnalyticsStatus = document.getElementById("legalAnalyticsStatus");
+const legalAnalyticsLiveNow = document.getElementById("legalAnalyticsLiveNow");
+const legalAnalyticsVisitsToday = document.getElementById("legalAnalyticsVisitsToday");
+const legalAnalyticsVisitsTotal = document.getElementById("legalAnalyticsVisitsTotal");
+const legalAnalyticsSessionsTracked = document.getElementById("legalAnalyticsSessionsTracked");
+const legalAnalyticsRecentDays = document.getElementById("legalAnalyticsRecentDays");
 const legalLinkButtons = document.querySelectorAll("[data-legal]");
 const composerWrap = document.querySelector(".composer-wrap");
 const sidebar = document.querySelector(".sidebar");
@@ -155,6 +164,8 @@ const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
+const ADMIN_ANALYTICS_URL = buildApiUrl("/api/admin/analytics");
+const BLOG_ADMIN_HEADER_NAME = "X-ROK-Blog-Admin-Key";
 const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
@@ -4453,10 +4464,119 @@ function openLegalModal(tab) {
   legalModal.setAttribute("aria-hidden", "false");
 }
 
+function formatAdminAnalyticsNumber(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "--";
+}
+
+function setLegalAnalyticsStatus(message, tone = "") {
+  if (!legalAnalyticsStatus) return;
+  legalAnalyticsStatus.textContent = String(message || "").trim() || "Enter the admin key to view the visitor snapshot.";
+  legalAnalyticsStatus.classList.remove("is-success", "is-error");
+  if (tone === "success") {
+    legalAnalyticsStatus.classList.add("is-success");
+  } else if (tone === "error") {
+    legalAnalyticsStatus.classList.add("is-error");
+  }
+}
+
+function resetLegalAnalyticsCard(options = {}) {
+  const preserveKey = Boolean(options && options.preserveKey);
+  if (legalAnalyticsKeyInput && !preserveKey) {
+    legalAnalyticsKeyInput.value = "";
+  }
+  if (legalAnalyticsLiveNow) legalAnalyticsLiveNow.textContent = "--";
+  if (legalAnalyticsVisitsToday) legalAnalyticsVisitsToday.textContent = "--";
+  if (legalAnalyticsVisitsTotal) legalAnalyticsVisitsTotal.textContent = "--";
+  if (legalAnalyticsSessionsTracked) legalAnalyticsSessionsTracked.textContent = "--";
+  if (legalAnalyticsRecentDays) {
+    legalAnalyticsRecentDays.textContent = "No stats loaded yet.";
+  }
+  setLegalAnalyticsStatus("Enter the admin key to view the visitor snapshot.");
+}
+
+function renderLegalAnalyticsStats(stats) {
+  const safeStats = stats && typeof stats === "object" ? stats : {};
+  if (legalAnalyticsLiveNow) {
+    legalAnalyticsLiveNow.textContent = formatAdminAnalyticsNumber(safeStats.live_now);
+  }
+  if (legalAnalyticsVisitsToday) {
+    legalAnalyticsVisitsToday.textContent = formatAdminAnalyticsNumber(safeStats.visits_today);
+  }
+  if (legalAnalyticsVisitsTotal) {
+    legalAnalyticsVisitsTotal.textContent = formatAdminAnalyticsNumber(safeStats.visits_total);
+  }
+  if (legalAnalyticsSessionsTracked) {
+    legalAnalyticsSessionsTracked.textContent = formatAdminAnalyticsNumber(safeStats.sessions_in_memory);
+  }
+  if (legalAnalyticsRecentDays) {
+    const recentDays = Array.isArray(safeStats.recent_days) ? safeStats.recent_days : [];
+    legalAnalyticsRecentDays.innerHTML = recentDays.length
+      ? recentDays
+        .map((entry) => {
+          const day = escapeHtml(entry && entry.day ? entry.day : "--");
+          const count = escapeHtml(formatAdminAnalyticsNumber(entry && entry.sessions));
+          return `<div>${day}: <strong>${count}</strong></div>`;
+        })
+        .join("")
+      : "No historical counts yet.";
+  }
+  const liveWindowSec = Number(safeStats.live_window_sec);
+  const liveWindowMinutes = Number.isFinite(liveWindowSec) ? Math.max(1, Math.round(liveWindowSec / 60)) : 5;
+  setLegalAnalyticsStatus(
+    `Visitor snapshot loaded. "Live now" means sessions active in roughly the last ${liveWindowMinutes} minute${liveWindowMinutes === 1 ? "" : "s"}.`,
+    "success"
+  );
+}
+
+async function loadLegalAnalytics() {
+  if (!legalAnalyticsKeyInput || !legalAnalyticsFetchBtn) return;
+  const adminKey = String(legalAnalyticsKeyInput.value || "").trim();
+  if (!adminKey) {
+    setLegalAnalyticsStatus("Paste the admin key first.", "error");
+    legalAnalyticsKeyInput.focus();
+    return;
+  }
+
+  legalAnalyticsFetchBtn.disabled = true;
+  if (legalAnalyticsResetBtn) {
+    legalAnalyticsResetBtn.disabled = true;
+  }
+  setLegalAnalyticsStatus("Loading visitor snapshot...");
+
+  try {
+    const res = await fetchWithBanGuard(ADMIN_ANALYTICS_URL, {
+      headers: {
+        [BLOG_ADMIN_HEADER_NAME]: adminKey
+      }
+    });
+    const rawText = await safeReadResponseText(res);
+    let data = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      const errorMessage = data && typeof data.error === "string" ? data.error : `Request failed (${res.status}).`;
+      setLegalAnalyticsStatus(errorMessage, "error");
+      return;
+    }
+    renderLegalAnalyticsStats(data && data.stats ? data.stats : {});
+  } catch (err) {
+    setLegalAnalyticsStatus(`Failed to load stats: ${err && err.message ? err.message : "Network error."}`, "error");
+  } finally {
+    legalAnalyticsFetchBtn.disabled = false;
+    if (legalAnalyticsResetBtn) {
+      legalAnalyticsResetBtn.disabled = false;
+    }
+  }
+}
+
 function closeLegalModal() {
   if (!legalModal) return;
   legalModal.hidden = true;
   legalModal.setAttribute("aria-hidden", "true");
+  resetLegalAnalyticsCard();
 }
 
 function handleWorkspaceApplyModalKeydown(e) {
@@ -8034,6 +8154,30 @@ if (legalPrivacyTab) {
 if (legalCreditsTab) {
   legalCreditsTab.addEventListener("click", () => {
     setActiveLegalTab("credits");
+  });
+}
+
+if (legalAnalyticsFetchBtn) {
+  legalAnalyticsFetchBtn.addEventListener("click", () => {
+    loadLegalAnalytics();
+  });
+}
+
+if (legalAnalyticsResetBtn) {
+  legalAnalyticsResetBtn.addEventListener("click", () => {
+    resetLegalAnalyticsCard();
+    if (legalAnalyticsKeyInput) {
+      legalAnalyticsKeyInput.focus();
+    }
+  });
+}
+
+if (legalAnalyticsKeyInput) {
+  legalAnalyticsKeyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loadLegalAnalytics();
+    }
   });
 }
 
