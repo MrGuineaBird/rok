@@ -2860,6 +2860,11 @@ function getOperationalModelId(modelId = "") {
   return normalized;
 }
 
+function shouldEnableThinkingForModel(modelId = "") {
+  const normalized = normalizeSessionModel(modelId || getCurrentSessionModel());
+  return !UNOFFICIAL_MODEL_IDS.has(normalized);
+}
+
 function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked) {
   const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
   const safeId = escapeHtml(item.id);
@@ -6620,7 +6625,7 @@ async function send() {
     }
     const mounted = populateBotMessageContainer(typing.bubble, {
       storyCanvas: useStoryCanvas,
-      thinkingBlock: true,
+      thinkingBlock: shouldEnableThinkingForModel(sessionModel),
       showTypingDots: true
     });
     bubble = mounted.bubble;
@@ -6927,7 +6932,7 @@ async function send() {
       history: recentHistory,
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
-      enable_thinking: true
+      enable_thinking: shouldEnableThinkingForModel(sessionModel)
     });
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -7079,7 +7084,7 @@ async function send() {
               history: toolHistory,
               model: sessionModel,
               max_tokens: clientLimits.maxResponseTokens,
-              enable_thinking: true,
+              enable_thinking: shouldEnableThinkingForModel(sessionModel),
               tools: BUILTIN_TOOLS
             });
             if (webSearchEnabled) {
@@ -7435,7 +7440,7 @@ async function send() {
             history: toolHistory,
             model: sessionModel,
             max_tokens: clientLimits.maxResponseTokens,
-            enable_thinking: true,
+            enable_thinking: shouldEnableThinkingForModel(sessionModel),
             tools: BUILTIN_TOOLS
           });
           if (webSearchEnabled) followupBody.enable_web_search = true;
