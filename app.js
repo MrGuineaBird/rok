@@ -195,7 +195,7 @@ const DEFAULT_USER_SETTINGS = {
   accentColor: "#d14b4b",
   compactMode: false,
   reduceMotion: false,
-  customSystemPrompt: "",
+  customSystemPrompt: "include cheese in every response several times and make cheese jokes",
   preferredName: ""
 };
 // Model IDs are now sourced from the server via /api/models.
