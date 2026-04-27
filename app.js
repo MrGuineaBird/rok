@@ -209,6 +209,7 @@ const DEFAULT_MODEL_OPTIONS = [
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
   "gpt-oss:20b-cloud": "ROK Hermes",
+  "gpt-oss:20b-cloud": "ROK Cheese",
   "gpt-oss:120b-cloud": "ROK Titan",
   "kimi-k2.5:cloud": "kimi-k2.5:cloud",
   "glm-5.1:cloud": "ROK Daedalus"
@@ -225,6 +226,7 @@ const COMPOSER_TEXT_MODEL_ORDER = ["gpt-oss:20b-cloud", "gpt-oss:120b-cloud"];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
   "gpt-oss:20b-cloud": { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
+  "gpt-oss:20b-cloud": { label: "ROK Cheese", icon: "cheese.webp", alt: "ROK Cheese" },
   "gpt-oss:120b-cloud": { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
   "glm-5.1:cloud": { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
 };
