@@ -203,7 +203,8 @@ const DEFAULT_USER_SETTINGS = {
 const SUPPORTED_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
   { id: "gpt-oss:20b-cloud", label: "ROK Hermes" },
-  { id: "gpt-oss:120b-cloud", label: "ROK Titan" }
+  { id: "gpt-oss:120b-cloud", label: "ROK Titan" },
+  { id: "gpt-oss:20b-cloud", label: "ROK Cheese" }
 ];
 const KNOWN_MODEL_LABELS = {
   "qwen3.5:9b": "ROK Hermes",
