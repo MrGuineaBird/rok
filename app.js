@@ -1,5 +1,6 @@
 const chat = document.getElementById("chat");
 const workspaceTabs = document.getElementById("workspaceTabs");
+const workspaceSidebarTabsSection = document.querySelector(".side-tabs-section");
 const workspaceSidebarTabs = document.getElementById("workspaceSidebarTabs");
 const workspacePanel = document.getElementById("workspacePanel");
 const mathPanel = document.getElementById("mathPanel");
@@ -1986,6 +1987,9 @@ function showHomeScreen() {
   if (workspaceSidebarTabs) {
     workspaceSidebarTabs.hidden = true;
   }
+  if (workspaceSidebarTabsSection) {
+    workspaceSidebarTabsSection.hidden = true;
+  }
   if (workspacePanel) {
     workspacePanel.hidden = true;
   }
@@ -2019,6 +2023,9 @@ function hideHomeScreen() {
   }
   if (workspaceSidebarTabs) {
     workspaceSidebarTabs.hidden = false;
+  }
+  if (workspaceSidebarTabsSection) {
+    workspaceSidebarTabsSection.hidden = false;
   }
   if (composerWrap) {
     composerWrap.hidden = false;
@@ -4051,6 +4058,9 @@ function renderWorkspaceUI(options = {}) {
   if (workspaceSidebarTabs) {
     workspaceSidebarTabs.hidden = false;
   }
+  if (workspaceSidebarTabsSection) {
+    workspaceSidebarTabsSection.hidden = false;
+  }
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isMathTab;
   workspacePanel.hidden = !isSandboxTab;
@@ -5065,6 +5075,9 @@ function ensureChatWelcomeElement() {
         think: "Help me think through ",
         summarize: "Summarize the following: "
       };
+      if (type === "code") {
+        setActiveWorkspaceTab("sandbox", { focus: false });
+      }
       if (input && prompts[type]) {
         input.value = prompts[type];
         input.focus();
@@ -7170,16 +7183,12 @@ async function send() {
 
       if (!writeBackToWorkspace) {
         if (storyCanvas) {
-          await typeInStoryCanvas(storyCanvas, bubble, partialText);
-        } else {
-          await typeIn(bubble, partialText);
-        }
-        if (stopRequested) {
-          return;
-        }
-        if (storyCanvas) {
-          bubble.textContent = "Story ready. Use Expand to read.";
+          updateStoryCanvasOutput(storyCanvas, partialText);
           storyCanvas.setStatus("Complete");
+          bubble.textContent = "Story ready. Use Expand to read.";
+        } else {
+          setBubbleContent(bubble, partialText, true);
+          addRegenerateButton(bubble);
         }
         history.push({ role: "assistant", content: partialText });
         trimHistoryToLimit();
