@@ -150,12 +150,13 @@ const runtimeApiBase =
 const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
 const buildApiUrl = (path) => `${ROK_API_BASE}${path}`;
 const API_URL = buildApiUrl("/api/chat");
+const SANDBOX_URL = buildApiUrl("/api/sandbox");
 const INTENT_URL = buildApiUrl("/api/intent");
 const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
-const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/intent", "/api/status", "/api/models"]);
+const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/sandbox", "/api/intent", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
   cooldownMs: 1000,
@@ -2729,7 +2730,7 @@ function renderSandboxAnalysisUI(analysis) {
       const content = String(change.content || "");
       const lineCount = countLines(content);
       const charCount = content.length;
-      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} â€¢ ${escapeHtml(lineCount.toLocaleString())} lines â€¢ ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
+      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} &middot; ${escapeHtml(lineCount.toLocaleString())} lines &middot; ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
     })
     .join("");
   sandboxChangeList.innerHTML = `${summaryHtml}${setupHtml}${fileCards}` || '<div class="sandbox-empty-state">No AI file changes yet.</div>';
@@ -4182,109 +4183,41 @@ function getWorkspaceContextForPrompt() {
   return content.slice(0, 18000);
 }
 
-function buildSandboxWorkspaceSnapshot(sandbox = getCurrentSandboxState()) {
-  if (!sandbox.files.length) {
-    return "Workspace is currently empty.";
-  }
-
-  const sortedFiles = [...sandbox.files].sort((a, b) => a.path.localeCompare(b.path));
-  let totalChars = 0;
-  const sections = [];
-  for (const file of sortedFiles.slice(0, SANDBOX_MAX_FILES)) {
-    const header = `FILE: ${file.path}`;
-    const remaining = Math.max(0, SANDBOX_MAX_FILE_CHARS - totalChars);
-    if (remaining <= 0) {
-      sections.push("... workspace snapshot truncated ...");
-      break;
-    }
-    const content = String(file.content || "");
-    const clipped = content.length > remaining ? `${content.slice(0, remaining)}\n... file truncated ...` : content;
-    sections.push(`${header}\n${clipped}`);
-    totalChars += clipped.length;
-  }
-  return sections.join("\n\n");
-}
-
-function buildSandboxAnalysisPrompt(userPrompt, sandbox = getCurrentSandboxState()) {
+function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, sandbox = getCurrentSandboxState()) {
   const promptText = String(userPrompt || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
-  const fileList = sandbox.files.length
-    ? sandbox.files.map((item) => `- ${item.path}`).join("\n")
-    : "- (empty workspace)";
-  return [
-    "You are ROK Sandbox, an AI coding agent working inside a virtual file workspace.",
-    "Analyze the user's request and the current workspace snapshot.",
-    "Respond with JSON only. Do not include markdown fences or extra prose.",
-    "Use this schema exactly:",
-    "{",
-    '  "summary": "short summary of the plan",',
-    '  "setup_steps": ["step 1", "step 2"],',
-    '  "files": [',
-    "    {",
-    '      "path": "src/app.js",',
-    '      "action": "create|update|delete",',
-    '      "language": "javascript",',
-    '      "reason": "why this file changes",',
-    '      "content": "full final file contents for create/update; omit or empty for delete"',
-    "    }",
-    "  ]",
-    "}",
-    "Rules:",
-    "- Include every file that must change.",
-    "- For create and update actions, return the complete final file content.",
-    "- For delete actions, leave content empty.",
-    "- Keep changes minimal but working.",
-    "- Include setup steps when dependencies, build steps, or commands are needed.",
-    "",
-    "USER REQUEST:",
-    promptText,
-    "",
-    "WORKSPACE FILES:",
-    fileList,
-    "",
-    "WORKSPACE SNAPSHOT:",
-    buildSandboxWorkspaceSnapshot(sandbox)
-  ].join("\n");
+  return {
+    prompt: promptText,
+    files: sandbox.files.slice(0, SANDBOX_MAX_FILES).map((item) => ({
+      path: item.path,
+      content: String(item.content || "").slice(0, SANDBOX_MAX_FILE_CHARS)
+    })),
+    attachments: buildAttachmentsPayload(),
+    history: Array.isArray(recentHistory) ? recentHistory : [],
+    model: getOperationalModelId(sessionModel),
+    enable_thinking: true
+  };
 }
 
-function extractJsonObjectFromText(rawText) {
-  const text = String(rawText || "").trim();
-  if (!text) return "";
-  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fencedMatch) {
-    return fencedMatch[1].trim();
-  }
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    return text.slice(start, end + 1).trim();
-  }
-  return text;
-}
-
-function parseSandboxAnalysisResponse(rawText, promptText, modelId) {
-  const jsonText = extractJsonObjectFromText(rawText);
-  if (!jsonText) {
-    throw new Error("Sandbox response was empty.");
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
+function parseSandboxAnalysisResponse(payload, promptText, modelId) {
+  const analysisPayload = payload && typeof payload === "object" && payload.analysis && typeof payload.analysis === "object"
+    ? payload.analysis
+    : payload;
+  if (!analysisPayload || typeof analysisPayload !== "object") {
     throw new Error("Sandbox response was not valid JSON.");
   }
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("Sandbox response was not a JSON object.");
-  }
   const normalized = normalizeSandboxAnalysis({
-    raw: jsonText,
-    summary: parsed.summary,
-    setup_steps: parsed.setup_steps,
-    setupSteps: parsed.setupSteps,
-    files: Array.isArray(parsed.files) ? parsed.files : parsed.changes,
-    lastPrompt: promptText,
-    model: modelId,
-    createdAt: Date.now()
+    raw: typeof analysisPayload.raw === "string" ? analysisPayload.raw : "",
+    summary: analysisPayload.summary,
+    setup_steps: analysisPayload.setup_steps,
+    setupSteps: analysisPayload.setupSteps,
+    files: Array.isArray(analysisPayload.files) ? analysisPayload.files : analysisPayload.changes,
+    lastPrompt: analysisPayload.lastPrompt || promptText,
+    model: analysisPayload.model || modelId,
+    createdAt: analysisPayload.createdAt || Date.now()
   });
+  if (!normalized.summary && !normalized.files.length && !normalized.setupSteps.length) {
+    throw new Error("Sandbox response did not include a usable plan.");
+  }
   return normalized;
 }
 
@@ -4308,25 +4241,23 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
   renderSandboxUI();
 
   try {
-    const analysisModel = getOperationalModelId(sessionModel);
+    const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, sandbox);
+    const analysisModel = requestBody.model;
     activeRequestController = new AbortController();
-    const res = await fetchWithBanGuard(API_URL, {
+    const res = await fetchWithBanGuard(SANDBOX_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
       signal: activeRequestController.signal,
-      body: JSON.stringify(withLocalKnowledge({
-        message: buildSandboxAnalysisPrompt(promptText, sandbox),
-        attachments: buildAttachmentsPayload(),
-        history: recentHistory,
-        model: analysisModel,
-        max_tokens: clientLimits.maxResponseTokens,
-        enable_thinking: true
-      }))
+      body: JSON.stringify(requestBody)
     });
     applyThinkingQuotaFromHeaders(res);
     applyDaedalusQuotaFromHeaders(res);
-    const reply = await readChatTextResponse(res);
-    const analysis = parseSandboxAnalysisResponse(reply, promptText, analysisModel);
+    if (!res.ok) {
+      const errorText = await safeReadResponseText(res);
+      throw new Error(errorText || `Sandbox request failed (${res.status})`);
+    }
+    const payload = await res.json().catch(() => null);
+    const analysis = parseSandboxAnalysisResponse(payload, promptText, analysisModel);
     sandbox.analysis = analysis;
     sandbox.statusText = analysis.files.length
       ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
@@ -8956,6 +8887,8 @@ function hideElixirPartnershipModal() {
 function showRokImageModal() {
   if (!rokImageModal) return false;
   try {
+    const hasSeen = localStorage.getItem(ROK_IMAGE_MODAL_SEEN_KEY);
+    if (hasSeen) return false;
     rokImageModal.hidden = false;
     rokImageModal.setAttribute("aria-hidden", "false");
     return true;
