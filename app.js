@@ -85,6 +85,7 @@ const modelPickerMenu = document.getElementById("modelPickerMenu");
 const newChatBtn = document.getElementById("newChatBtn");
 const currentSessionBtn = document.getElementById("currentSessionBtn");
 const savedChatsList = document.getElementById("savedChatsList");
+const composerMeta = document.getElementById("composerMeta");
 const cooldownEl = document.getElementById("cooldown");
 const appRoot = document.querySelector(".app");
 const banOverlay = document.getElementById("banOverlay");
@@ -247,7 +248,7 @@ Object.assign(MODEL_DESCRIPTIONS, {
   "gpt-oss:120b-cloud": "ROK Titan - legacy alias now routed to Qwen 3.5 397B Cloud.",
   "glm-5.1:cloud": "ROK Daedalus - specialized cloud model with its own daily message limit."
 });
-const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
+const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
 /** Text chat models shown in the composer (image uploads are server-routed to Titan). */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, TITAN_MODEL_ID, CHEESE_MODEL_ID, CHESS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
@@ -264,7 +265,7 @@ const COMPOSER_MODEL_ASSETS = {
 };
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
-const SANDBOX_DEFAULT_PROMPT = "Analyze this sandbox and propose the next file-by-file code changes.";
+const SANDBOX_DEFAULT_PROMPT = "Analyze this ROK CODE project and propose the next file-by-file code changes.";
 const SANDBOX_MAX_FILES = 48;
 const SANDBOX_MAX_FILE_CHARS = 24_000;
 let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
@@ -1852,9 +1853,11 @@ function ensureReadyMessage() {
 
 function loadSidebarCollapsedFromStorage() {
   try {
-    return localStorage.getItem(LOCAL_SIDEBAR_COLLAPSED_KEY) === "1";
+    const raw = localStorage.getItem(LOCAL_SIDEBAR_COLLAPSED_KEY);
+    if (raw == null) return true;
+    return raw === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -2468,7 +2471,7 @@ function getWorkspaceCurrentSession() {
 function isWorkspaceSessionActive() {
   const current = getWorkspaceCurrentSession();
   if (!current) return false;
-  return current.workspace.activeTab === "workspace";
+  return current.workspace.activeTab === "workspace" && WORKSPACE_TAB_KEYS.includes("workspace");
 }
 
 function isSandboxSessionActive() {
@@ -2721,7 +2724,7 @@ function renderSandboxAnalysisUI(analysis) {
   const files = Array.isArray(analysis.files) ? analysis.files : [];
   const setupSteps = Array.isArray(analysis.setupSteps) ? analysis.setupSteps : [];
   if (!files.length && !analysis.summary && !setupSteps.length) {
-    sandboxChangeList.innerHTML = '<div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in Sandbox.</div>';
+    sandboxChangeList.innerHTML = '<div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in ROK CODE.</div>';
     sandboxJsonPreview.textContent = "No structured JSON yet.";
     return;
   }
@@ -2871,6 +2874,56 @@ function getOperationalModelId(modelId = "") {
 function shouldEnableThinkingForModel(modelId = "") {
   const normalized = normalizeSessionModel(modelId || getCurrentSessionModel());
   return !UNOFFICIAL_MODEL_IDS.has(normalized);
+}
+
+function shouldEnableThinkingForRequest(modelId = "", options = {}) {
+  if (!shouldEnableThinkingForModel(modelId)) {
+    return false;
+  }
+
+  const text = String(options.text || options.prompt || "").trim();
+  const workspaceContext = String(options.workspaceContext || "").trim();
+  const attachments = Array.isArray(options.attachments) ? options.attachments : [];
+  const sandboxFiles = Array.isArray(options.sandboxFiles) ? options.sandboxFiles : [];
+
+  if (attachments.length > 0) {
+    return true;
+  }
+
+  if (sandboxFiles.length > 0) {
+    const totalSandboxChars = sandboxFiles.reduce((sum, file) => {
+      return sum + String(file && file.content ? file.content : "").length;
+    }, 0);
+    return sandboxFiles.length > 1 || totalSandboxChars >= 800 || text.length >= 48;
+  }
+
+  if (workspaceContext.length >= 1200) {
+    return true;
+  }
+
+  if (!text) {
+    return false;
+  }
+
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const lineCount = text.split(/\r?\n/).filter((line) => line.trim()).length;
+  const questionCount = (text.match(/\?/g) || []).length;
+  const codeLike = /```|<\/?[a-z][^>]*>|=>|[{};]{2,}|^\s*(?:const|let|var|function|class|def|import|from|if|for|while|return)\b/m.test(text);
+  const mathLike = /\b(?:prove|derive|equation|integral|differentiat|matrix|probability|algebra|calculus|geometry|solve)\b/i.test(text)
+    || /(?:\d+\s*[\+\-*\/^=]\s*\d+)|[∑√π≈≤≥]/u.test(text);
+  const analysisLike = /\b(?:debug|diagnos(?:e|is)|analy[sz]e|explain why|reason through|think through|step by step|walk me through|compare|trade[- ]?offs?|plan|strategy|architecture|refactor|optimi[sz]e|investigate|root cause|edge cases?)\b/i.test(text);
+  const multipart = lineCount >= 4
+    || questionCount >= 2
+    || /\b(?:first|second|third)\b/i.test(text)
+    || /^\s*(?:[-*]|\d+\.)\s+/m.test(text);
+
+  return codeLike
+    || mathLike
+    || analysisLike
+    || multipart
+    || wordCount >= 40
+    || text.length >= 240
+    || workspaceContext.length >= 400;
 }
 
 function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked) {
@@ -3036,7 +3089,7 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
     return {
       type: "document",
       label: "Document",
-      routeToWorkspace: true,
+      routeToWorkspace: false,
       outputType: inferWorkspaceOutputType(workspaceValue, "")
     };
   }
@@ -3053,7 +3106,7 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
     return {
       type: "story",
       label: "Story",
-      routeToWorkspace: true,
+      routeToWorkspace: false,
       outputType: "Story"
     };
   }
@@ -3063,7 +3116,7 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
     return {
       type: "document",
       label: "Document",
-      routeToWorkspace: true,
+      routeToWorkspace: false,
       outputType: inferred === "Code" ? "Essay" : inferred
     };
   }
@@ -3137,7 +3190,7 @@ function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
   const type = typeAliases[rawType] || fallback.type;
-  const routeToWorkspace = type === "story" || type === "document";
+  const routeToWorkspace = false;
 
   const rawOutput = String(rawIntent && (rawIntent.output_type || rawIntent.outputType || rawIntent.output) || "")
     .trim()
@@ -3747,6 +3800,10 @@ async function requestWorkspaceSuggestions() {
     });
 
     const prompt = buildWorkspaceSuggestionPrompt(workspaceText, outputType);
+    const shouldThink = shouldEnableThinkingForRequest(sessionModel, {
+      text: workspaceText,
+      workspaceContext: workspaceText
+    });
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
@@ -3754,7 +3811,7 @@ async function requestWorkspaceSuggestions() {
         message: prompt,
         history: [],
         model: sessionModel,
-        enable_thinking: true
+        enable_thinking: shouldThink
       }))
     });
     if (!res.ok) {
@@ -3981,7 +4038,6 @@ function renderWorkspaceUI(options = {}) {
     workspace.activeTab = "chat";
   }
   const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
-  const isWorkspaceTab = activeTab === "workspace";
   const isSandboxTab = activeTab === "sandbox";
   const isMathTab = activeTab === "math";
 
@@ -3997,19 +4053,19 @@ function renderWorkspaceUI(options = {}) {
   }
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isMathTab;
-  workspacePanel.hidden = !(isWorkspaceTab || isSandboxTab);
+  workspacePanel.hidden = !isSandboxTab;
   if (mathPanel) {
     mathPanel.hidden = !isMathTab;
   }
   workspacePanel.dataset.tab = activeTab || "chat";
   if (workspaceDocumentShell) {
-    workspaceDocumentShell.hidden = !isWorkspaceTab;
+    workspaceDocumentShell.hidden = true;
   }
   if (sandboxPanel) {
     sandboxPanel.hidden = !isSandboxTab;
   }
   if (workspaceAssistantPanel) {
-    workspaceAssistantPanel.hidden = !isWorkspaceTab;
+    workspaceAssistantPanel.hidden = true;
   }
   if (isMathTab) {
     initDesmosIfNeeded();
@@ -4027,24 +4083,7 @@ function renderWorkspaceUI(options = {}) {
 
   updateWorkspaceTabButtons(activeTab);
 
-  if (isWorkspaceTab) {
-    if (!wasWorkspaceTabActive) {
-      setWorkspaceAssistantExpanded(false);
-      syncWorkspaceAssistantContextState();
-    } else {
-      syncWorkspaceAssistantContextState();
-    }
-    if (workspacePanelTitle) {
-      workspacePanelTitle.textContent = "ROK Workspace";
-    }
-    if (workspaceEditor && document.activeElement !== workspaceEditor) {
-      workspaceEditor.value = workspace.content || "";
-    }
-    if (focus && workspaceEditor) {
-      workspaceEditor.focus();
-    }
-    refreshWorkspaceDocumentToolbarState();
-  } else if (isSandboxTab) {
+  if (isSandboxTab) {
     renderSandboxUI();
     if (focus) {
       if (sandboxFileEditor && !sandboxFileEditor.disabled) {
@@ -4060,7 +4099,7 @@ function renderWorkspaceUI(options = {}) {
   } else if (focus && input) {
     input.focus();
   }
-  wasWorkspaceTabActive = isWorkspaceTab;
+  wasWorkspaceTabActive = false;
 }
 
 function setMathChatDrawerOpen(open) {
@@ -4190,7 +4229,7 @@ function getWorkspaceContextForPrompt() {
   return content.slice(0, 18000);
 }
 
-function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, sandbox = getCurrentSandboxState()) {
+function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, enableThinking, sandbox = getCurrentSandboxState()) {
   const promptText = String(userPrompt || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
   return {
     prompt: promptText,
@@ -4201,7 +4240,7 @@ function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, san
     attachments: buildAttachmentsPayload(),
     history: Array.isArray(recentHistory) ? recentHistory : [],
     model: getOperationalModelId(sessionModel),
-    enable_thinking: true
+    enable_thinking: Boolean(enableThinking)
   };
 }
 
@@ -4210,7 +4249,7 @@ function parseSandboxAnalysisResponse(payload, promptText, modelId) {
     ? payload.analysis
     : payload;
   if (!analysisPayload || typeof analysisPayload !== "object") {
-    throw new Error("Sandbox response was not valid JSON.");
+    throw new Error("ROK CODE response was not valid JSON.");
   }
   const normalized = normalizeSandboxAnalysis({
     raw: typeof analysisPayload.raw === "string" ? analysisPayload.raw : "",
@@ -4223,7 +4262,7 @@ function parseSandboxAnalysisResponse(payload, promptText, modelId) {
     createdAt: analysisPayload.createdAt || Date.now()
   });
   if (!normalized.summary && !normalized.files.length && !normalized.setupSteps.length) {
-    throw new Error("Sandbox response did not include a usable plan.");
+    throw new Error("ROK CODE response did not include a usable plan.");
   }
   return normalized;
 }
@@ -4236,7 +4275,7 @@ function buildSandboxChatSummary(analysis, modelId = "") {
   const setupLines = analysis.setupSteps.length
     ? `\n\nSetup:\n${analysis.setupSteps.map((item) => `- ${item}`).join("\n")}`
     : "";
-  return `**Sandbox plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in the Sandbox tab.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the Sandbox panel to inspect the JSON and apply the changes.`;
+  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in the ROK CODE tab.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the ROK CODE panel to inspect the JSON and apply the changes.`;
 }
 
 async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
@@ -4244,11 +4283,16 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     throw new Error("Save the current sandbox file before asking ROK to edit it.");
   }
   const sandbox = getCurrentSandboxState();
-  sandbox.statusText = "Analyzing workspace...";
+  const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
+    text: promptText,
+    attachments,
+    sandboxFiles: sandbox.files
+  });
+  sandbox.statusText = "Analyzing ROK CODE files...";
   renderSandboxUI();
 
   try {
-    const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, sandbox);
+    const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, requestShouldThink, sandbox);
     const analysisModel = requestBody.model;
     activeRequestController = new AbortController();
     const res = await fetchWithBanGuard(SANDBOX_URL, {
@@ -4261,7 +4305,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     applyDaedalusQuotaFromHeaders(res);
     if (!res.ok) {
       const errorText = await safeReadResponseText(res);
-      throw new Error(errorText || `Sandbox request failed (${res.status})`);
+      throw new Error(errorText || `ROK CODE request failed (${res.status})`);
     }
     const payload = await res.json().catch(() => null);
     const analysis = parseSandboxAnalysisResponse(payload, promptText, analysisModel);
@@ -4273,7 +4317,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     renderSandboxUI();
     return analysis;
   } catch (error) {
-    sandbox.statusText = "Sandbox error";
+    sandbox.statusText = "ROK CODE error";
     renderSandboxUI();
     throw error;
   }
@@ -4969,7 +5013,14 @@ function resetChatRuntimeState() {
   if (cooldownEl) {
     cooldownEl.textContent = "";
   }
+  syncComposerMetaVisibility();
   refreshSendState();
+}
+
+function syncComposerMetaVisibility() {
+  if (!composerMeta) return;
+  const hasCooldown = Boolean(cooldownEl && String(cooldownEl.textContent || "").trim());
+  composerMeta.hidden = !hasCooldown;
 }
 
 function buildChatWelcomeElement() {
@@ -5701,7 +5752,7 @@ async function addSelectedSandboxFiles(fileList) {
   let selectedId = sandbox.selectedFileId;
   for (const file of files) {
     if (sandbox.files.length >= SANDBOX_MAX_FILES) {
-      setSandboxStatus(`Sandbox limit reached (${SANDBOX_MAX_FILES} files).`, "error");
+      setSandboxStatus(`ROK CODE limit reached (${SANDBOX_MAX_FILES} files).`, "error");
       break;
     }
     if (!isTextLikeFile(file)) {
@@ -6097,10 +6148,12 @@ function updateCooldownUI() {
   const remaining = Math.max(0, nextAllowedAt - Date.now());
   if (remaining <= 0) {
     cooldownEl.textContent = "";
+    syncComposerMetaVisibility();
     return false;
   }
   const seconds = Math.ceil(remaining / 1000);
   cooldownEl.textContent = `Wait ${seconds}s before sending again.`;
+  syncComposerMetaVisibility();
   return true;
 }
 
@@ -6275,6 +6328,7 @@ function refreshSendState() {
     updateCooldownUI();
   } else if (cooldownEl) {
     cooldownEl.textContent = "";
+    syncComposerMetaVisibility();
   }
 
   refreshWorkspaceDocumentToolbarState();
@@ -6307,6 +6361,7 @@ function clearChat(showNotice) {
   if (cooldownEl) {
     cooldownEl.textContent = "";
   }
+  syncComposerMetaVisibility();
   refreshSendState();
   if (showNotice) {
     addMessage("system", "New chat started.");
@@ -6475,6 +6530,12 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
+  const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
+    text: text || displayText,
+    workspaceContext: sessionWorkspaceContext,
+    attachments,
+    sandboxFiles: sessionSandbox ? sessionSandbox.files : []
+  });
   const intentHistory = history.slice(-Math.min(getHistoryLimitValue(), INTENT_HISTORY_CONTEXT_LIMIT));
   const recentHistory = history.slice(-getHistoryLimitValue());
   const priorHistoryLength = history.length;
@@ -6563,7 +6624,7 @@ async function send() {
     }
     const mounted = populateBotMessageContainer(typing.bubble, {
       storyCanvas: useStoryCanvas,
-      thinkingBlock: shouldEnableThinkingForModel(sessionModel),
+      thinkingBlock: requestShouldThink,
       showTypingDots: true
     });
     bubble = mounted.bubble;
@@ -6781,7 +6842,7 @@ async function send() {
     if (sandboxActive) {
       convertTypingRowToBotMessage();
       if (bubble) {
-        setBubbleContent(bubble, "Analyzing sandbox...", false);
+        setBubbleContent(bubble, "Analyzing ROK CODE...", false);
       }
       const analysis = await runSandboxAnalysis(text || SANDBOX_DEFAULT_PROMPT, recentHistory, sessionModel);
       const chatSummary = buildSandboxChatSummary(analysis);
@@ -6820,28 +6881,11 @@ async function send() {
       return;
     }
 
-    writeBackToWorkspace = Boolean(intent.routeToWorkspace);
-    useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
-    workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-    hasWorkspaceContext = Boolean(workspaceContext);
+    writeBackToWorkspace = false;
+    useStoryCanvas = shouldUseStoryCanvasForIntent(intent);
+    workspaceContext = "";
+    hasWorkspaceContext = false;
     requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
-
-    if (writeBackToWorkspace && text) {
-      const workspaceRouteApproved = await confirmWorkspaceRouting(intent.label);
-      if (stopRequested) {
-        throw new DOMException("Generation stopped by user.", "AbortError");
-      }
-      writeBackToWorkspace = Boolean(workspaceRouteApproved);
-      useStoryCanvas = !writeBackToWorkspace && shouldUseStoryCanvasForIntent(intent);
-      workspaceContext = writeBackToWorkspace || wasWorkspaceActive ? sessionWorkspaceContext : "";
-      hasWorkspaceContext = Boolean(workspaceContext);
-    }
-
-    if (writeBackToWorkspace && !isWorkspaceSessionActive()) {
-      setActiveWorkspaceTab("workspace", { focus: false });
-    } else if (!writeBackToWorkspace && isWorkspaceSessionActive()) {
-      setActiveWorkspaceTab("chat", { focus: false });
-    }
 
     const maxHistoryMessages = getMaxHistoryMessagesValue();
     if (maxHistoryMessages > 0 && priorHistoryLength > maxHistoryMessages * 0.8) {
@@ -6870,7 +6914,7 @@ async function send() {
       history: recentHistory,
       model: sessionModel,
       max_tokens: clientLimits.maxResponseTokens,
-      enable_thinking: shouldEnableThinkingForModel(sessionModel)
+      enable_thinking: requestShouldThink
     });
     if (webSearchEnabled) {
       requestBody.enable_web_search = true;
@@ -7022,7 +7066,7 @@ async function send() {
               history: toolHistory,
               model: sessionModel,
               max_tokens: clientLimits.maxResponseTokens,
-              enable_thinking: shouldEnableThinkingForModel(sessionModel),
+              enable_thinking: requestShouldThink,
               tools: BUILTIN_TOOLS
             });
             if (webSearchEnabled) {
@@ -7378,7 +7422,7 @@ async function send() {
             history: toolHistory,
             model: sessionModel,
             max_tokens: clientLimits.maxResponseTokens,
-            enable_thinking: shouldEnableThinkingForModel(sessionModel),
+            enable_thinking: requestShouldThink,
             tools: BUILTIN_TOOLS
           });
           if (webSearchEnabled) followupBody.enable_web_search = true;
@@ -8324,6 +8368,7 @@ setWebSearchEnabled(false);
 setToolsEnabled(false);
 applyUserSettingsToRuntime();
 refreshSendState();
+syncComposerMetaVisibility();
 setWorkspaceAssistantSuggestButtonLoading(false);
 
 renderModelSelectOptions();
