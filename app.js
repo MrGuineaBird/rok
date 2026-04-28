@@ -187,7 +187,7 @@ const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "qwen3.5:9b";
+const DEFAULT_CHAT_MODEL = "qwen3.5:cloud";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -206,8 +206,8 @@ const DEFAULT_USER_SETTINGS = {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "gpt-oss:20b-cloud";
-const TITAN_MODEL_ID = "gpt-oss:120b-cloud";
+const HERMES_MODEL_ID = "qwen3.5:cloud";
+const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
@@ -219,12 +219,12 @@ const DEFAULT_MODEL_OPTIONS = [
   { id: CHESS_MODEL_ID, label: "ROK Chess" }
 ];
 const KNOWN_MODEL_LABELS = {
-  "qwen3.5:9b": "ROK Hermes",
   [HERMES_MODEL_ID]: "ROK Hermes",
   [TITAN_MODEL_ID]: "ROK Titan",
   [CHEESE_MODEL_ID]: "ROK Cheese",
   [CHESS_MODEL_ID]: "ROK Chess",
-  "kimi-k2.5:cloud": "kimi-k2.5:cloud",
+  "gpt-oss:20b-cloud": "ROK Hermes",
+  "gpt-oss:120b-cloud": "ROK Titan",
   [DAEDALUS_MODEL_ID]: "ROK Daedalus"
 };
 const MODEL_DESCRIPTIONS = {
@@ -240,8 +240,15 @@ Object.assign(MODEL_DESCRIPTIONS, {
   [CHESS_MODEL_ID]: "ROK Chess - unofficial GPT OSS 20B mode that only replies with chess piece names.",
   [DAEDALUS_MODEL_ID]: "ROK Daedalus - specialized cloud model with its own daily message limit."
 });
+Object.assign(MODEL_DESCRIPTIONS, {
+  [HERMES_MODEL_ID]: "ROK Hermes - Qwen 3.5 Cloud for quick questions, experiments, and everyday drafting.",
+  [TITAN_MODEL_ID]: "ROK Titan - Qwen 3.5 397B Cloud for deeper reasoning, coding, and image understanding.",
+  "gpt-oss:20b-cloud": "ROK Hermes - legacy alias now routed to Qwen 3.5 Cloud.",
+  "gpt-oss:120b-cloud": "ROK Titan - legacy alias now routed to Qwen 3.5 397B Cloud.",
+  "glm-5.1:cloud": "ROK Daedalus - specialized cloud model with its own daily message limit."
+});
 const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
-/** Text chat models shown in the composer (vision model is server-selected when images are attached). */
+/** Text chat models shown in the composer (image uploads are server-routed to Titan). */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, TITAN_MODEL_ID, CHEESE_MODEL_ID, CHESS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
   { label: "ROK", modelIds: [HERMES_MODEL_ID, TITAN_MODEL_ID] },

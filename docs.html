@@ -292,7 +292,7 @@
                 <td><code>model</code></td>
                 <td>string</td>
                 <td>No</td>
-                <td>Model ID to use (e.g. <code>gpt-oss:20b-cloud</code>, <code>gpt-oss:120b-cloud</code>, <code>glm-5.1:cloud</code>)</td>
+                <td>Model ID to use (e.g. <code>qwen3.5:cloud</code>, <code>qwen3.5:397b-cloud</code>, <code>glm-5.1:cloud</code>)</td>
               </tr>
               <tr>
                 <td><code>workspace_context</code></td>
@@ -518,7 +518,7 @@ data: {"token":"!"}</code></pre>
     body: JSON.stringify({
       message: "Give me a quick 3-point summary of photosynthesis.",
       history: [],
-      model: "gpt-oss:20b-cloud"  // optional: pick a specific model
+      model: "qwen3.5:cloud"  // optional: pick a specific model
     })
   });
 
@@ -597,7 +597,7 @@ headers = {
 payload = {
     "message": "Explain photosynthesis in 3 bullet points.",
     "history": [],
-    "model": "gpt-oss:20b-cloud",  # optional: pick a specific model
+    "model": "qwen3.5:cloud",  # optional: pick a specific model
 }
 
 with requests.post(
@@ -733,5 +733,4 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   </script>
 </body>
 </html>
-
 
