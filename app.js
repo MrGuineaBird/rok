@@ -8956,7 +8956,7 @@ function hideElixirPartnershipModal() {
 function showRokImageModal() {
   if (!rokImageModal) return false;
   try {
-    const hasSeen = localStorage.getItem(ROK_IMAGE_MODAL_SEEN_KEY);
+    const hasSeen = true;
     if (hasSeen) return false;
     rokImageModal.hidden = false;
     rokImageModal.setAttribute("aria-hidden", "false");
