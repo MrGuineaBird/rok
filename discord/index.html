@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#12090a" />
+  <title>ROK Discord</title>
+  <style>
+    :root {
+      --bg: #12090a;
+      --bg-soft: #1a0d10;
+      --panel: rgba(28, 12, 16, 0.88);
+      --border: rgba(255, 120, 120, 0.18);
+      --text: #f7e8e6;
+      --muted: #c79d98;
+      --accent: #ff4d4d;
+      --accent-soft: rgba(255, 77, 77, 0.16);
+      --shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(255, 77, 77, 0.26), transparent 42%),
+        linear-gradient(180deg, #18090b 0%, #0b0b10 100%);
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+    }
+
+    .shell {
+      width: min(100%, 1040px);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      padding: 28px 28px 20px;
+      border-bottom: 1px solid var(--border);
+      background:
+        linear-gradient(135deg, rgba(255, 77, 77, 0.15), transparent 58%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: inherit;
+      margin-bottom: 18px;
+    }
+
+    .brand img {
+      width: 56px;
+      height: auto;
+      display: block;
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+      max-width: 640px;
+    }
+
+    .embed-wrap {
+      padding: 28px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .embed-frame {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.12));
+      padding: 18px;
+    }
+
+    widgetbot {
+      display: block;
+      width: min(100%, 800px);
+      height: min(72vh, 600px);
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+
+    .footer {
+      padding: 0 28px 28px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .footer a {
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-soft);
+    }
+
+    @media (max-width: 720px) {
+      .hero,
+      .embed-wrap,
+      .footer {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      .embed-frame {
+        padding: 12px;
+        border-radius: 18px;
+      }
+
+      widgetbot {
+        height: min(70vh, 560px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="shell">
+      <section class="hero">
+        <a class="brand" href="/">
+          <img src="/roklogo.png" alt="ROK" />
+          <span class="brand-copy">
+            <span class="brand-title">ROK</span>
+            <span class="brand-subtitle">Discord</span>
+          </span>
+        </a>
+        <h1>Join the ROK Discord.</h1>
+        <p>Hang out, ask questions, and keep up with what we are building without leaving the site.</p>
+      </section>
+
+      <section class="embed-wrap">
+        <div class="embed-frame">
+          <widgetbot
+            server="1499192505927864370"
+            width="800"
+            height="600"
+          ></widgetbot>
+        </div>
+      </section>
+
+      <div class="footer">
+        Need the full app instead? <a href="/">Go back to ROK</a>.
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@widgetbot/html-embed"></script>
+</body>
+</html>
