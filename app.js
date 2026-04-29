@@ -34,7 +34,14 @@ const sandboxApplyBtn = document.getElementById("sandboxApplyBtn");
 const sandboxClearAnalysisBtn = document.getElementById("sandboxClearAnalysisBtn");
 const sandboxFilePathInput = document.getElementById("sandboxFilePathInput");
 const sandboxFileEditor = document.getElementById("sandboxFileEditor");
-const sandboxJsonPreview = document.getElementById("sandboxJsonPreview");
+const sandboxChangesSummary = document.getElementById("sandboxChangesSummary");
+const sandboxChangesList = document.getElementById("sandboxChangesList");
+const sandboxChangesMeta = document.getElementById("sandboxChangesMeta");
+const sandboxActivityShell = document.getElementById("sandboxActivityShell");
+const sandboxActivityTitle = document.getElementById("sandboxActivityTitle");
+const sandboxActivityStatus = document.getElementById("sandboxActivityStatus");
+const sandboxActivityElapsed = document.getElementById("sandboxActivityElapsed");
+const sandboxActivityList = document.getElementById("sandboxActivityList");
 const sandboxChatList = document.getElementById("sandboxChatList");
 const sandboxChatInput = document.getElementById("sandboxChatInput");
 const sandboxChatSendBtn = document.getElementById("sandboxChatSendBtn");
@@ -486,6 +493,8 @@ let sandboxDraftContent = "";
 let sandboxDraftDirty = false;
 let sandboxChatDraft = "";
 const sandboxAnalysisMemory = new Map();
+const sandboxActivityMemory = new Map();
+let sandboxActivityTimer = null;
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
 let isMobileLayout = false;
@@ -2572,6 +2581,443 @@ function getSelectedSandboxFile(sandbox = getCurrentSandboxState()) {
   return sandbox.files.find((item) => item.id === sandbox.selectedFileId) || sandbox.files[0] || null;
 }
 
+function getUniqueSandboxPaths(paths = []) {
+  const seen = new Set();
+  const next = [];
+  for (const rawPath of paths) {
+    const path = normalizeSandboxFilePath(rawPath);
+    const key = path.toLowerCase();
+    if (!path || seen.has(key)) continue;
+    seen.add(key);
+    next.push(path);
+  }
+  return next;
+}
+
+function getSandboxFileName(path = "") {
+  const normalized = normalizeSandboxFilePath(path);
+  if (!normalized) return "";
+  const segments = normalized.split("/");
+  return segments[segments.length - 1] || normalized;
+}
+
+function getSandboxPromptSummary(promptText = "") {
+  const normalized = String(promptText || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "Understanding your request.";
+  if (normalized.length <= 110) return normalized;
+  return `${normalized.slice(0, 107).trim()}...`;
+}
+
+function formatSandboxActivityDuration(ms) {
+  const safeMs = Math.max(0, Number(ms) || 0);
+  const totalSeconds = Math.round(safeMs / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
+}
+
+function inferSandboxActivityTargetPaths(promptText, sandbox = getCurrentSandboxState()) {
+  const promptLower = String(promptText || "").toLowerCase();
+  const targets = [];
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  const addPath = (rawPath) => {
+    const path = normalizeSandboxFilePath(rawPath);
+    if (!path) return;
+    if (targets.some((item) => item.toLowerCase() === path.toLowerCase())) return;
+    targets.push(path);
+  };
+
+  if (selectedFile) {
+    const selectedPath = selectedFile.path.toLowerCase();
+    const selectedName = getSandboxFileName(selectedFile.path).toLowerCase();
+    if (
+      !promptLower
+      || promptLower.includes(selectedPath)
+      || (selectedName.length >= 5 && selectedName.includes(".") && promptLower.includes(selectedName))
+    ) {
+      addPath(selectedFile.path);
+    }
+  }
+
+  if (sandbox && Array.isArray(sandbox.files) && promptLower) {
+    sandbox.files.forEach((file) => {
+      const pathLower = String(file.path || "").toLowerCase();
+      const fileName = getSandboxFileName(file.path).toLowerCase();
+      if (
+        promptLower.includes(pathLower)
+        || (fileName.length >= 5 && fileName.includes(".") && promptLower.includes(fileName))
+      ) {
+        addPath(file.path);
+      }
+    });
+  }
+
+  if (!targets.length && selectedFile) {
+    addPath(selectedFile.path);
+  }
+  if (!targets.length && sandbox && Array.isArray(sandbox.files) && sandbox.files.length <= 3) {
+    sandbox.files.slice(0, 2).forEach((file) => addPath(file.path));
+  }
+
+  return targets.slice(0, 4);
+}
+
+function hasRunningSandboxActivities() {
+  for (const activity of sandboxActivityMemory.values()) {
+    if (activity && activity.state === "running") {
+      return true;
+    }
+  }
+  return false;
+}
+
+function stopSandboxActivityTicker() {
+  if (sandboxActivityTimer) {
+    clearInterval(sandboxActivityTimer);
+    sandboxActivityTimer = null;
+  }
+}
+
+function ensureSandboxActivityTicker() {
+  if (sandboxActivityTimer) return;
+  sandboxActivityTimer = setInterval(() => {
+    if (!hasRunningSandboxActivities()) {
+      stopSandboxActivityTicker();
+      return;
+    }
+    if (isSandboxSessionActive()) {
+      renderSandboxUI();
+    }
+  }, 900);
+}
+
+function getActiveSandboxActivity() {
+  if (!currentSessionId) return null;
+  const activity = sandboxActivityMemory.get(currentSessionId);
+  return activity && typeof activity === "object" ? activity : null;
+}
+
+function setActiveSandboxActivity(activity) {
+  if (!currentSessionId || !activity || typeof activity !== "object") {
+    return activity || null;
+  }
+  sandboxActivityMemory.set(currentSessionId, activity);
+  if (activity.state === "running") {
+    ensureSandboxActivityTicker();
+  } else if (!hasRunningSandboxActivities()) {
+    stopSandboxActivityTicker();
+  }
+  return activity;
+}
+
+function clearActiveSandboxActivity() {
+  if (currentSessionId) {
+    sandboxActivityMemory.delete(currentSessionId);
+  }
+  if (!hasRunningSandboxActivities()) {
+    stopSandboxActivityTicker();
+  }
+}
+
+function startSandboxActivity(promptText, sandbox = getCurrentSandboxState()) {
+  const prompt = String(promptText || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  return setActiveSandboxActivity({
+    state: "running",
+    startedAt: Date.now(),
+    completedAt: 0,
+    prompt,
+    promptSummary: getSandboxPromptSummary(prompt),
+    fileCount: Array.isArray(sandbox.files) ? sandbox.files.length : 0,
+    targetPaths: inferSandboxActivityTargetPaths(prompt, sandbox),
+    selectedPath: selectedFile ? selectedFile.path : "",
+    summary: "",
+    errorMessage: "",
+    planFiles: []
+  });
+}
+
+function completeSandboxActivity(analysis, sandbox = getCurrentSandboxState()) {
+  const normalized = normalizeSandboxAnalysis(analysis);
+  const current = getActiveSandboxActivity();
+  const prompt = (current && current.prompt) || normalized.lastPrompt || SANDBOX_DEFAULT_PROMPT;
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  return setActiveSandboxActivity({
+    state: "success",
+    startedAt: current && Number.isFinite(current.startedAt) ? current.startedAt : Date.now(),
+    completedAt: Date.now(),
+    prompt,
+    promptSummary: getSandboxPromptSummary(prompt),
+    fileCount: Array.isArray(sandbox.files) ? sandbox.files.length : 0,
+    targetPaths: getUniqueSandboxPaths([
+      ...((current && Array.isArray(current.targetPaths)) ? current.targetPaths : []),
+      ...normalized.files.map((item) => item.path)
+    ]),
+    selectedPath: (current && current.selectedPath) || (selectedFile ? selectedFile.path : ""),
+    summary: normalized.summary || "",
+    errorMessage: "",
+    planFiles: normalized.files
+  });
+}
+
+function failSandboxActivity(error, sandbox = getCurrentSandboxState()) {
+  const current = getActiveSandboxActivity();
+  const stopped = error && error.name === "AbortError";
+  const prompt = (current && current.prompt) || SANDBOX_DEFAULT_PROMPT;
+  const selectedFile = getSelectedSandboxFile(sandbox);
+  return setActiveSandboxActivity({
+    state: stopped ? "stopped" : "error",
+    startedAt: current && Number.isFinite(current.startedAt) ? current.startedAt : Date.now(),
+    completedAt: Date.now(),
+    prompt,
+    promptSummary: getSandboxPromptSummary(prompt),
+    fileCount: current && Number.isFinite(current.fileCount)
+      ? current.fileCount
+      : Array.isArray(sandbox.files) ? sandbox.files.length : 0,
+    targetPaths: getUniqueSandboxPaths(
+      (current && Array.isArray(current.targetPaths) && current.targetPaths.length)
+        ? current.targetPaths
+        : inferSandboxActivityTargetPaths(prompt, sandbox)
+    ),
+    selectedPath: (current && current.selectedPath) || (selectedFile ? selectedFile.path : ""),
+    summary: "",
+    errorMessage: stopped
+      ? "ROK stopped before the plan finished."
+      : String((error && error.message) || "ROK CODE could not finish this request."),
+    planFiles: current && Array.isArray(current.planFiles) ? current.planFiles : []
+  });
+}
+
+function buildSandboxActivitySnapshot(activity = getActiveSandboxActivity(), sandbox = getCurrentSandboxState()) {
+  if (!activity || typeof activity !== "object") return null;
+
+  const state = String(activity.state || "running");
+  const prompt = String(activity.prompt || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
+  const promptSummary = activity.promptSummary || getSandboxPromptSummary(prompt);
+  const fileCount = Number.isFinite(activity.fileCount)
+    ? activity.fileCount
+    : Array.isArray(sandbox.files) ? sandbox.files.length : 0;
+  const planFiles = Array.isArray(activity.planFiles)
+    ? activity.planFiles.map((item) => normalizeSandboxPlanFile(item)).filter(Boolean)
+    : [];
+  const targetPaths = getUniqueSandboxPaths([
+    ...(Array.isArray(activity.targetPaths) ? activity.targetPaths : []),
+    ...planFiles.map((item) => item.path)
+  ]).slice(0, 4);
+  const primaryPath = targetPaths[0] || activity.selectedPath || "";
+  const createIntent = /\b(create|make|build|scaffold|add|start|new(?:\s+file|\s+component|\s+page)?)\b/i.test(prompt);
+  const fileCountLabel = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
+  const runningSteps = [
+    {
+      label: fileCount ? `Reading ${fileCountLabel}` : "Reading your request",
+      detail: fileCount
+        ? "Loading the current ROK CODE workspace into the planner."
+        : "No code files yet, so ROK is using your request and uploads."
+    },
+    {
+      label: primaryPath ? `Inspecting ${primaryPath}` : "Inspecting your request",
+      detail: promptSummary
+    },
+    {
+      label: primaryPath
+        ? `Drafting changes for ${primaryPath}`
+        : createIntent
+        ? "Planning new files"
+        : "Drafting file changes",
+      detail: targetPaths.length > 1
+        ? `Likely touching ${targetPaths.length} files in this pass.`
+        : "Turning the request into concrete code edits."
+    },
+    {
+      label: "Preparing apply-ready changes",
+      detail: "Formatting the plan so you can review it and apply it in ROK CODE."
+    }
+  ];
+
+  const endTime = state === "running" ? Date.now() : Number(activity.completedAt) || Date.now();
+  const elapsedMs = Math.max(0, endTime - (Number(activity.startedAt) || endTime));
+  const elapsedText = formatSandboxActivityDuration(elapsedMs);
+
+  if (state === "success") {
+    const planCount = planFiles.length;
+    const planSummary = planFiles.length
+      ? planFiles
+          .slice(0, 3)
+          .map((item) => `${item.action} ${item.path}`)
+          .join(", ")
+      : "No file changes were needed.";
+    return {
+      state,
+      title: planCount ? `Plan ready for ${planCount} file${planCount === 1 ? "" : "s"}` : "Plan ready",
+      status: "Ready to apply",
+      detail: activity.summary || "ROK finished building the file-by-file plan.",
+      elapsedText,
+      chipText: "Plan ready",
+      changeText: planCount ? `${planCount} AI change${planCount === 1 ? "" : "s"}` : "No AI changes",
+      targetPaths,
+      planFiles,
+      steps: [
+        {
+          label: fileCount ? `Reviewed ${fileCountLabel}` : "Reviewed your request",
+          detail: fileCount ? "Used the current ROK CODE workspace as source context." : "Worked from the request and any uploaded context.",
+          state: "done"
+        },
+        {
+          label: targetPaths.length ? `Mapped ${targetPaths.length} target file${targetPaths.length === 1 ? "" : "s"}` : "Mapped the request",
+          detail: targetPaths.length ? targetPaths.join(", ") : promptSummary,
+          state: "done"
+        },
+        {
+          label: planCount ? `Built ${planCount} file change${planCount === 1 ? "" : "s"}` : "Reviewed without code changes",
+          detail: planSummary,
+          state: "done"
+        },
+        {
+          label: "Ready in ROK CODE",
+          detail: planCount
+            ? "Use Apply AI Changes to write these edits into the workspace."
+            : "Ask for another pass if you want ROK to change specific files.",
+          state: "done"
+        }
+      ]
+    };
+  }
+
+  if (state === "error" || state === "stopped") {
+    const stopped = state === "stopped";
+    let failedIndex = 1;
+    if (elapsedMs > 3200) failedIndex = 2;
+    if (elapsedMs > 5400) failedIndex = 3;
+    return {
+      state,
+      title: stopped ? "ROK stopped" : "ROK hit an error",
+      status: stopped ? "Generation stopped" : "Generation failed",
+      detail: activity.errorMessage || (stopped ? "ROK stopped before the plan finished." : "ROK CODE could not finish this request."),
+      elapsedText,
+      chipText: stopped ? "Stopped" : "ROK CODE error",
+      changeText: "No AI changes",
+      targetPaths,
+      planFiles,
+      steps: runningSteps.map((step, index) => ({
+        ...step,
+        state: index < failedIndex ? "done" : index === failedIndex ? state : "pending"
+      }))
+    };
+  }
+
+  let activeIndex = 0;
+  if (elapsedMs > 1400) activeIndex = 1;
+  if (elapsedMs > 3200) activeIndex = 2;
+  if (elapsedMs > 5400) activeIndex = 3;
+  const activeStep = runningSteps[activeIndex];
+
+  return {
+    state: "running",
+    title: primaryPath ? `ROK is working on ${primaryPath}` : "ROK is working in ROK CODE",
+    status: activeStep.label,
+    detail: activeStep.detail,
+    elapsedText,
+    chipText: activeStep.label,
+    changeText: "ROK working",
+    targetPaths,
+    planFiles,
+    steps: runningSteps.map((step, index) => ({
+      ...step,
+      state: index < activeIndex ? "done" : index === activeIndex ? "active" : "pending"
+    }))
+  };
+}
+
+function getSandboxFileIndicatorMap(sandbox = getCurrentSandboxState(), analysis = getActiveSandboxAnalysis(sandbox), activitySnapshot = null) {
+  const indicators = new Map();
+  if (activitySnapshot && activitySnapshot.state === "running") {
+    activitySnapshot.targetPaths.forEach((path, index) => {
+      indicators.set(path.toLowerCase(), {
+        label: index === 0 ? "working" : "queued",
+        tone: index === 0 ? "working" : "queued"
+      });
+    });
+    return indicators;
+  }
+
+  const normalized = normalizeSandboxAnalysis(analysis);
+  normalized.files.forEach((change) => {
+    indicators.set(change.path.toLowerCase(), {
+      label: change.action === "delete" ? "delete" : change.action === "create" ? "new" : "AI update",
+      tone: change.action === "delete" ? "delete" : change.action === "create" ? "create" : "update"
+    });
+  });
+  return indicators;
+}
+
+function buildSandboxActivityChatText(activitySnapshot) {
+  if (!activitySnapshot) {
+    return "Analyzing ROK CODE...";
+  }
+  const headline = escapeMarkdown(activitySnapshot.title || "ROK is working in ROK CODE");
+  const statusLine = [activitySnapshot.status, activitySnapshot.detail].filter(Boolean).map((item) => escapeMarkdown(item)).join(" - ");
+  const stepLines = Array.isArray(activitySnapshot.steps) && activitySnapshot.steps.length
+    ? activitySnapshot.steps
+        .map((step) => {
+          const prefix = step.state === "done"
+            ? "Done"
+            : step.state === "active"
+            ? "Now"
+            : step.state === "error"
+            ? "Issue"
+            : step.state === "stopped"
+            ? "Stopped"
+            : "Next";
+          const detail = step.detail ? ` - ${escapeMarkdown(step.detail)}` : "";
+          return `- ${prefix}: ${escapeMarkdown(step.label)}${detail}`;
+        })
+        .join("\n")
+    : "- Now: ROK is preparing your file plan.";
+  return `**${headline}**\n\n${statusLine || "ROK is preparing your file plan."}\n\n${stepLines}`;
+}
+
+function renderSandboxActivityUI(activitySnapshot) {
+  if (!sandboxActivityShell || !sandboxActivityTitle || !sandboxActivityStatus || !sandboxActivityElapsed || !sandboxActivityList) {
+    return;
+  }
+  if (!activitySnapshot) {
+    sandboxActivityShell.hidden = true;
+    sandboxActivityShell.removeAttribute("data-state");
+    sandboxActivityList.textContent = "";
+    return;
+  }
+
+  sandboxActivityShell.hidden = false;
+  sandboxActivityShell.dataset.state = activitySnapshot.state || "running";
+  sandboxActivityTitle.textContent = activitySnapshot.title || "ROK is working";
+  sandboxActivityStatus.textContent = activitySnapshot.status || activitySnapshot.detail || "Preparing your code plan.";
+  sandboxActivityElapsed.textContent = activitySnapshot.elapsedText || "0s";
+  sandboxActivityList.innerHTML = (activitySnapshot.steps || [])
+    .map((step) => {
+      const badgeLabel = step.state === "done"
+        ? "Done"
+        : step.state === "active"
+        ? "Now"
+        : step.state === "error"
+        ? "Issue"
+        : step.state === "stopped"
+        ? "Stopped"
+        : "Next";
+      return `
+        <div class="sandbox-activity-step" data-state="${escapeHtml(step.state || "pending")}">
+          <div class="sandbox-activity-step-head">
+            <span class="sandbox-activity-step-dot" aria-hidden="true"></span>
+            <span class="sandbox-activity-step-title">${escapeHtml(step.label || "")}</span>
+            <span class="sandbox-activity-step-badge">${escapeHtml(badgeLabel)}</span>
+          </div>
+          <div class="sandbox-activity-step-detail">${escapeHtml(step.detail || "")}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function getLastAssistantMessageText() {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const item = history[i];
@@ -2619,6 +3065,114 @@ function storeWorkspaceDraftsFromWindows() {
 function countLines(text = "") {
   if (!text) return 0;
   return String(text).split(/\r?\n/).length;
+}
+
+function getTextLinesForDiff(text = "") {
+  const value = String(text || "").replace(/\r\n/g, "\n");
+  if (!value) return [];
+  const lines = value.split("\n");
+  if (lines.length && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  return lines;
+}
+
+function getLineChangeStats(beforeText = "", afterText = "") {
+  const beforeLines = getTextLinesForDiff(beforeText);
+  const afterLines = getTextLinesForDiff(afterText);
+
+  let prefix = 0;
+  while (
+    prefix < beforeLines.length
+    && prefix < afterLines.length
+    && beforeLines[prefix] === afterLines[prefix]
+  ) {
+    prefix += 1;
+  }
+
+  let beforeEnd = beforeLines.length - 1;
+  let afterEnd = afterLines.length - 1;
+  while (
+    beforeEnd >= prefix
+    && afterEnd >= prefix
+    && beforeLines[beforeEnd] === afterLines[afterEnd]
+  ) {
+    beforeEnd -= 1;
+    afterEnd -= 1;
+  }
+
+  const beforeCore = beforeLines.slice(prefix, beforeEnd + 1);
+  const afterCore = afterLines.slice(prefix, afterEnd + 1);
+
+  if (!beforeCore.length && !afterCore.length) {
+    return { additions: 0, deletions: 0 };
+  }
+  if (!beforeCore.length) {
+    return { additions: afterCore.length, deletions: 0 };
+  }
+  if (!afterCore.length) {
+    return { additions: 0, deletions: beforeCore.length };
+  }
+
+  if (beforeCore.length * afterCore.length > 160000) {
+    return { additions: afterCore.length, deletions: beforeCore.length };
+  }
+
+  const cols = afterCore.length + 1;
+  let previous = new Array(cols).fill(0);
+  let current = new Array(cols).fill(0);
+  for (let i = 1; i <= beforeCore.length; i += 1) {
+    current[0] = 0;
+    for (let j = 1; j <= afterCore.length; j += 1) {
+      current[j] = beforeCore[i - 1] === afterCore[j - 1]
+        ? previous[j - 1] + 1
+        : Math.max(previous[j], current[j - 1]);
+    }
+    const swap = previous;
+    previous = current;
+    current = swap;
+  }
+
+  const commonLines = previous[afterCore.length] || 0;
+  return {
+    additions: Math.max(0, afterCore.length - commonLines),
+    deletions: Math.max(0, beforeCore.length - commonLines)
+  };
+}
+
+function getSandboxAnalysisChangeRows(analysis, sandbox = getCurrentSandboxState()) {
+  const normalized = normalizeSandboxAnalysis(analysis);
+  const currentFiles = new Map((sandbox.files || []).map((item) => [String(item.path || "").toLowerCase(), item]));
+  const rows = normalized.files.map((change) => {
+    const currentFile = currentFiles.get(change.path.toLowerCase()) || null;
+    let additions = 0;
+    let deletions = 0;
+
+    if (change.action === "create" || !currentFile) {
+      additions = getTextLinesForDiff(change.content).length;
+    } else if (change.action === "delete") {
+      deletions = getTextLinesForDiff(currentFile.content).length;
+    } else {
+      const stats = getLineChangeStats(currentFile.content, change.content);
+      additions = stats.additions;
+      deletions = stats.deletions;
+    }
+
+    return {
+      path: change.path,
+      action: change.action,
+      reason: change.reason,
+      additions,
+      deletions
+    };
+  });
+
+  return {
+    rows,
+    additions: rows.reduce((sum, item) => sum + item.additions, 0),
+    deletions: rows.reduce((sum, item) => sum + item.deletions, 0),
+    setupSteps: normalized.setupSteps
+  };
 }
 
 function setSandboxStatus(statusText, tone = "idle", options = {}) {
@@ -2758,6 +3312,7 @@ function clearSandboxAnalysis() {
   const sandbox = getCurrentSandboxState();
   sandbox.analysis = createDefaultSandboxAnalysis();
   clearActiveSandboxAnalysisMemory();
+  clearActiveSandboxActivity();
   sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
   syncCurrentSessionFromHistory();
   renderSandboxUI();
@@ -2767,6 +3322,7 @@ function clearSandboxConversation() {
   const sandbox = getCurrentSandboxState();
   sandbox.analysis = createDefaultSandboxAnalysis();
   clearActiveSandboxAnalysisMemory();
+  clearActiveSandboxActivity();
   sandbox.messages = [];
   sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
   sandboxChatDraft = "";
@@ -2803,16 +3359,64 @@ function applySandboxAnalysis() {
   sandbox.selectedFileId = sandbox.files.find((item) => plan.files.some((change) => change.action !== "delete" && change.path === item.path))?.id
     || sandbox.files[0]?.id
     || "";
+  sandbox.analysis = createDefaultSandboxAnalysis();
+  clearActiveSandboxAnalysisMemory();
+  clearActiveSandboxActivity();
   sandbox.statusText = `Applied ${plan.files.length} AI change${plan.files.length === 1 ? "" : "s"}`;
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
   renderSandboxUI();
 }
 
-function renderSandboxAnalysisUI(analysis) {
-  if (!sandboxJsonPreview) return;
-  const normalized = normalizeSandboxAnalysis(analysis);
-  sandboxJsonPreview.textContent = normalized.raw || "No structured JSON yet.";
+function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
+  if (!sandboxChangesSummary || !sandboxChangesList || !sandboxChangesMeta) return;
+  if (activitySnapshot && activitySnapshot.state === "running") {
+    sandboxChangesSummary.textContent = "ROK is preparing the requested file changes...";
+    sandboxChangesList.innerHTML = '<div class="sandbox-empty-state">The file change summary will show up here as soon as the plan is ready.</div>';
+    sandboxChangesMeta.hidden = true;
+    sandboxChangesMeta.textContent = "";
+    return;
+  }
+  const changeSet = getSandboxAnalysisChangeRows(analysis);
+  const fileCount = changeSet.rows.length;
+  if (!fileCount) {
+    sandboxChangesSummary.textContent = "No AI file changes yet.";
+    sandboxChangesList.innerHTML = '<div class="sandbox-empty-state">No file changes yet. Ask ROK to build or edit something in ROK CODE.</div>';
+    sandboxChangesMeta.hidden = true;
+    sandboxChangesMeta.textContent = "";
+    return;
+  }
+
+  sandboxChangesSummary.textContent = `${fileCount} file${fileCount === 1 ? "" : "s"} changed +${changeSet.additions} -${changeSet.deletions}`;
+  sandboxChangesList.innerHTML = changeSet.rows
+    .map((change) => {
+      const actionLabel = change.action === "create" ? "new" : change.action;
+      const reason = change.reason ? `<div class="sandbox-change-reason">${escapeHtml(change.reason)}</div>` : "";
+      return `
+        <div class="sandbox-change-row">
+          <div class="sandbox-change-main">
+            <div class="sandbox-change-path-row">
+              <span class="sandbox-change-path">${escapeHtml(change.path)}</span>
+              <span class="sandbox-change-action" data-tone="${escapeHtml(change.action)}">${escapeHtml(actionLabel)}</span>
+            </div>
+            ${reason}
+          </div>
+          <div class="sandbox-change-stats">
+            <span class="sandbox-change-plus">+${change.additions}</span>
+            <span class="sandbox-change-minus">-${change.deletions}</span>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  if (changeSet.setupSteps.length) {
+    sandboxChangesMeta.hidden = false;
+    sandboxChangesMeta.textContent = `Setup: ${changeSet.setupSteps.join(" • ")}`;
+  } else {
+    sandboxChangesMeta.hidden = true;
+    sandboxChangesMeta.textContent = "";
+  }
 }
 
 function createSandboxChatMessageRow(role, text, options = {}) {
@@ -2836,7 +3440,7 @@ function createSandboxChatMessageRow(role, text, options = {}) {
   return row;
 }
 
-function renderSandboxConversationUI(sandbox) {
+function renderSandboxConversationUI(sandbox, activitySnapshot = null) {
   if (!sandboxChatList) return;
   const messages = getSandboxConversationMessages(sandbox);
   sandboxChatList.textContent = "";
@@ -2849,7 +3453,7 @@ function renderSandboxConversationUI(sandbox) {
     });
     if (isSending && isSandboxSessionActive()) {
       sandboxChatList.appendChild(
-        createSandboxChatMessageRow("assistant", sandbox.statusText || "Analyzing ROK CODE...", { pending: true })
+        createSandboxChatMessageRow("assistant", buildSandboxActivityChatText(activitySnapshot), { pending: true })
       );
     }
   }
@@ -2872,6 +3476,7 @@ function renderSandboxUI() {
   if (!sandboxPanel) return;
   const sandbox = getCurrentSandboxState();
   const activeAnalysis = getActiveSandboxAnalysis(sandbox);
+  const activitySnapshot = buildSandboxActivitySnapshot(getActiveSandboxActivity(), sandbox);
   const selectedFile = getSelectedSandboxFile(sandbox);
   if (!selectedFile) {
     sandbox.selectedFileId = "";
@@ -2884,12 +3489,18 @@ function renderSandboxUI() {
   }
 
   if (sandboxFilesList) {
+    const fileIndicators = getSandboxFileIndicatorMap(sandbox, activeAnalysis, activitySnapshot);
     const filesHtml = [...sandbox.files]
       .sort((a, b) => a.path.localeCompare(b.path))
       .map((file) => {
         const isActive = file.id === sandbox.selectedFileId ? " is-active" : "";
+        const disabledAttr = isSending ? " disabled" : "";
         const lineLabel = `${countLines(file.content).toLocaleString()} lines`;
-        return `<button type="button" class="sandbox-file-btn${isActive}" data-sandbox-file-id="${escapeHtml(file.id)}"><span class="sandbox-file-path">${escapeHtml(file.path)}</span><span class="sandbox-file-meta">${escapeHtml(lineLabel)}</span></button>`;
+        const indicator = fileIndicators.get(String(file.path || "").toLowerCase());
+        const badgeHtml = indicator
+          ? `<span class="sandbox-file-badge" data-tone="${escapeHtml(indicator.tone || "update")}">${escapeHtml(indicator.label || "AI update")}</span>`
+          : "";
+        return `<button type="button" class="sandbox-file-btn${isActive}" data-sandbox-file-id="${escapeHtml(file.id)}"${disabledAttr}><span class="sandbox-file-row"><span class="sandbox-file-path">${escapeHtml(file.path)}</span>${badgeHtml}</span><span class="sandbox-file-meta">${escapeHtml(lineLabel)}</span></button>`;
       })
       .join("");
     sandboxFilesList.innerHTML = filesHtml || '<div class="sandbox-empty-state">No files yet. Upload files or create a new one to start coding.</div>';
@@ -2903,26 +3514,35 @@ function renderSandboxUI() {
   }
   if (sandboxChangeCount) {
     const planFiles = Array.isArray(activeAnalysis.files) ? activeAnalysis.files.length : 0;
-    sandboxChangeCount.textContent = planFiles ? `${planFiles} AI change${planFiles === 1 ? "" : "s"}` : "No AI changes";
+    sandboxChangeCount.textContent = activitySnapshot ? activitySnapshot.changeText : planFiles ? `${planFiles} AI change${planFiles === 1 ? "" : "s"}` : "No AI changes";
   }
   if (sandboxStatusChip) {
-    const tone = sandbox.statusText.toLowerCase().includes("error")
-      || sandbox.statusText.toLowerCase().includes("required")
-      || sandbox.statusText.toLowerCase().includes("exists")
+    const chipText = activitySnapshot ? activitySnapshot.chipText : sandbox.statusText || "Idle";
+    const tone = activitySnapshot && activitySnapshot.state === "running"
+      ? "idle"
+      : chipText.toLowerCase().includes("error")
+      || chipText.toLowerCase().includes("required")
+      || chipText.toLowerCase().includes("exists")
       ? "error"
-      : sandbox.statusText === "Saved"
+      : chipText === "Saved"
       ? "saved"
       : "idle";
-    sandboxStatusChip.textContent = sandbox.statusText || "Idle";
+    sandboxStatusChip.textContent = chipText;
     sandboxStatusChip.dataset.tone = tone;
   }
   if (sandboxFilePathInput) {
     sandboxFilePathInput.value = selectedFile ? sandboxDraftPath : "";
-    sandboxFilePathInput.disabled = !selectedFile;
+    sandboxFilePathInput.disabled = !selectedFile || isSending;
   }
   if (sandboxFileEditor) {
     sandboxFileEditor.value = selectedFile ? sandboxDraftContent : "";
-    sandboxFileEditor.disabled = !selectedFile;
+    sandboxFileEditor.disabled = !selectedFile || isSending;
+  }
+  if (sandboxUploadBtn) {
+    sandboxUploadBtn.disabled = isSending;
+  }
+  if (sandboxNewFileBtn) {
+    sandboxNewFileBtn.disabled = isSending;
   }
   if (sandboxSaveBtn) {
     sandboxSaveBtn.disabled = !selectedFile || isSending;
@@ -2937,8 +3557,12 @@ function renderSandboxUI() {
   if (sandboxApplyBtn) {
     sandboxApplyBtn.disabled = isSending || !(Array.isArray(activeAnalysis.files) && activeAnalysis.files.length);
   }
-  renderSandboxAnalysisUI(activeAnalysis);
-  renderSandboxConversationUI(sandbox);
+  if (sandboxClearAnalysisBtn) {
+    sandboxClearAnalysisBtn.disabled = isSending;
+  }
+  renderSandboxActivityUI(activitySnapshot);
+  renderSandboxAnalysisUI(activeAnalysis, activitySnapshot);
+  renderSandboxConversationUI(sandbox, activitySnapshot);
 }
 
 function getWorkspaceTabContainers() {
@@ -4420,7 +5044,9 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     attachments,
     sandboxFiles: sandbox.files
   });
-  sandbox.statusText = "Analyzing ROK CODE files...";
+  setActiveSandboxAnalysis(createDefaultSandboxAnalysis());
+  startSandboxActivity(promptText, sandbox);
+  sandbox.statusText = "ROK is working...";
   renderSandboxUI();
 
   try {
@@ -4441,6 +5067,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     }
     const payload = await res.json().catch(() => null);
     const analysis = setActiveSandboxAnalysis(parseSandboxAnalysisResponse(payload, promptText, analysisModel));
+    completeSandboxActivity(analysis, sandbox);
     sandbox.statusText = analysis.files.length
       ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
       : "Plan ready";
@@ -4448,7 +5075,8 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     renderSandboxUI();
     return analysis;
   } catch (error) {
-    sandbox.statusText = "ROK CODE error";
+    const activity = failSandboxActivity(error, sandbox);
+    sandbox.statusText = activity && activity.state === "stopped" ? "ROK stopped" : "ROK CODE error";
     renderSandboxUI();
     throw error;
   }
@@ -7881,7 +8509,12 @@ async function send() {
     }
 
     if (sandboxActive) {
-      pushSandboxConversationMessage("assistant", `ROK CODE error: ${err.message}`);
+      pushSandboxConversationMessage(
+        "assistant",
+        err && err.name === "AbortError"
+          ? "ROK CODE stopped before the new plan finished."
+          : `ROK CODE error: ${err.message}`
+      );
       renderSandboxUI();
     }
     addMessage("system", "Error: " + err.message);

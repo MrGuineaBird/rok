@@ -1714,6 +1714,11 @@ body.settings-compact .attachment-list {
   cursor: pointer;
 }
 
+.sandbox-file-btn:disabled {
+  opacity: 0.78;
+  cursor: wait;
+}
+
 .sandbox-file-btn:hover {
   border-color: #402222;
   background: rgba(30, 13, 13, 0.76);
@@ -1733,6 +1738,57 @@ body.settings-compact .attachment-list {
   color: #F7D9D9;
   word-break: break-word;
   font-family: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
+}
+
+.sandbox-file-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sandbox-file-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #4D2828;
+  background: rgba(34, 17, 17, 0.82);
+  color: #D7B4B4;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sandbox-file-badge[data-tone="working"] {
+  border-color: rgba(176, 73, 73, 0.72);
+  background: rgba(176, 73, 73, 0.16);
+  color: #FFD0D0;
+}
+
+.sandbox-file-badge[data-tone="queued"] {
+  border-color: rgba(111, 87, 87, 0.72);
+  background: rgba(92, 66, 66, 0.16);
+  color: #DAB9B9;
+}
+
+.sandbox-file-badge[data-tone="update"] {
+  border-color: rgba(176, 123, 73, 0.72);
+  background: rgba(176, 123, 73, 0.14);
+  color: #F0D0B0;
+}
+
+.sandbox-file-badge[data-tone="create"] {
+  border-color: rgba(85, 160, 104, 0.72);
+  background: rgba(85, 160, 104, 0.14);
+  color: #D0F0D7;
+}
+
+.sandbox-file-badge[data-tone="delete"] {
+  border-color: rgba(176, 73, 73, 0.72);
+  background: rgba(176, 73, 73, 0.14);
+  color: #FFCECE;
 }
 
 .sandbox-file-meta {
@@ -1797,6 +1853,126 @@ body.settings-compact .attachment-list {
 .sandbox-file-editor:focus {
   border-color: #B04949;
   box-shadow: 0 0 0 1px rgba(209, 75, 75, 0.45), inset 0 0 0 1px rgba(209, 75, 75, 0.25);
+}
+
+.sandbox-activity-shell {
+  border-radius: 12px;
+  border: 1px solid #432121;
+  background: linear-gradient(180deg, rgba(28, 12, 12, 0.82) 0%, rgba(12, 16, 24, 0.92) 100%);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.sandbox-activity-shell[data-state="success"] {
+  border-color: rgba(85, 160, 104, 0.56);
+}
+
+.sandbox-activity-shell[data-state="error"],
+.sandbox-activity-shell[data-state="stopped"] {
+  border-color: rgba(176, 73, 73, 0.56);
+}
+
+.sandbox-activity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sandbox-activity-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sandbox-activity-step {
+  border-radius: 10px;
+  border: 1px solid #392020;
+  background: rgba(9, 14, 20, 0.74);
+  padding: 9px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.sandbox-activity-step[data-state="active"] {
+  border-color: rgba(176, 73, 73, 0.72);
+  background: rgba(176, 73, 73, 0.1);
+}
+
+.sandbox-activity-step[data-state="done"] {
+  border-color: rgba(85, 160, 104, 0.42);
+  background: rgba(85, 160, 104, 0.08);
+}
+
+.sandbox-activity-step[data-state="error"],
+.sandbox-activity-step[data-state="stopped"] {
+  border-color: rgba(176, 73, 73, 0.72);
+  background: rgba(176, 73, 73, 0.1);
+}
+
+.sandbox-activity-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sandbox-activity-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #755353;
+  flex: 0 0 auto;
+}
+
+.sandbox-activity-step[data-state="active"] .sandbox-activity-step-dot {
+  background: #E06A6A;
+  box-shadow: 0 0 0 4px rgba(224, 106, 106, 0.14);
+  animation: sandboxActivityPulse 1.35s ease-in-out infinite;
+}
+
+.sandbox-activity-step[data-state="done"] .sandbox-activity-step-dot {
+  background: #6BC18A;
+  box-shadow: 0 0 0 4px rgba(107, 193, 138, 0.12);
+}
+
+.sandbox-activity-step[data-state="error"] .sandbox-activity-step-dot,
+.sandbox-activity-step[data-state="stopped"] .sandbox-activity-step-dot {
+  background: #E06A6A;
+}
+
+.sandbox-activity-step-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #F2D6D6;
+  line-height: 1.35;
+}
+
+.sandbox-activity-step-badge {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #4A2828;
+  color: #D7B5B5;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sandbox-activity-step[data-state="active"] .sandbox-activity-step-badge {
+  border-color: rgba(176, 73, 73, 0.72);
+  color: #FFD6D6;
+}
+
+.sandbox-activity-step[data-state="done"] .sandbox-activity-step-badge {
+  border-color: rgba(85, 160, 104, 0.56);
+  color: #D7F2DF;
+}
+
+.sandbox-activity-step-detail {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #C8A3A3;
 }
 
 .sandbox-chat-shell {
@@ -1906,7 +2082,7 @@ body.settings-compact .attachment-list {
   gap: 10px;
 }
 
-.sandbox-raw-shell {
+.sandbox-changes-shell {
   margin: 4px 0 0;
   border-radius: 10px;
   border: 1px solid #3A1B1B;
@@ -1914,47 +2090,112 @@ body.settings-compact .attachment-list {
   overflow: hidden;
 }
 
-.sandbox-raw-shell summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 9px 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #D2ABAB;
+.sandbox-changes-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid #3A1B1B;
+  display: grid;
+  gap: 4px;
 }
 
-.sandbox-raw-shell summary::-webkit-details-marker {
-  display: none;
+.sandbox-changes-list {
+  display: grid;
 }
 
-.sandbox-raw-shell summary::after {
-  content: "+";
-  float: right;
-  color: #B98E8E;
-}
-
-.sandbox-raw-shell[open] summary::after {
-  content: "-";
-}
-
-.sandbox-json-preview {
-  margin: 0;
-  padding: 0 10px 10px;
-  border-top: 1px solid #3A1B1B;
+.sandbox-change-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 12px;
+  border-top: 1px solid rgba(58, 27, 27, 0.82);
   background: rgba(8, 12, 18, 0.88);
-  color: #E7C8C8;
-  font-size: 11px;
-  line-height: 1.52;
-  font-family: Consolas, "SFMono-Regular", "Cascadia Code", monospace;
-  white-space: pre-wrap;
+}
+
+.sandbox-change-row:first-child {
+  border-top: 0;
+}
+
+.sandbox-change-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.sandbox-change-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sandbox-change-path {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #F4D9D9;
   word-break: break-word;
-  max-height: 180px;
-  overflow: auto;
+  font-family: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
+}
+
+.sandbox-change-action {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #4D2828;
+  background: rgba(34, 17, 17, 0.82);
+  color: #D7B4B4;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sandbox-change-action[data-tone="create"] {
+  border-color: rgba(85, 160, 104, 0.72);
+  background: rgba(85, 160, 104, 0.14);
+  color: #D0F0D7;
+}
+
+.sandbox-change-action[data-tone="update"] {
+  border-color: rgba(176, 123, 73, 0.72);
+  background: rgba(176, 123, 73, 0.14);
+  color: #F0D0B0;
+}
+
+.sandbox-change-action[data-tone="delete"] {
+  border-color: rgba(176, 73, 73, 0.72);
+  background: rgba(176, 73, 73, 0.14);
+  color: #FFCECE;
+}
+
+.sandbox-change-reason {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #B88E8E;
+}
+
+.sandbox-change-stats {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sandbox-change-plus {
+  color: #62D08B;
+}
+
+.sandbox-change-minus {
+  color: #E98686;
 }
 
 .sandbox-setup-note {
+  padding: 9px 12px 11px;
+  border-top: 1px solid rgba(58, 27, 27, 0.82);
+  background: rgba(8, 12, 18, 0.88);
   color: #A97E7E;
   font-size: 10px;
   line-height: 1.45;
@@ -1989,6 +2230,26 @@ body.settings-compact .attachment-list {
 
   .sandbox-file-editor {
     height: 300px;
+  }
+
+  .sandbox-change-row {
+    flex-direction: column;
+  }
+
+  .sandbox-change-stats {
+    align-self: flex-start;
+  }
+}
+
+@keyframes sandboxActivityPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 4px rgba(224, 106, 106, 0.14);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 7px rgba(224, 106, 106, 0.06);
   }
 }
 

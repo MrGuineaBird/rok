@@ -225,16 +225,32 @@
                 spellcheck="false"
                 autocomplete="off"
               />
+              <section id="sandboxActivityShell" class="sandbox-activity-shell" hidden aria-live="polite">
+                <div class="sandbox-activity-head">
+                  <div>
+                    <div id="sandboxActivityTitle" class="workspace-panel-title">ROK is working</div>
+                    <div id="sandboxActivityStatus" class="workspace-panel-hint">Reading files...</div>
+                  </div>
+                  <span id="sandboxActivityElapsed" class="workspace-doc-chip">0s</span>
+                </div>
+                <div id="sandboxActivityList" class="sandbox-activity-list"></div>
+              </section>
               <textarea
                 id="sandboxFileEditor"
                 class="sandbox-file-editor"
                 placeholder="Select a file or create one to start editing."
                 spellcheck="false"
               ></textarea>
-              <details class="sandbox-raw-shell">
-                <summary>Latest plan JSON</summary>
-                <pre id="sandboxJsonPreview" class="sandbox-json-preview">No structured JSON yet.</pre>
-              </details>
+              <section class="sandbox-changes-shell" aria-live="polite">
+                <div class="sandbox-changes-head">
+                  <div class="workspace-panel-title">Requested Changes</div>
+                  <div id="sandboxChangesSummary" class="workspace-panel-hint">No AI file changes yet.</div>
+                </div>
+                <div id="sandboxChangesList" class="sandbox-changes-list">
+                  <div class="sandbox-empty-state">No file changes yet. Ask ROK to build or edit something in ROK CODE.</div>
+                </div>
+                <div id="sandboxChangesMeta" class="sandbox-setup-note" hidden></div>
+              </section>
             </section>
           </section>
           <aside class="sandbox-chat-shell">
