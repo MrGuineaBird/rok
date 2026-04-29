@@ -200,7 +200,7 @@
             <div class="workspace-panel-head">
               <div id="sandboxCurrentFileLabel" class="workspace-panel-title">No file selected</div>
               <div class="workspace-panel-hint">
-                Chat with ROK, then review and apply changes here.
+                Edit files here, then ask ROK for the next change on the right.
               </div>
               <div class="workspace-panel-tools">
                 <div class="workspace-panel-stats" aria-live="polite">
@@ -211,7 +211,6 @@
                 <div class="workspace-panel-actions">
                   <button id="sandboxSaveBtn" class="workspace-mini-btn ghost" type="button">Save</button>
                   <button id="sandboxDeleteBtn" class="workspace-mini-btn ghost" type="button">Delete</button>
-                  <button id="sandboxAnalyzeBtn" class="workspace-mini-btn ghost" type="button">Analyze</button>
                   <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply AI Changes</button>
                 </div>
               </div>
@@ -232,27 +231,39 @@
                 placeholder="Select a file or create one to start editing."
                 spellcheck="false"
               ></textarea>
-            </section>
-            <section class="sandbox-analysis-shell">
-              <div class="sandbox-analysis-head">
-                <div>
-                  <div class="workspace-panel-title">Changes</div>
-                  <div class="workspace-panel-hint">
-                    Proposed edits from the model.
-                  </div>
-                </div>
-                <button id="sandboxClearAnalysisBtn" class="workspace-mini-btn ghost" type="button">Clear</button>
-              </div>
-              <div id="sandboxChangeList" class="sandbox-change-list">
-                <div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in ROK CODE.</div>
-              </div>
               <details class="sandbox-raw-shell">
-                <summary>Raw JSON</summary>
+                <summary>Latest plan JSON</summary>
                 <pre id="sandboxJsonPreview" class="sandbox-json-preview">No structured JSON yet.</pre>
               </details>
-              <div class="sandbox-setup-note">Tip: upload files, ask for a change in chat, then apply the plan here.</div>
             </section>
           </section>
+          <aside class="sandbox-chat-shell">
+            <div class="workspace-panel-head sandbox-chat-head">
+              <div class="workspace-panel-title">ROK Requests</div>
+              <div class="workspace-panel-hint">
+                Ask for edits here. The plan and requested changes stay in this thread.
+              </div>
+              <div class="workspace-panel-actions">
+                <button id="sandboxAnalyzeBtn" class="workspace-mini-btn ghost" type="button">Analyze</button>
+                <button id="sandboxClearAnalysisBtn" class="workspace-mini-btn ghost" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="sandboxChatList" class="sandbox-chat-list" aria-live="polite">
+              <div class="sandbox-empty-state">No ROK CODE requests yet. Ask ROK to build or edit something here.</div>
+            </div>
+            <div class="sandbox-chat-compose">
+              <textarea
+                id="sandboxChatInput"
+                class="sandbox-chat-input"
+                placeholder="Ask ROK to build, refactor, debug, or explain this project..."
+                spellcheck="true"
+              ></textarea>
+              <div class="sandbox-chat-compose-actions">
+                <div class="sandbox-setup-note">Tip: upload files, describe the change, then apply the plan when it looks right.</div>
+                <button id="sandboxChatSendBtn" class="workspace-mini-btn" type="button">Send</button>
+              </div>
+            </div>
+          </aside>
         </section>
         <section id="workspaceAssistantPanel" class="workspace-assistant is-collapsed" aria-live="polite">
           <div class="workspace-assistant-head">

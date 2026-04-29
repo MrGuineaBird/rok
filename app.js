@@ -34,8 +34,10 @@ const sandboxApplyBtn = document.getElementById("sandboxApplyBtn");
 const sandboxClearAnalysisBtn = document.getElementById("sandboxClearAnalysisBtn");
 const sandboxFilePathInput = document.getElementById("sandboxFilePathInput");
 const sandboxFileEditor = document.getElementById("sandboxFileEditor");
-const sandboxChangeList = document.getElementById("sandboxChangeList");
 const sandboxJsonPreview = document.getElementById("sandboxJsonPreview");
+const sandboxChatList = document.getElementById("sandboxChatList");
+const sandboxChatInput = document.getElementById("sandboxChatInput");
+const sandboxChatSendBtn = document.getElementById("sandboxChatSendBtn");
 const workspaceAssistantPanel = document.getElementById("workspaceAssistantPanel");
 const workspaceAssistantToggle = document.getElementById("workspaceAssistantToggle");
 const workspaceAssistantBody = document.getElementById("workspaceAssistantBody");
@@ -482,6 +484,8 @@ let sandboxDraftFileId = "";
 let sandboxDraftPath = "";
 let sandboxDraftContent = "";
 let sandboxDraftDirty = false;
+let sandboxChatDraft = "";
+const sandboxAnalysisMemory = new Map();
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
 let isMobileLayout = false;
@@ -2283,6 +2287,10 @@ function createDefaultSandboxAnalysis() {
   };
 }
 
+function normalizeSandboxMessages(rawMessages) {
+  return sanitizeMessages(rawMessages).slice(-32);
+}
+
 function normalizeSandboxPlanFile(rawFile) {
   if (!rawFile || typeof rawFile !== "object") return null;
   const path = normalizeSandboxFilePath(rawFile.path || rawFile.file || rawFile.name);
@@ -2364,6 +2372,7 @@ function createDefaultSandbox() {
     files: [],
     selectedFileId: "",
     analysis: createDefaultSandboxAnalysis(),
+    messages: [],
     statusText: "Idle"
   };
 }
@@ -2392,6 +2401,7 @@ function normalizeSandbox(rawSandbox) {
     files,
     selectedFileId,
     analysis: normalizeSandboxAnalysis(rawSandbox.analysis),
+    messages: normalizeSandboxMessages(rawSandbox.messages),
     statusText: typeof rawSandbox.statusText === "string" && rawSandbox.statusText.trim()
       ? rawSandbox.statusText.trim()
       : fallback.statusText
@@ -2443,7 +2453,20 @@ function ensureSessionWorkspace(session) {
   if (!session) {
     return createDefaultWorkspace();
   }
-  session.workspace = normalizeWorkspace(session.workspace);
+  const workspace = session.workspace;
+  const sandbox = workspace && workspace.sandbox;
+  if (
+    !workspace
+    || typeof workspace !== "object"
+    || !WORKSPACE_TAB_KEYS.includes(String(workspace.activeTab || "").toLowerCase())
+    || !sandbox
+    || typeof sandbox !== "object"
+    || !Array.isArray(sandbox.files)
+    || !sandbox.analysis
+    || !Array.isArray(sandbox.messages)
+  ) {
+    session.workspace = normalizeWorkspace(session.workspace);
+  }
   return session.workspace;
 }
 
@@ -2492,8 +2515,56 @@ function getCurrentSandboxState() {
   if (!current) {
     return createDefaultSandbox();
   }
-  current.workspace.sandbox = normalizeSandbox(current.workspace.sandbox);
+  const sandbox = current.workspace && current.workspace.sandbox;
+  if (
+    !sandbox
+    || typeof sandbox !== "object"
+    || !Array.isArray(sandbox.files)
+    || !sandbox.analysis
+    || !Array.isArray(sandbox.messages)
+  ) {
+    current.workspace.sandbox = normalizeSandbox(current.workspace.sandbox);
+  }
   return current.workspace.sandbox;
+}
+
+function getSandboxConversationMessages(sandbox = getCurrentSandboxState()) {
+  if (!sandbox || !Array.isArray(sandbox.messages)) return [];
+  return normalizeSandboxMessages(sandbox.messages);
+}
+
+function pushSandboxConversationMessage(role, content) {
+  const sandbox = getCurrentSandboxState();
+  const normalizedRole = role === "assistant" ? "assistant" : "user";
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text) return;
+  const nextMessages = getSandboxConversationMessages(sandbox);
+  nextMessages.push({ role: normalizedRole, content: text });
+  sandbox.messages = nextMessages.slice(-32);
+}
+
+function getActiveSandboxAnalysis(sandbox = getCurrentSandboxState()) {
+  const sessionId = currentSessionId || "";
+  if (sessionId && sandboxAnalysisMemory.has(sessionId)) {
+    return normalizeSandboxAnalysis(sandboxAnalysisMemory.get(sessionId));
+  }
+  return normalizeSandboxAnalysis(sandbox && sandbox.analysis);
+}
+
+function setActiveSandboxAnalysis(analysis) {
+  const normalized = normalizeSandboxAnalysis(analysis);
+  const sandbox = getCurrentSandboxState();
+  sandbox.analysis = normalized;
+  if (currentSessionId) {
+    sandboxAnalysisMemory.set(currentSessionId, normalized);
+  }
+  return normalized;
+}
+
+function clearActiveSandboxAnalysisMemory() {
+  if (currentSessionId) {
+    sandboxAnalysisMemory.delete(currentSessionId);
+  }
 }
 
 function getSelectedSandboxFile(sandbox = getCurrentSandboxState()) {
@@ -2686,14 +2757,26 @@ function deleteSelectedSandboxFile() {
 function clearSandboxAnalysis() {
   const sandbox = getCurrentSandboxState();
   sandbox.analysis = createDefaultSandboxAnalysis();
+  clearActiveSandboxAnalysisMemory();
   sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
+  syncCurrentSessionFromHistory();
+  renderSandboxUI();
+}
+
+function clearSandboxConversation() {
+  const sandbox = getCurrentSandboxState();
+  sandbox.analysis = createDefaultSandboxAnalysis();
+  clearActiveSandboxAnalysisMemory();
+  sandbox.messages = [];
+  sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
+  sandboxChatDraft = "";
   syncCurrentSessionFromHistory();
   renderSandboxUI();
 }
 
 function applySandboxAnalysis() {
   const sandbox = getCurrentSandboxState();
-  const plan = normalizeSandboxAnalysis(sandbox.analysis);
+  const plan = getActiveSandboxAnalysis(sandbox);
   if (!plan.files.length) {
     setSandboxStatus("No AI file changes to apply.", "idle");
     renderSandboxUI();
@@ -2727,36 +2810,68 @@ function applySandboxAnalysis() {
 }
 
 function renderSandboxAnalysisUI(analysis) {
-  if (!sandboxChangeList || !sandboxJsonPreview) return;
-  const files = Array.isArray(analysis.files) ? analysis.files : [];
-  const setupSteps = Array.isArray(analysis.setupSteps) ? analysis.setupSteps : [];
-  if (!files.length && !analysis.summary && !setupSteps.length) {
-    sandboxChangeList.innerHTML = '<div class="sandbox-empty-state">No AI file changes yet. Ask ROK to build or edit something in ROK CODE.</div>';
-    sandboxJsonPreview.textContent = "No structured JSON yet.";
-    return;
+  if (!sandboxJsonPreview) return;
+  const normalized = normalizeSandboxAnalysis(analysis);
+  sandboxJsonPreview.textContent = normalized.raw || "No structured JSON yet.";
+}
+
+function createSandboxChatMessageRow(role, text, options = {}) {
+  const { pending = false } = options;
+  const row = document.createElement("div");
+  row.className = `sandbox-chat-msg ${role === "assistant" ? "assistant" : "user"}`;
+
+  const label = document.createElement("div");
+  label.className = "sandbox-chat-label";
+  label.textContent = role === "assistant" ? "ROK" : "You";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain sandbox-chat-bubble";
+  if (pending) {
+    bubble.classList.add("is-pending");
+  }
+  setBubbleContent(bubble, text, role === "assistant");
+
+  row.appendChild(label);
+  row.appendChild(bubble);
+  return row;
+}
+
+function renderSandboxConversationUI(sandbox) {
+  if (!sandboxChatList) return;
+  const messages = getSandboxConversationMessages(sandbox);
+  sandboxChatList.textContent = "";
+
+  if (!messages.length && !(isSending && isSandboxSessionActive())) {
+    sandboxChatList.innerHTML = '<div class="sandbox-empty-state">No ROK CODE requests yet. Ask ROK to build or edit something here.</div>';
+  } else {
+    messages.forEach((item) => {
+      sandboxChatList.appendChild(createSandboxChatMessageRow(item.role, item.content));
+    });
+    if (isSending && isSandboxSessionActive()) {
+      sandboxChatList.appendChild(
+        createSandboxChatMessageRow("assistant", sandbox.statusText || "Analyzing ROK CODE...", { pending: true })
+      );
+    }
   }
 
-  const summaryHtml = analysis.summary
-    ? `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">Summary</span><span class="sandbox-change-action" data-action="update">Plan</span></div><p class="sandbox-change-reason">${escapeHtml(analysis.summary)}</p></div>`
-    : "";
-  const setupHtml = setupSteps.length
-    ? `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">Setup</span><span class="sandbox-change-action" data-action="create">Steps</span></div><p class="sandbox-change-reason">${setupSteps.map((item) => escapeHtml(item)).join("<br>")}</p></div>`
-    : "";
-  const fileCards = files
-    .map((change) => {
-      const content = String(change.content || "");
-      const lineCount = countLines(content);
-      const charCount = content.length;
-      return `<div class="sandbox-change-card"><div class="sandbox-change-top"><span class="sandbox-change-path">${escapeHtml(change.path)}</span><span class="sandbox-change-action" data-action="${escapeHtml(change.action)}">${escapeHtml(change.action)}</span></div><p class="sandbox-change-reason">${escapeHtml(change.reason || "AI proposed a file change.")}</p><p class="sandbox-change-meta">${escapeHtml(change.language || "text")} &middot; ${escapeHtml(lineCount.toLocaleString())} lines &middot; ${escapeHtml(charCount.toLocaleString())} chars</p></div>`;
-    })
-    .join("");
-  sandboxChangeList.innerHTML = `${summaryHtml}${setupHtml}${fileCards}` || '<div class="sandbox-empty-state">No AI file changes yet.</div>';
-  sandboxJsonPreview.textContent = analysis.raw || "No structured JSON yet.";
+  if (sandboxChatInput) {
+    if (document.activeElement !== sandboxChatInput) {
+      sandboxChatInput.value = sandboxChatDraft;
+    }
+    sandboxChatInput.disabled = isSending;
+    autoResizeSandboxChatInput();
+  }
+  if (sandboxChatSendBtn) {
+    sandboxChatSendBtn.textContent = isSending ? "Stop" : "Send";
+    sandboxChatSendBtn.disabled = false;
+  }
+  sandboxChatList.scrollTop = sandboxChatList.scrollHeight;
 }
 
 function renderSandboxUI() {
   if (!sandboxPanel) return;
   const sandbox = getCurrentSandboxState();
+  const activeAnalysis = getActiveSandboxAnalysis(sandbox);
   const selectedFile = getSelectedSandboxFile(sandbox);
   if (!selectedFile) {
     sandbox.selectedFileId = "";
@@ -2787,7 +2902,7 @@ function renderSandboxUI() {
     sandboxFileCount.textContent = `${sandbox.files.length.toLocaleString()} file${sandbox.files.length === 1 ? "" : "s"}`;
   }
   if (sandboxChangeCount) {
-    const planFiles = sandbox.analysis && Array.isArray(sandbox.analysis.files) ? sandbox.analysis.files.length : 0;
+    const planFiles = Array.isArray(activeAnalysis.files) ? activeAnalysis.files.length : 0;
     sandboxChangeCount.textContent = planFiles ? `${planFiles} AI change${planFiles === 1 ? "" : "s"}` : "No AI changes";
   }
   if (sandboxStatusChip) {
@@ -2810,15 +2925,20 @@ function renderSandboxUI() {
     sandboxFileEditor.disabled = !selectedFile;
   }
   if (sandboxSaveBtn) {
-    sandboxSaveBtn.disabled = !selectedFile;
+    sandboxSaveBtn.disabled = !selectedFile || isSending;
   }
   if (sandboxDeleteBtn) {
-    sandboxDeleteBtn.disabled = !selectedFile;
+    sandboxDeleteBtn.disabled = !selectedFile || isSending;
+  }
+  if (sandboxAnalyzeBtn) {
+    sandboxAnalyzeBtn.textContent = isSending ? "Stop" : "Analyze";
+    sandboxAnalyzeBtn.disabled = false;
   }
   if (sandboxApplyBtn) {
-    sandboxApplyBtn.disabled = !(sandbox.analysis && Array.isArray(sandbox.analysis.files) && sandbox.analysis.files.length);
+    sandboxApplyBtn.disabled = isSending || !(Array.isArray(activeAnalysis.files) && activeAnalysis.files.length);
   }
-  renderSandboxAnalysisUI(normalizeSandboxAnalysis(sandbox.analysis));
+  renderSandboxAnalysisUI(activeAnalysis);
+  renderSandboxConversationUI(sandbox);
 }
 
 function getWorkspaceTabContainers() {
@@ -4062,7 +4182,7 @@ function renderWorkspaceUI(options = {}) {
     workspaceSidebarTabsSection.hidden = false;
   }
   chat.hidden = activeTab !== "chat";
-  composerWrap.hidden = isMathTab;
+  composerWrap.hidden = isMathTab || isSandboxTab;
   workspacePanel.hidden = !isSandboxTab;
   if (mathPanel) {
     mathPanel.hidden = !isMathTab;
@@ -4096,7 +4216,9 @@ function renderWorkspaceUI(options = {}) {
   if (isSandboxTab) {
     renderSandboxUI();
     if (focus) {
-      if (sandboxFileEditor && !sandboxFileEditor.disabled) {
+      if (sandboxChatInput && !sandboxChatInput.disabled && !getCurrentSandboxState().files.length) {
+        sandboxChatInput.focus();
+      } else if (sandboxFileEditor && !sandboxFileEditor.disabled) {
         sandboxFileEditor.focus();
       } else if (sandboxNewFileBtn) {
         sandboxNewFileBtn.focus();
@@ -4285,7 +4407,7 @@ function buildSandboxChatSummary(analysis, modelId = "") {
   const setupLines = analysis.setupSteps.length
     ? `\n\nSetup:\n${analysis.setupSteps.map((item) => `- ${item}`).join("\n")}`
     : "";
-  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in the ROK CODE tab.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the ROK CODE panel to inspect the JSON and apply the changes.`;
+  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in ROK CODE.")}\n\nFiles:\n${fileLines}${setupLines}\n\nUse **Apply AI Changes** when the plan looks right.`;
 }
 
 async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
@@ -4318,8 +4440,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
       throw new Error(errorText || `ROK CODE request failed (${res.status})`);
     }
     const payload = await res.json().catch(() => null);
-    const analysis = parseSandboxAnalysisResponse(payload, promptText, analysisModel);
-    sandbox.analysis = analysis;
+    const analysis = setActiveSandboxAnalysis(parseSandboxAnalysisResponse(payload, promptText, analysisModel));
     sandbox.statusText = analysis.files.length
       ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
       : "Plan ready";
@@ -5077,6 +5198,13 @@ function ensureChatWelcomeElement() {
       };
       if (type === "code") {
         setActiveWorkspaceTab("sandbox", { focus: false });
+        sandboxChatDraft = prompts[type] || "";
+        if (sandboxChatInput) {
+          sandboxChatInput.value = sandboxChatDraft;
+          autoResizeSandboxChatInput();
+          sandboxChatInput.focus();
+        }
+        return;
       }
       if (input && prompts[type]) {
         input.value = prompts[type];
@@ -5808,6 +5936,39 @@ function autoResizeInput() {
   input.style.height = "auto";
   const next = Math.min(input.scrollHeight, 180);
   input.style.height = next + "px";
+}
+
+function autoResizeSandboxChatInput() {
+  if (!sandboxChatInput) return;
+  sandboxChatInput.style.height = "auto";
+  const next = Math.min(Math.max(sandboxChatInput.scrollHeight, 96), 220);
+  sandboxChatInput.style.height = next + "px";
+}
+
+function submitSandboxChatRequest(options = {}) {
+  const { forceDefault = false } = options;
+  if (isSending) {
+    stopGeneration();
+    return;
+  }
+  const draftText = String(sandboxChatInput ? sandboxChatInput.value : sandboxChatDraft || "").trim();
+  const nextText = draftText || (forceDefault ? SANDBOX_DEFAULT_PROMPT : "");
+  const sandbox = getCurrentSandboxState();
+  if (!nextText && !attachments.length && !(sandbox && sandbox.files.length)) {
+    return;
+  }
+  if (input) {
+    input.value = nextText;
+    autoResizeInput();
+  }
+  send();
+  if (isSending) {
+    sandboxChatDraft = "";
+    if (sandboxChatInput) {
+      sandboxChatInput.value = "";
+      autoResizeSandboxChatInput();
+    }
+  }
 }
 
 function renderKatexInElement(el) {
@@ -6555,6 +6716,9 @@ async function send() {
 
   addMessage("user", displayText);
   history.push({ role: "user", content: displayText });
+  if (sandboxActive) {
+    pushSandboxConversationMessage("user", displayText);
+  }
   trimHistoryToLimit();
   syncCurrentSessionFromHistory();
 
@@ -6568,6 +6732,9 @@ async function send() {
   nextAllowedAt = Date.now() + clientLimits.cooldownMs;
   startCooldownTimer();
   refreshSendState();
+  if (sandboxActive) {
+    renderSandboxUI();
+  }
 
   const typing = addMessage(
     "bot",
@@ -6863,8 +7030,10 @@ async function send() {
         setBubbleContent(bubble, chatSummary, true);
       }
       history.push({ role: "assistant", content: chatSummary });
+      pushSandboxConversationMessage("assistant", chatSummary);
       trimHistoryToLimit();
       syncCurrentSessionFromHistory();
+      renderSandboxUI();
       clearAttachments();
       return;
     }
@@ -7711,6 +7880,10 @@ async function send() {
       });
     }
 
+    if (sandboxActive) {
+      pushSandboxConversationMessage("assistant", `ROK CODE error: ${err.message}`);
+      renderSandboxUI();
+    }
     addMessage("system", "Error: " + err.message);
   } finally {
     restoreBotAvatar();
@@ -7718,6 +7891,9 @@ async function send() {
     stopRequested = false;
     isSending = false;
     refreshSendState();
+    if (sandboxActive) {
+      renderSandboxUI();
+    }
   }
 }
 
@@ -7848,15 +8024,7 @@ if (sandboxDeleteBtn) {
 
 if (sandboxAnalyzeBtn) {
   sandboxAnalyzeBtn.addEventListener("click", () => {
-    if (isSending) {
-      stopGeneration();
-      return;
-    }
-    if (!input.value.trim()) {
-      input.value = SANDBOX_DEFAULT_PROMPT;
-      autoResizeInput();
-    }
-    send();
+    submitSandboxChatRequest({ forceDefault: true });
   });
 }
 
@@ -7872,7 +8040,7 @@ if (sandboxApplyBtn) {
 
 if (sandboxClearAnalysisBtn) {
   sandboxClearAnalysisBtn.addEventListener("click", () => {
-    clearSandboxAnalysis();
+    clearSandboxConversation();
   });
 }
 
@@ -7911,6 +8079,25 @@ if (sandboxFileEditor) {
       e.preventDefault();
       saveSandboxDraftToState({ silent: false });
     }
+  });
+}
+
+if (sandboxChatInput) {
+  sandboxChatInput.addEventListener("input", () => {
+    sandboxChatDraft = sandboxChatInput.value;
+    autoResizeSandboxChatInput();
+  });
+  sandboxChatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitSandboxChatRequest();
+    }
+  });
+}
+
+if (sandboxChatSendBtn) {
+  sandboxChatSendBtn.addEventListener("click", () => {
+    submitSandboxChatRequest();
   });
 }
 
@@ -8372,6 +8559,7 @@ if (onboardingNameInput) {
 }
 
 autoResizeInput();
+autoResizeSandboxChatInput();
 setComposerTrayOpen(false);
 setWebSearchEnabled(false);
 setToolsEnabled(false);
