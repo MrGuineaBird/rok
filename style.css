@@ -7969,3 +7969,34 @@ button.stop-mode:hover {
   opacity: 0.6;
   cursor: default;
 }
+
+/* Final homescreen override: hide legacy layers and keep only the current shell. */
+#homeScreen {
+  justify-content: flex-start;
+  gap: 0;
+}
+
+#homeScreen .home-bg-demo,
+#homeScreen .hs-nav,
+#homeScreen .hs-hero,
+#homeScreen .hs-footer,
+#homeScreen #homeWorkspacePreview {
+  display: none !important;
+}
+
+#homeScreen .rok-home-shell {
+  display: grid !important;
+  width: min(1180px, 100%);
+  min-height: calc(100vh - 56px);
+  min-height: calc(100dvh - 56px);
+  margin: 0 auto;
+  padding: clamp(20px, 3vw, 30px) clamp(16px, 2.6vw, 28px);
+  box-sizing: border-box;
+}
+
+#homeScreen .rok-home-top,
+#homeScreen .rok-home-main,
+#homeScreen .rok-home-footer {
+  position: relative;
+  z-index: 2;
+}
