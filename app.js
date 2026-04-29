@@ -198,7 +198,7 @@ const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "qwen3.5:cloud";
+const DEFAULT_CHAT_MODEL = "gemma4:31b-cloud";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -217,61 +217,47 @@ const DEFAULT_USER_SETTINGS = {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "qwen3.5:cloud";
+const HERMES_MODEL_ID = "gemma4:31b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
-const UNOFFICIAL_MODEL_IDS = new Set([CHEESE_MODEL_ID, CHESS_MODEL_ID]);
+const UNOFFICIAL_MODEL_IDS = new Set();
 const DEFAULT_MODEL_OPTIONS = [
-  { id: HERMES_MODEL_ID, label: "ROK Hermes" },
-  { id: TITAN_MODEL_ID, label: "ROK Titan" },
-  { id: CHEESE_MODEL_ID, label: "ROK Cheese" },
-  { id: CHESS_MODEL_ID, label: "ROK Chess" }
+  { id: HERMES_MODEL_ID, label: "Hermes 1.2" }
 ];
 const KNOWN_MODEL_LABELS = {
-  [HERMES_MODEL_ID]: "ROK Hermes",
-  [TITAN_MODEL_ID]: "ROK Titan",
-  [CHEESE_MODEL_ID]: "ROK Cheese",
-  [CHESS_MODEL_ID]: "ROK Chess",
-  "gpt-oss:20b-cloud": "ROK Hermes",
-  "gpt-oss:120b-cloud": "ROK Titan",
-  [DAEDALUS_MODEL_ID]: "ROK Daedalus"
+  [HERMES_MODEL_ID]: "Hermes 1.2",
+  [TITAN_MODEL_ID]: "Hermes 1.2",
+  [CHEESE_MODEL_ID]: "Hermes 1.2",
+  [CHESS_MODEL_ID]: "Hermes 1.2",
+  "qwen3.5:cloud": "Hermes 1.2",
+  "qwen3.5:397b-cloud": "Hermes 1.2",
+  "gpt-oss:20b-cloud": "Hermes 1.2",
+  "gpt-oss:120b-cloud": "Hermes 1.2",
+  [DAEDALUS_MODEL_ID]: "Hermes 1.2"
 };
 const MODEL_DESCRIPTIONS = {
-  "qwen3.5:9b": "Hermes â€” swift and sharp. Fast responses for quick questions, experiments, and everyday drafting.",
-  "gpt-oss:20b-cloud": "ROK Hermes â€” fast cloud replies for everyday questions.",
-  "gpt-oss:120b-cloud": "ROK Titan â€” largest cloud model for deeper reasoning.",
-  "glm-5.1:cloud": "ROK Daedalus â€” specialized cloud model with its own daily message limit."
+  [HERMES_MODEL_ID]: "Hermes 1.2 - Gemma 4 31B Cloud for chat, coding, math, and image understanding.",
+  "qwen3.5:cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
+  "qwen3.5:397b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
+  "gpt-oss:20b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
+  "gpt-oss:120b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
+  "glm-5.1:cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud."
 };
-Object.assign(MODEL_DESCRIPTIONS, {
-  [HERMES_MODEL_ID]: "ROK Hermes - fast cloud replies for everyday questions.",
-  [TITAN_MODEL_ID]: "ROK Titan - largest cloud model for deeper reasoning.",
-  [CHEESE_MODEL_ID]: "ROK Cheese - unofficial GPT OSS 20B mode that only replies with cheese.",
-  [CHESS_MODEL_ID]: "ROK Chess - unofficial GPT OSS 20B mode that only replies with chess piece names.",
-  [DAEDALUS_MODEL_ID]: "ROK Daedalus - specialized cloud model with its own daily message limit."
-});
-Object.assign(MODEL_DESCRIPTIONS, {
-  [HERMES_MODEL_ID]: "ROK Hermes - Qwen 3.5 Cloud for quick questions, experiments, and everyday drafting.",
-  [TITAN_MODEL_ID]: "ROK Titan - Qwen 3.5 397B Cloud for deeper reasoning, coding, and image understanding.",
-  "gpt-oss:20b-cloud": "ROK Hermes - legacy alias now routed to Qwen 3.5 Cloud.",
-  "gpt-oss:120b-cloud": "ROK Titan - legacy alias now routed to Qwen 3.5 397B Cloud.",
-  "glm-5.1:cloud": "ROK Daedalus - specialized cloud model with its own daily message limit."
-});
 const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
-/** Text chat models shown in the composer (image uploads are server-routed to Titan). */
-const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, TITAN_MODEL_ID, CHEESE_MODEL_ID, CHESS_MODEL_ID];
+/** Text chat models shown in the composer (all chat and image routes now use Hermes 1.2). */
+const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
-  { label: "ROK", modelIds: [HERMES_MODEL_ID, TITAN_MODEL_ID] },
-  { label: "Unoffical", modelIds: [CHEESE_MODEL_ID, CHESS_MODEL_ID] }
+  { label: "ROK", modelIds: [HERMES_MODEL_ID] }
 ];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
-  [HERMES_MODEL_ID]: { label: "ROK Hermes", icon: "rokhermes.png", alt: "ROK Hermes" },
-  [TITAN_MODEL_ID]: { label: "ROK Titan", icon: "roktitan.png", alt: "ROK Titan" },
-  [CHEESE_MODEL_ID]: { label: "ROK Cheese", icon: "rokhermes.png", alt: "ROK Cheese" },
-  [CHESS_MODEL_ID]: { label: "ROK Chess", icon: "rokhermes.png", alt: "ROK Chess" },
-  [DAEDALUS_MODEL_ID]: { label: "ROK Daedalus", icon: "rokdaedalus.png", alt: "ROK Daedalus" }
+  [HERMES_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
+  [TITAN_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
+  [CHEESE_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
+  [CHESS_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
+  [DAEDALUS_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" }
 };
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -1455,7 +1441,7 @@ function forceHermesIfDaedalusLocked(notify = false) {
   if (notify && !isHomeScreenVisible()) {
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Daedalus unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `ROK Daedalus has reached its daily limit. Switched to ROK Hermes.${resetMsg}`);
+    addMessage("system", `That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
   }
 }
 
@@ -1500,8 +1486,8 @@ function forceHermesIfTitanLocked(notify = false) {
   setCurrentSessionModel(HERMES_MODEL_ID);
   if (notify && !isHomeScreenVisible()) {
     const remainingMs = getTitanLockRemainingMs();
-    const resetMsg = remainingMs > 0 ? ` Titan unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `ROK Titan is temporarily locked after reaching its message limit. You can use ROK Hermes until reset.${resetMsg}`);
+    const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
+    addMessage("system", `Hermes 1.2 is temporarily busy after reaching its message limit.${resetMsg}`);
   }
 }
 
@@ -1580,8 +1566,8 @@ function showThinkingBurnoutModal() {
   const remainingMs = getTitanLockRemainingMs();
   if (burnoutResetLabel) {
     burnoutResetLabel.textContent = remainingMs > 0
-      ? `ROK Titan unlocks in ${formatThinkingResetTime(remainingMs)}. During this cooldown, only ROK Hermes is available.`
-      : "ROK Titan is temporarily locked. During this cooldown, only ROK Hermes is available.";
+      ? `Hermes 1.2 unlocks in ${formatThinkingResetTime(remainingMs)}.`
+      : "Hermes 1.2 is temporarily busy.";
   }
   thinkingBurnoutModal.hidden = false;
   thinkingBurnoutModal.setAttribute("aria-hidden", "false");
@@ -3683,9 +3669,9 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const active = item.id === sessionModel;
   const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
   const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
-    ? "Temporarily locked. Use ROK Hermes until reset."
+    ? "Temporarily unavailable."
     : daedalusLocked && item.id === DAEDALUS_MODEL_ID
-    ? "Daily limit reached. Use ROK Hermes until reset."
+    ? "Daily limit reached."
     : "";
   const iconHtml = meta.icon
     ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
@@ -3774,12 +3760,12 @@ function setCurrentSessionModel(rawModel) {
   if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     showThinkingBurnoutModal();
-    showThinkingQuotaToast("ROK Titan is temporarily locked. Use ROK Hermes until the reset window ends.");
+    showThinkingQuotaToast("Hermes 1.2 is temporarily busy. Please wait for the reset window.");
   } else if (isDaedalusQuotaLocked() && requestedModel === DAEDALUS_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`ROK Daedalus daily limit reached. Use ROK Hermes.${resetMsg}`);
+    showThinkingQuotaToast(`That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
   }
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
@@ -7305,7 +7291,7 @@ async function send() {
   if (sessionModel === TITAN_MODEL_ID && isTitanQuotaLocked()) {
     forceHermesIfTitanLocked(false);
     showThinkingBurnoutModal();
-    showThinkingQuotaToast("ROK Titan is temporarily locked. Use ROK Hermes during the cooldown.");
+    showThinkingQuotaToast("Hermes 1.2 is temporarily busy. Please wait for the cooldown.");
     refreshComposerModelPicker();
     return;
   }
@@ -7313,7 +7299,7 @@ async function send() {
     forceHermesIfDaedalusLocked(false);
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`ROK Daedalus daily limit reached. Switched to ROK Hermes.${resetMsg}`);
+    showThinkingQuotaToast(`That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
     refreshComposerModelPicker();
     return;
   }

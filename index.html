@@ -104,7 +104,6 @@
             <img src="roklogo.png" alt="ROK" class="hs-nav-logo" />
           </button>
           <div class="hs-nav-links">
-            <a class="hs-nav-link" href="games/index.html">ROK Games</a>
             <a class="hs-nav-link" href="docs.html">Docs</a>
             <a class="hs-nav-link" href="about.html">About</a>
           </div>
@@ -125,8 +124,6 @@
             Start chatting
             <span class="hs-cta-arrow">→</span>
           </button>
-
-          <a href="games/index.html" class="hs-pictionary-cta">ROK Games</a>
 
           <div class="hs-pills">
             <span class="home-prompt-pill">Summarize this error log</span>
@@ -434,30 +431,15 @@ Change Scope: Short</p>
                       height="26"
                       alt=""
                     />
-                    <span id="modelPickerBtnText" class="composer-model-picker-text">ROK Hermes</span>
+                    <span id="modelPickerBtnText" class="composer-model-picker-text">Hermes 1.2</span>
                     <span class="composer-model-picker-chevron" aria-hidden="true"></span>
                   </button>
                   <div id="modelPickerMenu" class="composer-model-picker-menu" role="listbox" hidden>
                     <div class="composer-model-picker-group" role="presentation">
                       <div class="composer-model-picker-group-label">ROK</div>
-                      <button type="button" role="option" class="composer-model-picker-option is-active" data-model-id="qwen3.5:cloud" aria-selected="true">
-                        <img class="composer-model-picker-option-icon" src="rokhermes.png" width="28" height="28" alt="ROK Hermes" />
-                        <span class="composer-model-picker-option-label">ROK Hermes</span>
-                      </button>
-                      <button type="button" role="option" class="composer-model-picker-option" data-model-id="qwen3.5:397b-cloud" aria-selected="false">
-                        <img class="composer-model-picker-option-icon" src="roktitan.png" width="28" height="28" alt="ROK Titan" />
-                        <span class="composer-model-picker-option-label">ROK Titan</span>
-                      </button>
-                    </div>
-                    <div class="composer-model-picker-group" role="presentation">
-                      <div class="composer-model-picker-group-label">Unoffical</div>
-                      <button type="button" role="option" class="composer-model-picker-option" data-model-id="gpt-oss:20b-cheese" aria-selected="false">
-                        <img class="composer-model-picker-option-icon" src="rokhermes.png" width="28" height="28" alt="ROK Cheese" />
-                        <span class="composer-model-picker-option-label">ROK Cheese</span>
-                      </button>
-                      <button type="button" role="option" class="composer-model-picker-option" data-model-id="gpt-oss:20b-chess" aria-selected="false">
-                        <img class="composer-model-picker-option-icon" src="rokhermes.png" width="28" height="28" alt="ROK Chess" />
-                        <span class="composer-model-picker-option-label">ROK Chess</span>
+                      <button type="button" role="option" class="composer-model-picker-option is-active" data-model-id="gemma4:31b-cloud" aria-selected="true">
+                        <img class="composer-model-picker-option-icon" src="rokhermes.png" width="28" height="28" alt="Hermes 1.2" />
+                        <span class="composer-model-picker-option-label">Hermes 1.2</span>
                       </button>
                     </div>
                   </div>
@@ -660,7 +642,7 @@ Change Scope: Short</p>
           <h2 class="onboarding-title">Tabs &amp; tools</h2>
           <p class="onboarding-text">
             Switch between <strong>Chat</strong>, <strong>ROK CODE</strong> for file-based coding, and <strong>ROK MATH</strong> for the graphing calculator.
-            Use the model picker in the composer to swap between Hermes, Titan, and Daedalus while you work.
+            ROK now runs on <strong>Hermes 1.2</strong> across chat, code, and math.
           </p>
         </div>
         <div id="onboardingSlide3" class="onboarding-slide" hidden data-onb-slide="3">
@@ -688,20 +670,20 @@ Change Scope: Short</p>
     </div>
   </section>
 
-  <!-- Titan limit modal — shown when the Titan message cap is reached -->
+  <!-- Busy modal -->
   <section id="thinkingBurnoutModal" class="burnout-modal" hidden aria-hidden="true">
     <div class="burnout-card" role="dialog" aria-modal="true" aria-labelledby="burnoutTitle">
       <div class="burnout-head">
-        <span class="burnout-badge">⚡ Titan Limit Reached</span>
+        <span class="burnout-badge">⚡ Hermes 1.2 Busy</span>
         <button id="burnoutCloseBtn" class="burnout-close" type="button" aria-label="Close">✕</button>
       </div>
       <div class="burnout-emoji" aria-hidden="true">
         <img src="tiredrok.png" alt="" class="burnout-emoji-img" width="200" height="200" decoding="async" />
       </div>
-      <h2 id="burnoutTitle" class="burnout-title">ROK Titan is temporarily locked.</h2>
+      <h2 id="burnoutTitle" class="burnout-title">Hermes 1.2 is temporarily busy.</h2>
       <p class="burnout-body">
-        ROK Titan has hit its message cap.
-        For now, you can continue chatting with ROK Hermes.
+        Hermes 1.2 has hit a temporary limit.
+        Please wait for the cooldown to finish and try again.
       </p>
       <p id="burnoutResetLabel" class="burnout-reset"></p>
       <button id="burnoutOkBtn" class="burnout-btn" type="button">Got it!</button>
