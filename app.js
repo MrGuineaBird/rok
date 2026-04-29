@@ -79,6 +79,7 @@ const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
 const homeStartBtn = document.getElementById("homeStartBtn");
+const homeStartBtnAlt = document.getElementById("homeStartBtnAlt");
 const clearBtn = document.getElementById("clearBtn");
 const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
 const chatSearchBar = document.getElementById("chatSearchBar");
@@ -1450,6 +1451,11 @@ function forceHermesIfDaedalusLocked(notify = false) {
 }
 
 function applyDaedalusQuota(quota) {
+  if (!MODEL_IDS.has(DAEDALUS_MODEL_ID) || !COMPOSER_TEXT_MODEL_ORDER.includes(DAEDALUS_MODEL_ID)) {
+    setDaedalusLockUntil(0);
+    serverDaedalusQuota = { count: 0, limit: 0, exhausted: false, resetSec: 0, updatedAt: Date.now() };
+    return;
+  }
   if (!quota || typeof quota !== "object") return;
   const wasExhausted = Boolean(serverDaedalusQuota.exhausted);
   const limitVal = typeof quota.limit === "number" ? quota.limit : serverDaedalusQuota.limit;
@@ -9219,6 +9225,16 @@ if (brandHomeBtn) {
 
 if (homeStartBtn) {
   homeStartBtn.addEventListener("click", () => {
+    if (!isOnboardingCompleted()) {
+      openOnboardingModal();
+      return;
+    }
+    enterAppWithTosCheck();
+  });
+}
+
+if (homeStartBtnAlt) {
+  homeStartBtnAlt.addEventListener("click", () => {
     if (!isOnboardingCompleted()) {
       openOnboardingModal();
       return;
