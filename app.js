@@ -7462,9 +7462,15 @@ async function send() {
   );
   const botAvatar = typing.row.querySelector(".avatar");
   const botAvatarMarkup = botAvatar ? botAvatar.innerHTML : "R";
-  const showGeneratingAvatar = () => {
+  const setBotAvatarGif = (src) => {
     if (!botAvatar) return;
-    botAvatar.innerHTML = '<img src="rokgenerating.gif" class="avatar-gif" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    botAvatar.innerHTML = `<img src="${src}" class="avatar-gif" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  };
+  const showThinkingAvatar = () => {
+    setBotAvatarGif("rokthinking.gif");
+  };
+  const showGeneratingAvatar = () => {
+    setBotAvatarGif("rokgenerating.gif");
   };
   const restoreBotAvatar = () => {
     if (!botAvatar) return;
@@ -7530,7 +7536,11 @@ async function send() {
     storyCanvas = mounted.storyCanvas;
     thinkingPanel = mounted.thinkingPanel;
     typingIndicator = mounted.typingIndicator;
-    showGeneratingAvatar();
+    if (requestShouldThink) {
+      showThinkingAvatar();
+    } else {
+      showGeneratingAvatar();
+    }
     typingRowConverted = true;
     scrollToBottom();
   };
@@ -7585,6 +7595,9 @@ async function send() {
     if (writeBackToWorkspace || !thinkingPanel) return;
     const piece = String(chunk || "");
     if (!piece) return;
+    if (!answerStarted) {
+      showThinkingAvatar();
+    }
     thinkingText += piece;
     if (!thinkingText.trim()) {
       return;
@@ -7697,6 +7710,7 @@ async function send() {
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
+    showGeneratingAvatar();
     if (thinkingPanel && !thinkingText.trim()) {
       setThinkingSummaryLabel("Thinking...");
     }
