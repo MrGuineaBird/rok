@@ -180,6 +180,10 @@ const DEFAULT_CLIENT_LIMITS = {
   maxFileChars: 8000,        // was 12000
   maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
 };
+const FAST_REPLY_HISTORY_LIMIT = 6;
+const FAST_REPLY_MAX_TOKENS = 192;
+const SHORT_REPLY_HISTORY_LIMIT = 10;
+const SHORT_REPLY_MAX_TOKENS = 384;
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
@@ -3642,6 +3646,15 @@ function shouldEnableThinkingForRequest(modelId = "", options = {}) {
     return false;
   }
 
+  const signals = getPromptComplexitySignals(text);
+  return signals.codeLike
+    || signals.mathLike
+    || signals.analysisLike
+    || signals.multipart
+    || signals.wordCount >= 40
+    || text.length >= 240
+    || workspaceContext.length >= 400;
+
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const lineCount = text.split(/\r?\n/).filter((line) => line.trim()).length;
   const questionCount = (text.match(/\?/g) || []).length;
@@ -3661,6 +3674,83 @@ function shouldEnableThinkingForRequest(modelId = "", options = {}) {
     || wordCount >= 40
     || text.length >= 240
     || workspaceContext.length >= 400;
+}
+
+function getPromptComplexitySignals(rawText = "") {
+  const text = String(rawText || "").trim();
+  const wordCount = countWords(text);
+  const lineCount = text ? text.split(/\r?\n/).filter((line) => line.trim()).length : 0;
+  const questionCount = (text.match(/\?/g) || []).length;
+  const codeLike = /```|<\/?[a-z][^>]*>|=>|[{};]{2,}|^\s*(?:const|let|var|function|class|def|import|from|if|for|while|return)\b/m.test(text);
+  const mathLike = /\b(?:prove|derive|equation|integral|differentiat|matrix|probability|algebra|calculus|geometry|solve)\b/i.test(text)
+    || /(?:\d+\s*[\+\-*\/^=]\s*\d+)|[âˆ‘âˆšÏ€â‰ˆâ‰¤â‰¥]/u.test(text);
+  const analysisLike = /\b(?:debug|diagnos(?:e|is)|analy[sz]e|explain why|reason through|think through|step by step|walk me through|compare|trade[- ]?offs?|plan|strategy|architecture|refactor|optimi[sz]e|investigate|root cause|edge cases?)\b/i.test(text);
+  const multipart = lineCount >= 4
+    || questionCount >= 2
+    || /\b(?:first|second|third)\b/i.test(text)
+    || /^\s*(?:[-*]|\d+\.)\s+/m.test(text);
+  return {
+    text,
+    wordCount,
+    lineCount,
+    questionCount,
+    codeLike,
+    mathLike,
+    analysisLike,
+    multipart
+  };
+}
+
+function getChatRequestBudget(options = {}) {
+  const text = String(options.text || options.prompt || "").trim();
+  const workspaceContext = String(options.workspaceContext || "").trim();
+  const attachments = Array.isArray(options.attachments) ? options.attachments : [];
+  const sandboxFiles = Array.isArray(options.sandboxFiles) ? options.sandboxFiles : [];
+  const toolsEnabled = options.toolsEnabled === true;
+  const webSearchEnabled = options.webSearchEnabled === true;
+  const defaultHistoryLimit = getHistoryLimitValue();
+  const defaultMaxTokens = normalizeClientLimit(
+    clientLimits.maxResponseTokens,
+    DEFAULT_CLIENT_LIMITS.maxResponseTokens,
+    32,
+    8192
+  );
+
+  if (attachments.length || sandboxFiles.length || workspaceContext || toolsEnabled || webSearchEnabled) {
+    return {
+      historyLimit: defaultHistoryLimit,
+      maxTokens: defaultMaxTokens,
+      profile: "full"
+    };
+  }
+
+  const signals = getPromptComplexitySignals(text);
+  const looksComplex = signals.codeLike
+    || signals.mathLike
+    || signals.analysisLike
+    || signals.multipart;
+
+  if (!signals.text || (!looksComplex && signals.wordCount <= 18 && signals.text.length <= 120 && signals.lineCount <= 2)) {
+    return {
+      historyLimit: Math.min(defaultHistoryLimit, FAST_REPLY_HISTORY_LIMIT),
+      maxTokens: Math.min(defaultMaxTokens, FAST_REPLY_MAX_TOKENS),
+      profile: "fast"
+    };
+  }
+
+  if (!looksComplex && signals.wordCount <= 40 && signals.text.length <= 240 && signals.lineCount <= 3) {
+    return {
+      historyLimit: Math.min(defaultHistoryLimit, SHORT_REPLY_HISTORY_LIMIT),
+      maxTokens: Math.min(defaultMaxTokens, SHORT_REPLY_MAX_TOKENS),
+      profile: "short"
+    };
+  }
+
+  return {
+    historyLimit: defaultHistoryLimit,
+    maxTokens: defaultMaxTokens,
+    profile: "full"
+  };
 }
 
 function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked) {
@@ -7324,8 +7414,17 @@ async function send() {
     attachments,
     sandboxFiles: sessionSandbox ? sessionSandbox.files : []
   });
-  const intentHistory = history.slice(-Math.min(getHistoryLimitValue(), INTENT_HISTORY_CONTEXT_LIMIT));
-  const recentHistory = history.slice(-getHistoryLimitValue());
+  const requestBudget = getChatRequestBudget({
+    text: text || displayText,
+    workspaceContext: sessionWorkspaceContext,
+    attachments,
+    sandboxFiles: sessionSandbox ? sessionSandbox.files : [],
+    toolsEnabled,
+    webSearchEnabled
+  });
+  const requestHistoryLimit = Math.max(1, Math.min(getHistoryLimitValue(), requestBudget.historyLimit || getHistoryLimitValue()));
+  const intentHistory = history.slice(-Math.min(requestHistoryLimit, INTENT_HISTORY_CONTEXT_LIMIT));
+  const recentHistory = history.slice(-requestHistoryLimit);
   const priorHistoryLength = history.length;
 
   addMessage("user", displayText);
@@ -7709,7 +7808,7 @@ async function send() {
       attachments: attachmentsPayload,
       history: recentHistory,
       model: sessionModel,
-      max_tokens: clientLimits.maxResponseTokens,
+      max_tokens: requestBudget.maxTokens,
       enable_thinking: requestShouldThink
     });
     if (webSearchEnabled) {
@@ -7861,7 +7960,7 @@ async function send() {
               attachments: [],
               history: toolHistory,
               model: sessionModel,
-              max_tokens: clientLimits.maxResponseTokens,
+              max_tokens: requestBudget.maxTokens,
               enable_thinking: requestShouldThink,
               tools: BUILTIN_TOOLS
             });
@@ -8213,7 +8312,7 @@ async function send() {
             attachments: [],
             history: toolHistory,
             model: sessionModel,
-            max_tokens: clientLimits.maxResponseTokens,
+            max_tokens: requestBudget.maxTokens,
             enable_thinking: requestShouldThink,
             tools: BUILTIN_TOOLS
           });
