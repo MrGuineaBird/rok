@@ -942,7 +942,7 @@ async function readChatTextResponse(response) {
   if (!reader) {
     const bodyText = await safeReadResponseText(response);
     const separated = splitThinkingFromText(bodyText);
-    return separated.answer || bodyText || "";
+    return separated.answer || (separated.thinking ? "" : bodyText) || "";
   }
 
   const decoder = new TextDecoder("utf-8");
@@ -1063,7 +1063,7 @@ async function readChatTextResponse(response) {
   }
 
   const separated = splitThinkingFromText(answer);
-  return separated.answer || answer || "";
+  return separated.answer || (separated.thinking ? "" : answer) || "";
 }
 
 async function generateThinkingTitle(thinkingText = "", modelId = "") {
@@ -7640,24 +7640,58 @@ async function send() {
       bubble.removeAttribute("data-retry-status");
     }
 
+    if (bubble && !isRetryStatus && !answerStarted && !String(partialText || "").trim()) {
+      bubble.classList.remove("markdown");
+      bubble.classList.add("plain");
+      bubble.textContent = value;
+    }
+
     scrollToBottom();
+  };
+  const getToolCallName = (toolCall) => {
+    const fn = toolCall && (toolCall.function || toolCall);
+    return String((fn && fn.name) || "").trim().toLowerCase();
+  };
+  const isSlashToolDraft = (text) => /^\/(websearch|web_search|webfetch|web_fetch)\b/i.test(String(text || "").trim());
+  const isJsonToolDraft = (text) => {
+    const trimmed = String(text || "").trim();
+    return /^\{[\s\S]*\}$/.test(trimmed) && (/"query"\s*:/.test(trimmed) || /"url"\s*:/.test(trimmed));
+  };
+  const shouldHideAssistantToolDraft = (toolCalls, assistantContent) => {
+    const trimmed = String(assistantContent || "").trim();
+    if (!trimmed) return false;
+    const toolNames = Array.isArray(toolCalls)
+      ? toolCalls.map((toolCall) => getToolCallName(toolCall)).filter(Boolean)
+      : [];
+    if (!toolNames.length) return false;
+    const onlyWebTools = toolNames.every((name) => name === "web_search" || name === "web_fetch");
+    if (!onlyWebTools) return false;
+    return isSlashToolDraft(trimmed) || isJsonToolDraft(trimmed);
+  };
+  const getToolStatusText = (toolCalls) => {
+    const toolNames = Array.isArray(toolCalls)
+      ? toolCalls.map((toolCall) => getToolCallName(toolCall)).filter(Boolean)
+      : [];
+    if (toolNames.length && toolNames.every((name) => name === "web_search" || name === "web_fetch")) {
+      return "Searching the web...";
+    }
+    const callNames = toolNames.length ? toolNames.join(", ") : "unknown";
+    return `Calling tool${toolCalls.length > 1 ? "s" : ""}: ${callNames}`;
   };
   const handleToolCalls = (toolCalls, assistantContent) => {
     if (!Array.isArray(toolCalls) || !toolCalls.length) return;
     markAssistantStreamStarted();
+    const visibleAssistantContent = shouldHideAssistantToolDraft(toolCalls, assistantContent)
+      ? ""
+      : String(assistantContent || "");
     // Collect tool calls for auto-execution after stream ends
     for (const tc of toolCalls) {
-      pendingToolCalls.push({ ...tc, _assistantContent: assistantContent || "" });
+      pendingToolCalls.push({ ...tc, _assistantContent: visibleAssistantContent });
     }
-    // Show a status line for each tool call the model wants to make
-    const callNames = toolCalls.map(tc => {
-      const fn = tc.function || tc;
-      return fn.name || "unknown";
-    }).join(", ");
-    handleStatusUpdate(`Calling tool${toolCalls.length > 1 ? "s" : ""}: ${callNames}`);
+    handleStatusUpdate(getToolStatusText(toolCalls));
     // If the model also produced text content alongside tool calls, show it
-    if (assistantContent && typeof assistantContent === "string" && assistantContent.trim()) {
-      consumeTaggedTokenChunk(assistantContent);
+    if (visibleAssistantContent.trim()) {
+      consumeTaggedTokenChunk(visibleAssistantContent);
     }
   };
   const noteAnswerStarted = () => {
@@ -7795,6 +7829,7 @@ async function send() {
 
     const messageForApi = buildMessageForApi(text, workspaceContext);
     const attachmentsPayload = buildAttachmentsPayload();
+    const imageAttachmentCount = attachmentsPayload.filter((item) => item && item.type === "image").length;
     if (writeBackToWorkspace) {
       setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
         intentText: hasWorkspaceContext
@@ -7808,6 +7843,13 @@ async function send() {
 
     console.log("sending chat request...");
     activeRequestController = new AbortController();
+    if (!writeBackToWorkspace) {
+      if (imageAttachmentCount > 0) {
+        handleStatusUpdate(`Analyzing image${imageAttachmentCount === 1 ? "" : "s"}...`);
+      } else if (webSearchEnabled) {
+        handleStatusUpdate("Searching the web...");
+      }
+    }
     const requestBody = withLocalKnowledge({
       message: messageForApi,
       workspace_context: workspaceContext,
@@ -7899,8 +7941,8 @@ async function send() {
       if (separatedReply.thinking) {
         handleThinking(separatedReply.thinking);
       }
-      reply = separatedReply.answer || reply;
-      partialText = reply;
+      reply = separatedReply.answer || (separatedReply.thinking ? "" : reply);
+      partialText = reply || "(No response)";
       if (partialText) {
         noteAnswerStarted();
       }
@@ -8047,25 +8089,10 @@ async function send() {
         // After tool loop, finalize the text
         flushTaggedTokenCarry();
         finalizeThinkingPanel(Boolean(partialText), true);
-        if (!partialText && thinkingText && thinkingText.trim()) {
-          partialText = thinkingText.trim();
-          thinkingText = "";
-          if (thinkingPanel) thinkingPanel.shell.hidden = true;
-        }
       }
 
       if (!partialText) {
-        // The model may have answered entirely inside <think> tags with no
-        // separate answer â€” surface the thinking content rather than "(No response)".
-        if (thinkingText && thinkingText.trim()) {
-          partialText = thinkingText.trim();
-          thinkingText = "";
-          if (thinkingPanel) {
-            thinkingPanel.shell.hidden = true;
-          }
-        } else {
-          partialText = "(No response)";
-        }
+        partialText = "(No response)";
       }
       removeTypingIndicator();
 
@@ -8382,25 +8409,10 @@ async function send() {
 
       flushTaggedTokenCarry();
       finalizeThinkingPanel(Boolean(partialText), true);
-      if (!partialText && thinkingText && thinkingText.trim()) {
-        partialText = thinkingText.trim();
-        thinkingText = "";
-        if (thinkingPanel) thinkingPanel.shell.hidden = true;
-      }
     }
 
     if (!partialText) {
-      // The model may have answered entirely inside <think> tags with no
-      // separate answer â€” surface the thinking content rather than "(No response)".
-      if (thinkingText && thinkingText.trim()) {
-        partialText = thinkingText.trim();
-        thinkingText = "";
-        if (thinkingPanel) {
-          thinkingPanel.shell.hidden = true;
-        }
-      } else {
-        partialText = "(No response)";
-      }
+      partialText = "(No response)";
     }
     removeTypingIndicator();
 
