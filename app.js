@@ -179,12 +179,12 @@ const DEFAULT_CLIENT_LIMITS = {
   maxTotalImageBytes: 16 * 1024 * 1024,
   maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
   maxFileChars: 8000,        // was 12000
-  maxResponseTokens: 2048    // was 600 on client but 8192 on server; aligned to server default
+  maxResponseTokens: 8000
 };
 const FAST_REPLY_HISTORY_LIMIT = 6;
-const FAST_REPLY_MAX_TOKENS = 192;
+const FAST_REPLY_MAX_TOKENS = 384;
 const SHORT_REPLY_HISTORY_LIMIT = 10;
-const SHORT_REPLY_MAX_TOKENS = 384;
+const SHORT_REPLY_MAX_TOKENS = 768;
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
