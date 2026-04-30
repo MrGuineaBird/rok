@@ -203,7 +203,7 @@ const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "gemma4:31b-cloud";
+const DEFAULT_CHAT_MODEL = "gemini-3-flash-preview";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -222,47 +222,51 @@ const DEFAULT_USER_SETTINGS = {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "gemma4:31b-cloud";
+const HERMES_MODEL_ID = "gemini-3-flash-preview";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
+const HERMES_LABEL = "Hermes 1.3";
+const HERMES_PROVIDER_NAME = "Gemini 3 Flash Preview";
 const DEFAULT_MODEL_OPTIONS = [
-  { id: HERMES_MODEL_ID, label: "Hermes 1.2" }
+  { id: HERMES_MODEL_ID, label: HERMES_LABEL }
 ];
 const KNOWN_MODEL_LABELS = {
-  [HERMES_MODEL_ID]: "Hermes 1.2",
-  [TITAN_MODEL_ID]: "Hermes 1.2",
-  [CHEESE_MODEL_ID]: "Hermes 1.2",
-  [CHESS_MODEL_ID]: "Hermes 1.2",
-  "qwen3.5:cloud": "Hermes 1.2",
-  "qwen3.5:397b-cloud": "Hermes 1.2",
-  "gpt-oss:20b-cloud": "Hermes 1.2",
-  "gpt-oss:120b-cloud": "Hermes 1.2",
-  [DAEDALUS_MODEL_ID]: "Hermes 1.2"
+  [HERMES_MODEL_ID]: HERMES_LABEL,
+  [TITAN_MODEL_ID]: HERMES_LABEL,
+  [CHEESE_MODEL_ID]: HERMES_LABEL,
+  [CHESS_MODEL_ID]: HERMES_LABEL,
+  "gemma4:31b-cloud": HERMES_LABEL,
+  "qwen3.5:cloud": HERMES_LABEL,
+  "qwen3.5:397b-cloud": HERMES_LABEL,
+  "gpt-oss:20b-cloud": HERMES_LABEL,
+  "gpt-oss:120b-cloud": HERMES_LABEL,
+  [DAEDALUS_MODEL_ID]: HERMES_LABEL
 };
 const MODEL_DESCRIPTIONS = {
-  [HERMES_MODEL_ID]: "Hermes 1.2 - Gemma 4 31B Cloud for chat, coding, math, and image understanding.",
-  "qwen3.5:cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
-  "qwen3.5:397b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
-  "gpt-oss:20b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
-  "gpt-oss:120b-cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud.",
-  "glm-5.1:cloud": "Hermes 1.2 - legacy alias now routed to Gemma 4 31B Cloud."
+  [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, math, and image understanding.`,
+  "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
+  "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
+  "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
+  "gpt-oss:20b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
+  "gpt-oss:120b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
+  "glm-5.1:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`
 };
 const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
-/** Text chat models shown in the composer (all chat and image routes now use Hermes 1.2). */
+/** Text chat models shown in the composer (all chat and image routes now use Hermes 1.3). */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
   { label: "ROK", modelIds: [HERMES_MODEL_ID] }
 ];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
-  [HERMES_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
-  [TITAN_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
-  [CHEESE_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
-  [CHESS_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" },
-  [DAEDALUS_MODEL_ID]: { label: "Hermes 1.2", icon: "rokhermes.png", alt: "Hermes 1.2" }
+  [HERMES_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
+  [TITAN_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
+  [CHEESE_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
+  [CHESS_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
+  [DAEDALUS_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL }
 };
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -1453,7 +1457,7 @@ function forceHermesIfDaedalusLocked(notify = false) {
   if (notify && !isHomeScreenVisible()) {
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Daedalus unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
+    addMessage("system", `That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
   }
 }
 
@@ -1504,7 +1508,7 @@ function forceHermesIfTitanLocked(notify = false) {
   if (notify && !isHomeScreenVisible()) {
     const remainingMs = getTitanLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `Hermes 1.2 is temporarily busy after reaching its message limit.${resetMsg}`);
+    addMessage("system", `${HERMES_LABEL} is temporarily busy after reaching its message limit.${resetMsg}`);
   }
 }
 
@@ -1583,8 +1587,8 @@ function showThinkingBurnoutModal() {
   const remainingMs = getTitanLockRemainingMs();
   if (burnoutResetLabel) {
     burnoutResetLabel.textContent = remainingMs > 0
-      ? `Hermes 1.2 unlocks in ${formatThinkingResetTime(remainingMs)}.`
-      : "Hermes 1.2 is temporarily busy.";
+      ? `${HERMES_LABEL} unlocks in ${formatThinkingResetTime(remainingMs)}.`
+      : `${HERMES_LABEL} is temporarily busy.`;
   }
   thinkingBurnoutModal.hidden = false;
   thinkingBurnoutModal.setAttribute("aria-hidden", "false");
@@ -3863,12 +3867,12 @@ function setCurrentSessionModel(rawModel) {
   if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     showThinkingBurnoutModal();
-    showThinkingQuotaToast("Hermes 1.2 is temporarily busy. Please wait for the reset window.");
+    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the reset window.`);
   } else if (isDaedalusQuotaLocked() && requestedModel === DAEDALUS_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
+    showThinkingQuotaToast(`That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
   }
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
@@ -7394,7 +7398,7 @@ async function send() {
   if (sessionModel === TITAN_MODEL_ID && isTitanQuotaLocked()) {
     forceHermesIfTitanLocked(false);
     showThinkingBurnoutModal();
-    showThinkingQuotaToast("Hermes 1.2 is temporarily busy. Please wait for the cooldown.");
+    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the cooldown.`);
     refreshComposerModelPicker();
     return;
   }
@@ -7402,7 +7406,7 @@ async function send() {
     forceHermesIfDaedalusLocked(false);
     const remainingMs = getDaedalusLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`That model hit its daily limit. Hermes 1.2 remains active.${resetMsg}`);
+    showThinkingQuotaToast(`That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
     refreshComposerModelPicker();
     return;
   }
