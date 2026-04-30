@@ -389,11 +389,19 @@
     const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
     const runtimeApiBase =
       (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
+    const runtimeHost =
+      (typeof window !== "undefined" && window.location && window.location.hostname)
+        ? String(window.location.hostname).toLowerCase()
+        : "";
+    const defaultApiBase =
+      (runtimeHost === "127.0.0.1" || runtimeHost === "localhost" || runtimeHost === "::1")
+        ? ""
+        : "https://rokbackendreal.kyklos.online";
     const ROK_API_BASE = String(
       runtimeApiBase ||
       runtimeConfig.apiBase ||
       getStoredApiBase() ||
-      "https://rokbackendreal.kyklos.online"
+      defaultApiBase
     ).trim().replace(/\/+$/, "");
 
     const API_URL = ROK_API_BASE + "/api/chat";
