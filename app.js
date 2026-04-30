@@ -1066,46 +1066,53 @@ async function readChatTextResponse(response) {
   return separated.answer || (separated.thinking ? "" : answer) || "";
 }
 
-async function generateThinkingTitle(thinkingText = "", modelId = "") {
+function buildLocalThinkingTitle(thinkingText = "") {
   const excerpt = String(thinkingText || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[`*_#>\[\]()]/g, " ")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
+    .trim();
 
   if (!excerpt) {
     return "";
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-  try {
-    const prompt = [
-      "Return only a 4 to 7 word title for this reasoning excerpt.",
-      "No punctuation.",
-      "No quotes.",
-      "No markdown.",
-      "No explanation.",
-      `Excerpt: ${excerpt}`
-    ].join("\n");
-    const res = await fetchWithBanGuard(API_URL, {
-      method: "POST",
-      headers: buildApiHeaders(true),
-      signal: controller.signal,
-    
-      body: JSON.stringify({
-        message: prompt,
-        history: [],
-        model: getOperationalModelId(modelId || getCurrentSessionModel()),
-        max_tokens: 24,
-        skip_tools: true,
-        enable_thinking: false
-      })
-    });
-    return normalizeThinkingTitle(await readChatTextResponse(res));
-  } finally {
-    clearTimeout(timeoutId);
+  const lower = excerpt.toLowerCase();
+  const keywordTitles = [
+    [/\b(debug|bug|error|stack trace|root cause|trace)\b/i, "Tracing the root cause"],
+    [/\b(refactor|function|component|api|endpoint|schema|query|code)\b/i, "Planning the code change"],
+    [/\b(algebra|geometry|calculus|equation|solve|math|proof)\b/i, "Working through the math"],
+    [/\b(compare|trade[- ]?off|option|choose|decision)\b/i, "Comparing the main options"],
+    [/\b(search|research|source|evidence|fact check)\b/i, "Gathering the key facts"],
+    [/\b(image|photo|screenshot|vision)\b/i, "Reviewing the image details"]
+  ];
+  for (const [pattern, title] of keywordTitles) {
+    if (pattern.test(lower)) {
+      return title;
+    }
   }
+
+  const cleaned = excerpt
+    .replace(/^(?:okay|ok|so|well|right|first|lets|let's|i need to|we need to)\s+/i, "")
+    .replace(/[.,;:!?]+/g, " ");
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (!words.length) {
+    return "Reasoning";
+  }
+
+  let selected = words.slice(0, Math.min(words.length, 6));
+  if (selected.length < 4 && words.length > selected.length) {
+    selected = words.slice(0, Math.min(words.length, 7));
+  }
+
+  const title = selected.join(" ");
+  return normalizeThinkingTitle(title || "Reasoning");
+}
+
+async function generateThinkingTitle(thinkingText = "", modelId = "") {
+  void modelId;
+  return buildLocalThinkingTitle(thinkingText);
 }
 
 function normalizeClientLimit(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
