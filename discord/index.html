@@ -173,6 +173,27 @@
       font-size: 0.94rem;
     }
 
+    .embed-wrap {
+      padding: 0 28px 28px;
+    }
+
+    .embed-card {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.12));
+      padding: 18px;
+    }
+
+    widgetbot {
+      display: block;
+      width: min(100%, 800px);
+      height: min(72vh, 600px);
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
     .footer {
       padding: 0 28px 28px;
       color: var(--muted);
@@ -188,12 +209,18 @@
     @media (max-width: 720px) {
       .hero,
       .launch-wrap,
+      .embed-wrap,
       .footer {
         padding-left: 18px;
         padding-right: 18px;
       }
 
       .launch-card {
+        padding: 12px;
+        border-radius: 18px;
+      }
+
+      .embed-card {
         padding: 12px;
         border-radius: 18px;
       }
@@ -230,33 +257,57 @@
         </div>
       </section>
 
+      <section class="embed-wrap">
+        <div class="embed-card">
+          <widgetbot
+            server="1499192505927864370"
+            width="800"
+            height="600"
+          ></widgetbot>
+        </div>
+      </section>
+
       <div class="footer">
         Need the full app instead? <a href="/">Go back to ROK</a>.
       </div>
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@widgetbot/crate@3" async defer>
-    new Crate({
-      server: '1499192505927864370'
-    })
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@widgetbot/html-embed"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@widgetbot/crate@3" async defer></script>
   <script>
+    const ROK_DISCORD_SERVER_ID = "1499192505927864370";
+    let rokDiscordCrate = null;
+
+    const ensureDiscordCrate = () => {
+      if (rokDiscordCrate || !window.Crate) return rokDiscordCrate;
+      rokDiscordCrate = new window.Crate({
+        server: ROK_DISCORD_SERVER_ID
+      });
+      return rokDiscordCrate;
+    };
+
     window.addEventListener("load", () => {
       const openBtn = document.getElementById("openDiscordCrateBtn");
+      ensureDiscordCrate();
+      window.setTimeout(ensureDiscordCrate, 500);
       if (!openBtn) return;
       openBtn.addEventListener("click", () => {
-        if (window.Crate) {
-          try {
-            const crate = new window.Crate({
-              server: "1499192505927864370"
-            });
-            if (crate && typeof crate.notify === "function") {
-              crate.notify({
-                content: "ROK Discord is ready."
-              });
-            }
-          } catch (_) {}
+        const crate = ensureDiscordCrate();
+        if (!crate) return;
+        try {
+          if (typeof crate.open === "function") {
+            crate.open();
+            return;
+          }
+          if (typeof crate.toggle === "function") {
+            crate.toggle();
+          }
+        } catch (_) {}
+        if (typeof crate.notify === "function") {
+          crate.notify({
+            content: "ROK Discord is ready."
+          });
         }
       });
     });
