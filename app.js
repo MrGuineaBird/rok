@@ -179,12 +179,12 @@ const DEFAULT_CLIENT_LIMITS = {
   maxTotalImageBytes: 16 * 1024 * 1024,
   maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
   maxFileChars: 8000,        // was 12000
-  maxResponseTokens: 8000
+  maxResponseTokens: 2048
 };
 const FAST_REPLY_HISTORY_LIMIT = 6;
-const FAST_REPLY_MAX_TOKENS = 384;
+const FAST_REPLY_MAX_TOKENS = 192;
 const SHORT_REPLY_HISTORY_LIMIT = 10;
-const SHORT_REPLY_MAX_TOKENS = 768;
+const SHORT_REPLY_MAX_TOKENS = 384;
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
@@ -203,7 +203,7 @@ const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 2;
 const MAX_LOCAL_SESSIONS = 30;
-const DEFAULT_CHAT_MODEL = "gemini-3-flash-preview";
+const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -222,14 +222,14 @@ const DEFAULT_USER_SETTINGS = {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "gemini-3-flash-preview";
+const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
 const HERMES_LABEL = "Hermes 1.3";
-const HERMES_PROVIDER_NAME = "Gemini 3 Flash Preview";
+const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL }
 ];
@@ -242,20 +242,18 @@ const KNOWN_MODEL_LABELS = {
   "qwen3.5:cloud": HERMES_LABEL,
   "qwen3.5:397b-cloud": HERMES_LABEL,
   "gpt-oss:20b-cloud": HERMES_LABEL,
-  "gpt-oss:120b-cloud": HERMES_LABEL,
   [DAEDALUS_MODEL_ID]: HERMES_LABEL
 };
 const MODEL_DESCRIPTIONS = {
-  [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, math, and image understanding.`,
+  [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Gemma 3 vision.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "gpt-oss:20b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
-  "gpt-oss:120b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "glm-5.1:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`
 };
 const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
-/** Text chat models shown in the composer (all chat and image routes now use Hermes 1.3). */
+/** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
   { label: "ROK", modelIds: [HERMES_MODEL_ID] }
