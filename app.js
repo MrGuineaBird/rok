@@ -179,12 +179,8 @@ const DEFAULT_CLIENT_LIMITS = {
   maxTotalImageBytes: 16 * 1024 * 1024,
   maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
   maxFileChars: 8000,        // was 12000
-  maxResponseTokens: 2048
+  maxResponseTokens: 8192
 };
-const FAST_REPLY_HISTORY_LIMIT = 6;
-const FAST_REPLY_MAX_TOKENS = 192;
-const SHORT_REPLY_HISTORY_LIMIT = 10;
-const SHORT_REPLY_MAX_TOKENS = 384;
 const clientLimits = { ...DEFAULT_CLIENT_LIMITS };
 const LOCAL_SESSIONS_KEY = "rok.localChatSessions.v1";
 const LOCAL_CURRENT_SESSION_KEY = "rok.currentSessionId.v1";
@@ -3717,12 +3713,6 @@ function getPromptComplexitySignals(rawText = "") {
 }
 
 function getChatRequestBudget(options = {}) {
-  const text = String(options.text || options.prompt || "").trim();
-  const workspaceContext = String(options.workspaceContext || "").trim();
-  const attachments = Array.isArray(options.attachments) ? options.attachments : [];
-  const sandboxFiles = Array.isArray(options.sandboxFiles) ? options.sandboxFiles : [];
-  const toolsEnabled = options.toolsEnabled === true;
-  const webSearchEnabled = options.webSearchEnabled === true;
   const defaultHistoryLimit = getHistoryLimitValue();
   const defaultMaxTokens = normalizeClientLimit(
     clientLimits.maxResponseTokens,
@@ -3730,36 +3720,6 @@ function getChatRequestBudget(options = {}) {
     32,
     8192
   );
-
-  if (attachments.length || sandboxFiles.length || workspaceContext || toolsEnabled || webSearchEnabled) {
-    return {
-      historyLimit: defaultHistoryLimit,
-      maxTokens: defaultMaxTokens,
-      profile: "full"
-    };
-  }
-
-  const signals = getPromptComplexitySignals(text);
-  const looksComplex = signals.codeLike
-    || signals.mathLike
-    || signals.analysisLike
-    || signals.multipart;
-
-  if (!signals.text || (!looksComplex && signals.wordCount <= 18 && signals.text.length <= 120 && signals.lineCount <= 2)) {
-    return {
-      historyLimit: Math.min(defaultHistoryLimit, FAST_REPLY_HISTORY_LIMIT),
-      maxTokens: Math.min(defaultMaxTokens, FAST_REPLY_MAX_TOKENS),
-      profile: "fast"
-    };
-  }
-
-  if (!looksComplex && signals.wordCount <= 40 && signals.text.length <= 240 && signals.lineCount <= 3) {
-    return {
-      historyLimit: Math.min(defaultHistoryLimit, SHORT_REPLY_HISTORY_LIMIT),
-      maxTokens: Math.min(defaultMaxTokens, SHORT_REPLY_MAX_TOKENS),
-      profile: "short"
-    };
-  }
 
   return {
     historyLimit: defaultHistoryLimit,
@@ -7071,7 +7031,7 @@ function setWebSearchEnabled(nextEnabled) {
 }
 
 function setToolsEnabled(nextEnabled) {
-  toolsEnabled = Boolean(nextEnabled);
+  toolsEnabled = false;
   if (!toolsToggleBtn) return;
   toolsToggleBtn.setAttribute("aria-pressed", toolsEnabled ? "true" : "false");
   toolsToggleBtn.classList.toggle("is-active", toolsEnabled);
