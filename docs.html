@@ -491,6 +491,24 @@ data: {"token":"!"}</code></pre>
             The stream ends when the connection closes. Non-streaming error responses return JSON with an
             <code>error</code> field.
           </p>
+          <h3>Realtime Architecture</h3>
+          <p>
+            The recommended structure is to keep <code>/api/chat</code> on <strong>SSE</strong> for normal ROK chat and
+            add <strong>WebSockets</strong> as a separate API feature for live sessions.
+          </p>
+          <p>
+            This keeps the simple chat API stable for most users while leaving room for more advanced realtime behavior.
+          </p>
+          <ul>
+            <li>Keep SSE for normal ROK chat.</li>
+            <li>Add WebSockets for agentic or live session flows.</li>
+            <li>Use SSE when you want a simple request/streamed-response API.</li>
+            <li>Use WebSockets when you need mid-response user input, live cancel or interrupt, or background tool loops without awkward extra POST requests.</li>
+          </ul>
+          <p class="docs-note">
+            The smart long-term split is: <code>/api/chat</code> stays SSE, while something like <code>/ws/chat</code> or
+            <code>/ws/run</code> handles advanced realtime sessions.
+          </p>
 
           <h3>Code Examples</h3>
           <div class="docs-api-example-controls">
@@ -733,4 +751,3 @@ curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
   </script>
 </body>
 </html>
-
