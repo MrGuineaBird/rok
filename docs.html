@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -7,21 +7,21 @@
   <title>ROK Docs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="docs.css?v=docs3" />
+  <link rel="stylesheet" href="docs.css?v=docs5" />
 </head>
 <body>
   <div class="docs-wrap">
     <header class="docs-topbar">
       <a class="docs-brand" href="index.html">
-        <img src="roklogo.svg" alt="ROK" class="rok-logo-img" />
+        <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
         <span class="docs-brand-text">
-          <span class="docs-brand-title">ROK Documentation</span>
-          <span class="docs-brand-subtitle">Local AI Workspace</span>
+          <span class="docs-brand-title">ROK Docs</span>
+          <span class="docs-brand-subtitle">Workspace Guide</span>
         </span>
       </a>
       <nav class="docs-top-links" aria-label="Docs quick links">
         <a class="docs-top-link" href="index.html">Home</a>
-        <a class="docs-top-link" href="about.html">About Me</a>
+        <a class="docs-top-link" href="about.html">About</a>
       </nav>
     </header>
 
@@ -30,12 +30,11 @@
         <p class="docs-toc-title">Sections</p>
         <ul>
           <li><a href="#overview">Overview</a></li>
-          <li><a href="#who-for">Who Is This For</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#modes">Commands and Modes</a></li>
-          <li><a href="#philosophy">Philosophy</a></li>
+          <li><a href="#getting-started">Getting Started</a></li>
+          <li><a href="#surfaces">Core Surfaces</a></li>
+          <li><a href="#workflow">How ROK Works</a></li>
+          <li><a href="#privacy">Privacy and Storage</a></li>
           <li><a href="#faq">FAQ</a></li>
-          <li><a href="#security">Security and Privacy</a></li>
           <li><a href="#roadmap">Roadmap</a></li>
           <li><a href="#api-access">API Access</a></li>
           <li><a href="#tool-calling">Tool Calling</a></li>
@@ -44,160 +43,234 @@
       </aside>
 
       <main class="docs-main">
-        <section id="overview" class="docs-card">
-          <span class="docs-kicker">Overview</span>
-          <h1>ROK is a local AI workspace, not a chatbot clone</h1>
-          <p>
-            ROK is built to help you build, code, study, and think in one workspace. It runs on your machine,
-            uses a local model by default through Ollama, and keeps session history in your browser. The goal is
-            direct workflow support, not generic chatbot small talk.
+        <section id="overview" class="docs-card docs-hero">
+          <span class="docs-kicker">Documentation</span>
+          <h1>ROK is a local-first AI workspace for chat, code, math, study, and focused making.</h1>
+          <p class="docs-lead">
+            ROK is designed to feel like a working environment, not just a prompt box. The product centers on a persistent
+            workspace, model choice, practical file and writing flows, and a more direct relationship between the user and
+            the AI runtime behind the interface.
           </p>
           <div class="docs-chip-row">
-            <span class="docs-chip">Local AI workspace</span>
-            <span class="docs-chip">Runs on your machine</span>
-            <span class="docs-chip">Workspace-first UI</span>
-            <span class="docs-chip">Built for building</span>
+            <span class="docs-chip">Workspace-first</span>
+            <span class="docs-chip">Local-first by default</span>
+            <span class="docs-chip">ROK CODE built in</span>
+            <span class="docs-chip">Math and image tools included</span>
+          </div>
+          <div class="docs-hero-actions">
+            <a class="docs-primary-btn" href="#getting-started">Start Here</a>
+            <a class="docs-secondary-btn" href="#api-access">Jump to API</a>
+          </div>
+          <div class="docs-stat-grid" aria-label="ROK highlights">
+            <div class="docs-stat">
+              <span class="docs-stat-value">Chat + workspace</span>
+              <span class="docs-stat-label">Keep draft text, files, and conversation closer together.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">ROK CODE</span>
+              <span class="docs-stat-label">Upload files, ask for changes, review the plan, then apply it.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">Model choice</span>
+              <span class="docs-stat-label">Pick the model that fits the session instead of using one fixed runtime.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">Local session memory</span>
+              <span class="docs-stat-label">By default, chat sessions live in browser storage on the current device.</span>
+            </div>
           </div>
         </section>
 
-        <section id="who-for" class="docs-card">
-          <h2>Who Is This For</h2>
+        <section id="getting-started" class="docs-card">
+          <h2>Getting Started</h2>
+          <p>Use this as the shortest path to understanding how ROK is meant to be used.</p>
+          <div class="docs-step-grid">
+            <article class="docs-step-card">
+              <div class="docs-step-number">01</div>
+              <div class="docs-step-body">
+                <strong>Choose your runtime style</strong>
+                <p>
+                  Local mode can point at your own Ollama runtime on the same machine. Hosted or tunneled setups can also
+                  be used when you want remote access or public routing.
+                </p>
+              </div>
+            </article>
+            <article class="docs-step-card">
+              <div class="docs-step-number">02</div>
+              <div class="docs-step-body">
+                <strong>Open the workspace, not just the chat</strong>
+                <p>
+                  ROK works best when the conversation, draft text, and project files stay in the same session instead of
+                  living in separate tools.
+                </p>
+              </div>
+            </article>
+            <article class="docs-step-card">
+              <div class="docs-step-number">03</div>
+              <div class="docs-step-body">
+                <strong>Pick the right surface</strong>
+                <p>
+                  Use normal chat for discussion, ROK CODE for file-based work, and ROK MATH for graphing or algebra help.
+                </p>
+              </div>
+            </article>
+            <article class="docs-step-card">
+              <div class="docs-step-number">04</div>
+              <div class="docs-step-body">
+                <strong>Review before you commit</strong>
+                <p>
+                  ROK CODE is meant to propose changes in a reviewable way. Inspect the plan, preview the files, then apply
+                  only when the request looks right.
+                </p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="surfaces" class="docs-card">
+          <h2>Core Surfaces</h2>
+          <div class="docs-grid-3">
+            <article class="docs-mini-card">
+              <strong>Chat</strong>
+              <p>General prompting, drafting, explanation, troubleshooting, and back-and-forth thinking.</p>
+            </article>
+            <article class="docs-mini-card">
+              <strong>Workspace</strong>
+              <p>An editable writing surface where you can draft, improve, copy, and download content in context.</p>
+            </article>
+            <article class="docs-mini-card">
+              <strong>ROK CODE</strong>
+              <p>Upload files, ask for changes, review a file-by-file plan, and apply or undo the last AI apply.</p>
+            </article>
+            <article class="docs-mini-card">
+              <strong>ROK MATH</strong>
+              <p>A graphing-oriented surface for algebra help, expressions, and visual math workflows.</p>
+            </article>
+            <article class="docs-mini-card">
+              <strong>Vision and attachments</strong>
+              <p>Attach screenshots, images, and common text/code files so the session can reference real material.</p>
+            </article>
+            <article class="docs-mini-card">
+              <strong>ROK IMAGE</strong>
+              <p>An experimental image workflow that fits inside the broader workspace instead of living as a separate app.</p>
+            </article>
+          </div>
+
+          <div class="docs-callout">
+            <strong>Best fit:</strong>
+            <p>
+              ROK is strongest when you are building or figuring something out over a longer session, especially when code,
+              notes, files, and iteration all matter at once.
+            </p>
+          </div>
+        </section>
+
+        <section id="workflow" class="docs-card">
+          <h2>How ROK Works</h2>
           <div class="docs-grid-2">
             <div>
-              <h3>Developers</h3>
-              <p>Explain code, inspect errors, iterate on drafts, and keep context in a persistent local session.</p>
+              <h3>Intent-driven behavior</h3>
+              <p>
+                ROK looks at the prompt, the active workspace, recent messages, and attachments to decide how to respond.
+                You do not need a slash-command system to switch between normal chat, study help, code work, or document
+                assistance.
+              </p>
             </div>
             <div>
-              <h3>Students</h3>
-              <p>Generate flashcards, summarize notes, and study in a focused workspace flow.</p>
+              <h3>Persistent local sessions</h3>
+              <p>
+                The default experience keeps session history in browser storage on the current device, which makes it feel
+                more like a personal working environment than a disposable prompt tab.
+              </p>
             </div>
             <div>
-              <h3>Tinkerers</h3>
-              <p>Change models, tune behavior, and run everything in your own environment.</p>
+              <h3>Model-aware UI</h3>
+              <p>
+                The app can expose different model options and runtime limits through the backend, while keeping the
+                surface consistent for the user.
+              </p>
             </div>
             <div>
-              <h3>Privacy-focused users</h3>
-              <p>Keep data local by default and expose the backend publicly only when you choose to.</p>
+              <h3>Plan-first coding flow</h3>
+              <p>
+                ROK CODE is built around reviewable proposals instead of silent edits. The goal is readable change plans,
+                visible file impact, and safer apply behavior.
+              </p>
             </div>
           </div>
         </section>
 
-        <section id="features" class="docs-card">
-          <h2>Features</h2>
-          <ul>
-            <li>Local AI responses via Ollama in local mode.</li>
-            <li>Workspace-style interaction with editor panel, improve flow, copy/download actions.</li>
-            <li>Streaming responses with stop control.</li>
-            <li>Privacy-first defaults with local browser session storage.</li>
-            <li>Model selection and per-session model memory.</li>
-            <li>Attachment support for common text and code file types.</li>
-            <li>Optional public access through tunnel endpoints.</li>
-          </ul>
-        </section>
-
-        <section id="modes" class="docs-card">
-          <h2>Commands and Modes</h2>
-          <p>ROK uses intent-driven behavior from prompt content and workspace context.</p>
-          <div class="docs-grid-2">
+        <section id="privacy" class="docs-card">
+          <h2>Privacy and Storage</h2>
+          <div class="docs-split">
             <div>
-              <h3>Normal response mode</h3>
-              <p>Default chat behavior for Q and A, drafting, and general assistance.</p>
+              <h3>What stays local by default</h3>
+              <ul>
+                <li>Chat sessions are stored in browser local storage on the current device.</li>
+                <li>Session-level preferences such as model choice and onboarding state are also stored locally.</li>
+                <li>Local runtime setups can point at services running on the same machine.</li>
+              </ul>
             </div>
             <div>
-              <h3>Story canvas mode</h3>
-              <p>Long-form story prompts use a specialized canvas-style output flow.</p>
-            </div>
-            <div>
-              <h3>Code explanation mode</h3>
-              <p>Code-heavy prompts trigger technical interpretation and debugging-oriented responses.</p>
-            </div>
-            <div>
-              <h3>Flashcard generation mode</h3>
-              <p>Study prompts can generate concise flashcard-oriented outputs.</p>
+              <h3>What may leave the device</h3>
+              <ul>
+                <li>Hosted model requests obviously travel to the configured backend or provider.</li>
+                <li>Uploaded prompts, files, or images may be sent to the selected AI runtime to generate a response.</li>
+                <li>Public tunnel or hosted deployments should be treated as networked environments, not offline mode.</li>
+              </ul>
             </div>
           </div>
           <p class="docs-note">
-            There is no slash-command requirement. Modes are inferred from prompt text and active workspace context.
-          </p>
-        </section>
-
-        <section id="philosophy" class="docs-card">
-          <h2>Philosophy</h2>
-          <p>
-            ROK exists to make local AI practical for real work, not to copy chat products. Local AI matters because
-            control, privacy, and reliability improve when the core stack runs in your own environment. The long-term
-            vision is a private AI workspace where writing, coding, and thinking happen in one place with transparent
-            behavior and predictable data boundaries.
+            Local-first does not mean every deployment is offline. It means the product tries to keep control, storage,
+            and runtime choices visible instead of burying them.
           </p>
         </section>
 
         <section id="faq" class="docs-card">
           <h2>FAQ</h2>
           <h3>Is ROK fully offline?</h3>
-          <p>No, ROK requires an internet connection to access local ROK models and to use tunnel endpoints.</p>
-          <h3>Does ROK save my chat on a remote database?</h3>
-          <p>By default, sessions are stored in browser local storage. Remote storage is not part of the default local mode.</p>
-          <h3>Can I change models per session?</h3>
-          <p>Yes. Model selection is available and remembered by session.</p>
-        </section>
-
-        <section id="security" class="docs-card">
-          <h2>Security and Privacy</h2>
-          <ul>
-            <li>CORS allowlist is enforced server-side on API routes.</li>
-            <li>Rate limiting and session behavior controls are built into backend request handling.</li>
-            <li>Treat tunnel URLs and auth tokens as sensitive secrets.</li>
-          </ul>
+          <p>
+            It can operate in a local-first way when you point it at your own local runtime, but hosted providers, remote
+            endpoints, and tunnels still require network access.
+          </p>
+          <h3>Where are my chats stored by default?</h3>
+          <p>On this browser, on this device, using local storage unless you build a different persistence layer around it.</p>
+          <h3>What is the main difference between chat and ROK CODE?</h3>
+          <p>
+            Chat is for discussion and reasoning. ROK CODE is for file-based work where the assistant proposes concrete
+            code changes that you can review before applying.
+          </p>
+          <h3>Can I switch models per session?</h3>
+          <p>Yes. Model selection is part of the session experience and is remembered locally on the current device.</p>
         </section>
 
         <section id="roadmap" class="docs-card">
           <h2>Roadmap</h2>
-          <ul>
-            <li>Better docs automation and versioned release notes.</li>
-            <li>Expanded workspace tooling and mode controls.</li>
-            <li>Cleaner onboarding and one-command local bootstrap.</li>
-            <li>Additional model/provider adapters with consistent behavior.</li>
+          <ul class="docs-list-plain">
+            <li><strong>Sharper workspace identity:</strong> make the product feel more like one serious workstation.</li>
+            <li><strong>Better ROK CODE review loops:</strong> clearer previews, safer apply flows, and stronger file context.</li>
+            <li><strong>Cleaner onboarding:</strong> better setup guidance for local, hosted, and mixed deployments.</li>
+            <li><strong>More consistent runtime clarity:</strong> keep model and storage behavior easier to understand.</li>
           </ul>
         </section>
 
         <section id="api-access" class="docs-card">
           <h2>API Access</h2>
           <p>
-            ROK API keys are manually reviewed during beta. Request access first, then use your key in
-            <code>X-ROK-API-Key</code> for external requests. The base URL for all endpoints is
-            <code>https://rokbackendreal.kyklos.online</code>.
+            ROK exposes an API for external integrations. During beta, API keys are manually reviewed. Use your key in
+            <code>X-ROK-API-Key</code> when you are not already in a trusted browser session.
           </p>
+          <div class="docs-callout">
+            <strong>Base URL:</strong>
+            <p><code>https://rokbackendreal.kyklos.online</code></p>
+          </div>
           <button id="requestApiKeyBtn" class="docs-primary-btn" type="button">Request API Key</button>
           <p class="docs-note">
-            API keys now include per-key request limits. Once a key exceeds its assigned limit, <code>/api/chat</code>
-            returns <code>429</code> with <code>{"error":"API key request limit exceeded"}</code>.
+            Keys can include request caps. When a key reaches its assigned limit, protected endpoints can return
+            <code>429</code> with <code>{"error":"API key request limit exceeded"}</code>.
           </p>
 
-          <h3>Authentication Errors</h3>
-          <table class="docs-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Meaning</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>401</code></td>
-                <td>Missing API key (<code>X-ROK-API-Key</code> not provided)</td>
-              </tr>
-              <tr>
-                <td><code>403</code></td>
-                <td>Invalid API key</td>
-              </tr>
-              <tr>
-                <td><code>429</code></td>
-                <td>Key is valid, but request limit is exhausted</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h3>Endpoints</h3>
+          <h3>Main Endpoints</h3>
           <table class="docs-table">
             <thead>
               <tr>
@@ -210,57 +283,32 @@
               <tr>
                 <td><code>POST</code></td>
                 <td><code>/api/chat</code></td>
-                <td>Send a message and receive a streaming SSE response</td>
+                <td>Streaming chat responses over SSE.</td>
               </tr>
               <tr>
                 <td><code>POST</code></td>
                 <td><code>/api/intent</code></td>
-                <td>Classify the intent of a message (returns JSON)</td>
+                <td>Intent classification for a message and workspace context.</td>
+              </tr>
+              <tr>
+                <td><code>POST</code></td>
+                <td><code>/api/sandbox</code></td>
+                <td>ROK CODE analysis that returns a file-by-file change plan.</td>
               </tr>
               <tr>
                 <td><code>GET</code></td>
                 <td><code>/api/models</code></td>
-                <td>List available models and the default model</td>
-              </tr>
-              <tr>
-                <td><code>GET</code></td>
-                <td><code>/api/health</code></td>
-                <td>Backend health check</td>
-              </tr>
-              <tr>
-                <td><code>GET</code></td>
-                <td><code>/api/status</code></td>
-                <td>Alias for <code>/api/health</code></td>
+                <td>Available models, default model, and tool-calling capabilities.</td>
               </tr>
               <tr>
                 <td><code>GET</code></td>
                 <td><code>/api/client-config</code></td>
-                <td>Client limits, model params, auth config, and quota info</td>
-              </tr>
-              <tr>
-                <td><code>POST</code></td>
-                <td><code>/api/auth/login</code></td>
-                <td>Start or refresh a server session</td>
+                <td>Client limits, auth config, and quota metadata.</td>
               </tr>
               <tr>
                 <td><code>GET</code></td>
-                <td><code>/api/auth/session</code></td>
-                <td>Check current session status and rate limits</td>
-              </tr>
-              <tr>
-                <td><code>POST</code></td>
-                <td><code>/api/auth/logout</code></td>
-                <td>End the current session</td>
-              </tr>
-              <tr>
-                <td><code>GET/POST</code></td>
-                <td><code>/api/pictionary/judge</code></td>
-                <td>Submit a drawing for AI judging (ROK Pictionary)</td>
-              </tr>
-              <tr>
-                <td><code>GET</code></td>
-                <td><code>/api/pictionary/prompt</code></td>
-                <td>Get a random drawing prompt (ROK Pictionary)</td>
+                <td><code>/api/health</code></td>
+                <td>Health check endpoint.</td>
               </tr>
             </tbody>
           </table>
@@ -280,86 +328,197 @@
                 <td><code>message</code></td>
                 <td>string</td>
                 <td>Yes</td>
-                <td>The user's message text</td>
+                <td>The latest user prompt.</td>
               </tr>
               <tr>
                 <td><code>history</code></td>
                 <td>array</td>
                 <td>Yes</td>
-                <td>Conversation history as <code>[{"role":"user"|"assistant","content":"..."}</code>]</td>
+                <td>Conversation history as role/content objects.</td>
               </tr>
               <tr>
                 <td><code>model</code></td>
                 <td>string</td>
                 <td>No</td>
-                <td>Model ID to use (e.g. <code>qwen3.5:cloud</code>, <code>qwen3.5:397b-cloud</code>, <code>glm-5.1:cloud</code>)</td>
+                <td>Requested model id for the session.</td>
               </tr>
               <tr>
                 <td><code>workspace_context</code></td>
                 <td>string</td>
                 <td>No</td>
-                <td>Additional context from the workspace editor</td>
+                <td>Optional workspace text to include alongside the prompt.</td>
               </tr>
               <tr>
                 <td><code>attachments</code></td>
                 <td>array</td>
                 <td>No</td>
-                <td>File/image attachments (objects with <code>type</code>, <code>name</code>, <code>content</code>)</td>
+                <td>Optional file or image attachments.</td>
               </tr>
               <tr>
                 <td><code>enable_thinking</code></td>
                 <td>boolean</td>
                 <td>No</td>
-                <td>Enable thinking/reasoning mode (default: true where supported). Set to false to disable thinking and strip any <arg_key> tags from the response.</td>
+                <td>Enables reasoning mode where the chosen model supports it.</td>
               </tr>
               <tr>
                 <td><code>enable_web_search</code></td>
                 <td>boolean</td>
                 <td>No</td>
-                <td>Enable web search augmentation (default: false)</td>
+                <td>Requests web-augmented responses when enabled.</td>
               </tr>
               <tr>
                 <td><code>skip_tools</code></td>
                 <td>boolean</td>
                 <td>No</td>
-                <td>Skip tool-calling behavior (default: false)</td>
+                <td>Skips tool-calling behavior.</td>
               </tr>
               <tr>
                 <td><code>tools</code></td>
                 <td>array</td>
                 <td>No</td>
-                <td>Tool definitions in OpenAI function-calling format (max 100). See <a href="#tool-calling">Tool Calling</a> below.</td>
+                <td>OpenAI-style function definitions for client-side tool execution.</td>
               </tr>
             </tbody>
           </table>
 
-          <h3 id="tool-calling">Tool Calling (Client-Side Execution)</h3>
+          <h3>Authentication Errors</h3>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>401</code></td>
+                <td>Missing API key when a trusted browser context is not present.</td>
+              </tr>
+              <tr>
+                <td><code>403</code></td>
+                <td>Invalid key or blocked request context.</td>
+              </tr>
+              <tr>
+                <td><code>429</code></td>
+                <td>Rate limit or per-key usage cap reached.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Code Examples</h3>
+          <div class="docs-api-example-controls">
+            <label class="docs-example-label" for="apiExampleLanguage">Example Language</label>
+            <select id="apiExampleLanguage" class="docs-example-select">
+              <option value="js">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="curl">cURL</option>
+            </select>
+          </div>
+
+          <div class="docs-block" data-api-example="js">
+            <h3 class="docs-block-title">JavaScript SSE Example</h3>
+            <pre><code>async function runRokChat() {
+  const response = await fetch("https://rokbackendreal.kyklos.online/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "text/event-stream",
+      "X-ROK-API-Key": "YOUR_KEY"
+    },
+    body: JSON.stringify({
+      message: "Summarize this error log in 3 bullets.",
+      history: []
+    })
+  });
+
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    pending += decoder.decode(value, { stream: true });
+    const blocks = pending.split("\\n\\n");
+    pending = blocks.pop() || "";
+
+    for (const block of blocks) {
+      for (const line of block.split("\\n")) {
+        if (!line.startsWith("data:")) continue;
+        const payload = JSON.parse(line.slice(5).trim());
+        if (typeof payload.token === "string") {
+          console.log(payload.token);
+        }
+      }
+    }
+  }
+}</code></pre>
+          </div>
+
+          <div class="docs-block" data-api-example="python" hidden>
+            <h3 class="docs-block-title">Python SSE Example</h3>
+            <pre><code>import json
+import requests
+
+with requests.post(
+    "https://rokbackendreal.kyklos.online/api/chat",
+    headers={
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "X-ROK-API-Key": "YOUR_KEY",
+    },
+    json={"message": "Explain this stack trace.", "history": []},
+    stream=True,
+    timeout=(10, 300),
+) as response:
+    response.raise_for_status()
+    for raw_line in response.iter_lines(decode_unicode=True):
+        if not raw_line or not raw_line.startswith("data:"):
+            continue
+        payload = json.loads(raw_line[5:].strip())
+        token = payload.get("token", "")
+        if token:
+            print(token, end="", flush=True)</code></pre>
+          </div>
+
+          <div class="docs-block" data-api-example="curl" hidden>
+            <h3 class="docs-block-title">cURL Example</h3>
+            <pre><code>curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -H "X-ROK-API-Key: YOUR_KEY" \
+  -d '{"message":"Refactor this function and explain why.","history":[]}'</code></pre>
+          </div>
+        </section>
+
+        <section id="tool-calling" class="docs-card">
+          <h2>Tool Calling</h2>
           <p>
-            ROK supports <strong>client-side tool calling</strong> compatible with the OpenAI function-calling format.
-            You define tools in your request, the model decides when to call them, and <strong>your client code</strong>
-            executes the tools and sends the results back via the conversation history.
+            ROK supports client-side tool calling in an OpenAI-style function format. The model can suggest a tool call,
+            but your client is responsible for executing that tool and sending the result back through conversation
+            history.
           </p>
           <p class="docs-note">
-            The ROK backend does <strong>not</strong> execute tools. It returns tool call suggestions in the SSE stream,
-            and your application is responsible for running them and feeding results back.
+            The backend does not execute your custom tools for you. It emits tool call suggestions and leaves execution to
+            the caller.
           </p>
 
-          <h4>How It Works</h4>
+          <h3>Basic Flow</h3>
           <ol>
-            <li>You send a <code>/api/chat</code> request with a <code>tools</code> array defining available functions.</li>
-            <li>If the model decides to call a tool, the SSE stream emits a <code>tool_calls</code> event instead of token chunks.</li>
-            <li>Your client parses the <code>tool_calls</code> event, executes the tool(s) locally, and sends a follow-up request with the results in <code>history</code>.</li>
-            <li>The model then generates a final response using the tool results.</li>
+            <li>Send <code>/api/chat</code> with a <code>tools</code> array.</li>
+            <li>Parse any emitted <code>tool_calls</code> event from the SSE stream.</li>
+            <li>Run the tool locally in your own client application.</li>
+            <li>Send a follow-up request with the tool result included in <code>history</code>.</li>
           </ol>
 
-          <h4>Tool Definition Format</h4>
-          <p>Each tool follows the OpenAI function-calling schema:</p>
+          <h3>Tool Definition</h3>
           <pre><code>{
   "type": "function",
   "function": {
-    "name": "get_weather",          // required, alphanumeric + underscores, max 64 chars
-    "description": "Get current weather", // max 512 chars
-    "parameters": {               // JSON Schema object, max 4096 chars
+    "name": "get_weather",
+    "description": "Get current weather",
+    "parameters": {
       "type": "object",
       "properties": {
         "location": {"type": "string"}
@@ -369,17 +528,10 @@
   }
 }</code></pre>
 
-          <h4>SSE Event: tool_calls</h4>
-          <p>When the model wants to call tools, you receive this SSE event:</p>
+          <h3>SSE Event Example</h3>
           <pre><code>data: {"tool_calls":[{"id":"call_abc123","type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"NYC\"}"}}],"assistant_content":""}</code></pre>
-          <p>
-            The <code>tool_calls</code> array contains one or more call objects. Each has an <code>id</code> (for matching results),
-            and a <code>function</code> object with <code>name</code> and <code>arguments</code> (a JSON string).
-            <code>assistant_content</code> may contain text the model produced alongside the tool calls.
-          </p>
 
-          <h4>Feeding Results Back</h4>
-          <p>After executing the tool(s), send a new <code>/api/chat</code> request with the full conversation in <code>history</code>:</p>
+          <h3>Follow-Up History Example</h3>
           <pre><code>{
   "message": "",
   "history": [
@@ -391,11 +543,8 @@
   ],
   "tools": [ ... ]
 }</code></pre>
-          <p class="docs-note">
-            Always include the same <code>tools</code> array in follow-up requests so the model can make additional calls if needed.
-          </p>
 
-          <h4>Tool Calling Limits</h4>
+          <h3>Limits</h3>
           <table class="docs-table">
             <thead>
               <tr><th>Limit</th><th>Value</th></tr>
@@ -408,284 +557,20 @@
               <tr><td>Max tool result content</td><td>50,000 characters</td></tr>
             </tbody>
           </table>
-
-          <h4>Checking Tool Calling Support</h4>
-          <p>
-            The <code>/api/models</code> endpoint returns a <code>tool_calling</code> object confirming support and limits:
-          </p>
-          <pre><code>GET /api/models
-
-{
-  "ok": true,
-  "tool_calling": {
-    "supported": true,
-    "max_tools": 100,
-    "max_name_len": 64,
-    "max_desc_len": 512,
-    "max_params_schema_chars": 4096
-  }
-}</code></pre>
-
-          <h3>Custom Headers</h3>
-          <p>
-            These optional headers let you customize how the AI identifies itself and what system prompt it uses.
-            Useful if you're embedding ROK's API into your own product and want your own branding.
-          </p>
-          <table class="docs-table">
-            <thead>
-              <tr>
-                <th>Header</th>
-                <th>Type</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>X-Custom-Identity</code></td>
-                <td>string</td>
-                <td>
-                  Override the AI's name. By default, the AI calls itself "ROK". Set this to any name
-                  (e.g. <code>Nova</code>, <code>Atlas</code>) and the AI will refer to itself by that name instead.
-                  Max 64 characters. Only affects identity — safety rules still apply.
-                </td>
-              </tr>
-              <tr>
-                <td><code>X-Custom-System-Prompt</code></td>
-                <td>string</td>
-                <td>
-                  Replace the default system prompt entirely. The identity block and safety block are still
-                  appended automatically. Use this to give the AI custom instructions or personality.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h4>Example: Custom Identity</h4>
-          <pre><code># The AI will call itself "Nova" instead of "ROK"
-curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
-  -H "Content-Type: application/json" \
-  -H "X-ROK-API-Key: YOUR_KEY" \
-  -H "X-Custom-Identity: Nova" \
-  -d '{"message":"Who are you?","history":[]}'
-
-# Response: "I'm Nova, an AI assistant..."</code></pre>
-
-          <h4>Example: Custom Identity + Custom System Prompt</h4>
-          <pre><code># Full branding override — the AI acts as "Atlas", a coding assistant
-curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
-  -H "Content-Type: application/json" \
-  -H "X-ROK-API-Key: YOUR_KEY" \
-  -H "X-Custom-Identity: Atlas" \
-  -H "X-Custom-System-Prompt: You are a concise coding assistant. Answer in code blocks when possible." \
-  -d '{"message":"How do I reverse a list in Python?","history":[]}'</code></pre>
-
-          <h3>/api/chat Response</h3>
-          <p>
-            The response is a <strong>streaming Server-Sent Events (SSE)</strong> stream. Each line begins with
-            <code>data:</code> followed by a JSON object. Token chunks look like:
-          </p>
-          <pre><code>data: {"token":"Hello"}
-data: {"token":" world"}
-data: {"token":"!"}</code></pre>
-          <p>
-            The stream ends when the connection closes. Non-streaming error responses return JSON with an
-            <code>error</code> field.
-          </p>
-          <h3>Realtime Architecture</h3>
-          <p>
-            The recommended structure is to keep <code>/api/chat</code> on <strong>SSE</strong> for normal ROK chat and
-            add <strong>WebSockets</strong> as a separate API feature for live sessions.
-          </p>
-          <p>
-            This keeps the simple chat API stable for most users while leaving room for more advanced realtime behavior.
-          </p>
-          <ul>
-            <li>Keep SSE for normal ROK chat.</li>
-            <li>Add WebSockets for agentic or live session flows.</li>
-            <li>Use SSE when you want a simple request/streamed-response API.</li>
-            <li>Use WebSockets when you need mid-response user input, live cancel or interrupt, or background tool loops without awkward extra POST requests.</li>
-          </ul>
-          <p class="docs-note">
-            The smart long-term split is: <code>/api/chat</code> stays SSE, while something like <code>/ws/chat</code> or
-            <code>/ws/run</code> handles advanced realtime sessions.
-          </p>
-
-          <h3>Code Examples</h3>
-          <div class="docs-api-example-controls">
-            <label class="docs-example-label" for="apiExampleLanguage">Example Language</label>
-            <select id="apiExampleLanguage" class="docs-example-select">
-              <option value="js">JavaScript (fetch + stream parser)</option>
-              <option value="python">Python (requests + stream parser)</option>
-              <option value="curl">cURL (quick test)</option>
-            </select>
-          </div>
-
-          <div class="docs-block" data-api-example="js">
-            <h3 class="docs-block-title">JavaScript Example (with built-in token parser)</h3>
-            <pre><code>async function runRokChat() {
-  const apiBase = "https://rokbackendreal.kyklos.online";
-  const apiKey = "YOUR_ISSUED_API_KEY_HERE";
-
-  const response = await fetch(`${apiBase}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-ROK-API-Key": apiKey,
-      "X-Custom-Identity": "Nova"  // optional: rename the AI (default is "ROK")
-    },
-    body: JSON.stringify({
-      message: "Give me a quick 3-point summary of photosynthesis.",
-      history: [],
-      model: "qwen3.5:cloud"  // optional: pick a specific model
-    })
-  });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const err = await response.json();
-      if (err && (err.error || err.reply)) message = err.error || err.reply;
-    } catch (_) {}
-    throw new Error(message);
-  }
-
-  if (!response.body) throw new Error("Streaming body missing.");
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
-  let fullText = "";
-
-  function parseEventBlock(block) {
-    const lines = block.split("\\n");
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      const raw = line.slice(5).trim();
-      if (!raw) continue;
-      try {
-        const payload = JSON.parse(raw);
-        if (typeof payload.token === "string") {
-          fullText += payload.token;
-          // live output:
-          console.log(payload.token);
-        }
-      } catch (_) {}
-    }
-  }
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    pending += decoder.decode(value, { stream: true });
-    const blocks = pending.split("\\n\\n");
-    pending = blocks.pop() || "";
-
-    for (const block of blocks) {
-      parseEventBlock(block);
-    }
-  }
-
-  if (pending.trim()) {
-    parseEventBlock(pending);
-  }
-
-  return fullText;
-}
-
-runRokChat()
-  .then((text) => console.log("Final output:\\n", text))
-  .catch((err) => console.error("ROK error:", err.message));</code></pre>
-          </div>
-
-          <div class="docs-block" data-api-example="python" hidden>
-            <h3 class="docs-block-title">Python Example (with built-in token parser)</h3>
-            <pre><code>import json
-import requests
-
-API_BASE = "https://rokbackendreal.kyklos.online"
-API_KEY = "YOUR_ISSUED_API_KEY_HERE"
-
-headers = {
-    "Content-Type": "application/json",
-    "Accept": "text/event-stream",
-    "X-ROK-API-Key": API_KEY,
-    "X-Custom-Identity": "Nova",  # optional: rename the AI (default is "ROK")
-}
-payload = {
-    "message": "Explain photosynthesis in 3 bullet points.",
-    "history": [],
-    "model": "qwen3.5:cloud",  # optional: pick a specific model
-}
-
-with requests.post(
-    f"{API_BASE}/api/chat",
-    headers=headers,
-    json=payload,
-    stream=True,
-    timeout=(10, 300),
-) as response:
-    if response.status_code == 401:
-        raise RuntimeError("API key required")
-    if response.status_code == 403:
-        raise RuntimeError("Invalid API key")
-    if response.status_code == 429:
-        raise RuntimeError("API key request limit exceeded")
-    response.raise_for_status()
-
-    full_text = []
-    for raw_line in response.iter_lines(decode_unicode=True):
-        if not raw_line or not raw_line.startswith("data:"):
-            continue
-        data = raw_line[5:].strip()
-        if not data or data == "[DONE]":
-            continue
-
-        token = data
-        try:
-            payload = json.loads(data)
-            token = payload.get("token") or payload.get("response") or payload.get("reply") or ""
-        except json.JSONDecodeError:
-            pass
-
-        if token:
-            print(token, end="", flush=True)
-            full_text.append(token)
-
-    print("\\n\\nFinal output:\\n" + "".join(full_text))</code></pre>
-          </div>
-
-          <div class="docs-block" data-api-example="curl" hidden>
-            <h3 class="docs-block-title">cURL Example (raw stream)</h3>
-            <pre><code>curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" ^
-  -H "Content-Type: application/json" ^
-  -H "Accept: text/event-stream" ^
-  -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" ^
-  -H "X-Custom-Identity: Nova" ^
-  -d "{\"message\":\"Summarize this in 3 bullets.\",\"history\":[]}"
-
-# macOS/Linux line-continuation version:
-curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -H "X-ROK-API-Key: YOUR_ISSUED_API_KEY_HERE" \
-  -H "X-Custom-Identity: Nova" \
-  -d '{"message":"Summarize this in 3 bullets.","history":[]}'
-
-# You will receive streaming SSE chunks in lines that begin with:
-# data: {"token":"..."}</code></pre>
-          </div>
         </section>
 
         <section id="contributing" class="docs-card">
           <h2>Contributing</h2>
           <p>
-            Contributions are welcome. Start with docs improvements, reproducible bug reports, and small focused PRs.
-            If you propose architecture changes, include request flow impact and migration steps.
+            Good contributions are focused, testable, and tied to the actual product direction. That usually means docs
+            improvements, reproducible bug reports, UX cleanup, or scoped feature work that strengthens the workspace.
           </p>
-          <div class="docs-footer">
-            ROK Docs - updated April 19, 2026
-          </div>
+          <ul>
+            <li>Start small and make the change easy to evaluate.</li>
+            <li>When changing behavior, explain the user-facing impact clearly.</li>
+            <li>When proposing architecture shifts, describe the migration cost and why it is worth it.</li>
+          </ul>
+          <div class="docs-footer">ROK Docs - updated May 2, 2026</div>
         </section>
       </main>
     </div>

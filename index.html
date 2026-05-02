@@ -280,13 +280,14 @@
                   <span id="sandboxChangeCount" class="workspace-doc-chip">No AI changes</span>
                   <span id="sandboxStatusChip" class="workspace-doc-chip" data-tone="idle">Idle</span>
                 </div>
-                <div class="workspace-panel-actions">
-                  <button id="sandboxSaveBtn" class="workspace-mini-btn ghost" type="button">Save</button>
-                  <button id="sandboxDeleteBtn" class="workspace-mini-btn ghost" type="button">Delete</button>
-                  <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply AI Changes</button>
+                  <div class="workspace-panel-actions">
+                    <button id="sandboxSaveBtn" class="workspace-mini-btn ghost" type="button">Save</button>
+                    <button id="sandboxDeleteBtn" class="workspace-mini-btn ghost" type="button">Delete</button>
+                    <button id="sandboxUndoBtn" class="workspace-mini-btn ghost" type="button">Undo Last Apply</button>
+                    <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply AI Changes</button>
+                  </div>
                 </div>
               </div>
-            </div>
             <section class="sandbox-editor-shell">
               <label class="sandbox-field-label" for="sandboxFilePathInput">Path</label>
               <input

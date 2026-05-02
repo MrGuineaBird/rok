@@ -30,6 +30,7 @@ const sandboxNewFileBtn = document.getElementById("sandboxNewFileBtn");
 const sandboxSaveBtn = document.getElementById("sandboxSaveBtn");
 const sandboxDeleteBtn = document.getElementById("sandboxDeleteBtn");
 const sandboxAnalyzeBtn = document.getElementById("sandboxAnalyzeBtn");
+const sandboxUndoBtn = document.getElementById("sandboxUndoBtn");
 const sandboxApplyBtn = document.getElementById("sandboxApplyBtn");
 const sandboxClearAnalysisBtn = document.getElementById("sandboxClearAnalysisBtn");
 const sandboxFilePathInput = document.getElementById("sandboxFilePathInput");
@@ -274,6 +275,8 @@ const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 60 * 60 * 1000;
 const SANDBOX_DEFAULT_PROMPT = "Analyze this ROK CODE project and propose the next file-by-file code changes.";
 const SANDBOX_MAX_FILES = 48;
 const SANDBOX_MAX_FILE_CHARS = 24_000;
+const SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES = 2;
+const SANDBOX_CHANGE_PREVIEW_MAX_LINES = 24;
 let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
 let daedalusLockWindowMs = DEFAULT_DAEDALUS_LOCK_WINDOW_MS;
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -490,6 +493,7 @@ let sandboxDraftDirty = false;
 let sandboxChatDraft = "";
 const sandboxAnalysisMemory = new Map();
 const sandboxActivityMemory = new Map();
+const sandboxExpandedChangeMemory = new Map();
 let sandboxActivityTimer = null;
 let isBanOverlayActive = false;
 let isSidebarCollapsed = false;
@@ -2757,13 +2761,40 @@ function normalizeSandboxFile(rawFile, index = 0) {
   };
 }
 
+function cloneSandboxFiles(files = []) {
+  return (Array.isArray(files) ? files : [])
+    .map((item, index) => normalizeSandboxFile(item, index))
+    .filter(Boolean);
+}
+
+function normalizeSandboxUndoSnapshot(rawSnapshot) {
+  if (!rawSnapshot || typeof rawSnapshot !== "object") {
+    return null;
+  }
+
+  const files = cloneSandboxFiles(rawSnapshot.files);
+  const rawSelectedFileId = typeof rawSnapshot.selectedFileId === "string" ? rawSnapshot.selectedFileId : "";
+  const selectedFileId = files.some((item) => item.id === rawSelectedFileId)
+    ? rawSelectedFileId
+    : files[0]?.id || "";
+
+  return {
+    files,
+    selectedFileId,
+    appliedAt: Number.isFinite(Number(rawSnapshot.appliedAt)) ? Number(rawSnapshot.appliedAt) : 0,
+    summary: typeof rawSnapshot.summary === "string" ? rawSnapshot.summary.trim() : "",
+    changeCount: Number.isFinite(Number(rawSnapshot.changeCount)) ? Math.max(0, Number(rawSnapshot.changeCount)) : 0
+  };
+}
+
 function createDefaultSandbox() {
   return {
     files: [],
     selectedFileId: "",
     analysis: createDefaultSandboxAnalysis(),
     messages: [],
-    statusText: "Idle"
+    statusText: "Idle",
+    lastAppliedSnapshot: null
   };
 }
 
@@ -2792,6 +2823,7 @@ function normalizeSandbox(rawSandbox) {
     selectedFileId,
     analysis: normalizeSandboxAnalysis(rawSandbox.analysis),
     messages: normalizeSandboxMessages(rawSandbox.messages),
+    lastAppliedSnapshot: normalizeSandboxUndoSnapshot(rawSandbox.lastAppliedSnapshot),
     statusText: typeof rawSandbox.statusText === "string" && rawSandbox.statusText.trim()
       ? rawSandbox.statusText.trim()
       : fallback.statusText
@@ -3098,6 +3130,72 @@ function clearActiveSandboxActivity() {
   }
   if (!hasRunningSandboxActivities()) {
     stopSandboxActivityTicker();
+  }
+}
+
+function getSandboxExpandedChangeStorageKey() {
+  return currentSessionId || "__sandbox_default__";
+}
+
+function getSandboxExpandedChangePaths() {
+  const rawPaths = sandboxExpandedChangeMemory.get(getSandboxExpandedChangeStorageKey());
+  return Array.isArray(rawPaths) ? rawPaths.slice() : [];
+}
+
+function setSandboxExpandedChangePaths(paths = []) {
+  const normalized = [];
+  const seen = new Set();
+
+  for (const rawPath of paths) {
+    const path = normalizeSandboxFilePath(rawPath);
+    const key = path.toLowerCase();
+    if (!path || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalized.push(key);
+  }
+
+  const storageKey = getSandboxExpandedChangeStorageKey();
+  if (normalized.length) {
+    sandboxExpandedChangeMemory.set(storageKey, normalized);
+  } else {
+    sandboxExpandedChangeMemory.delete(storageKey);
+  }
+  return normalized;
+}
+
+function clearSandboxExpandedChangePaths() {
+  sandboxExpandedChangeMemory.delete(getSandboxExpandedChangeStorageKey());
+}
+
+function toggleSandboxExpandedChangePath(path) {
+  const normalizedPath = normalizeSandboxFilePath(path).toLowerCase();
+  if (!normalizedPath) {
+    return getSandboxExpandedChangePaths();
+  }
+  const currentPaths = getSandboxExpandedChangePaths();
+  if (currentPaths.includes(normalizedPath)) {
+    return setSandboxExpandedChangePaths(currentPaths.filter((item) => item !== normalizedPath));
+  }
+  return setSandboxExpandedChangePaths([...currentPaths, normalizedPath]);
+}
+
+function getSandboxUndoSnapshot(sandbox = getCurrentSandboxState()) {
+  return normalizeSandboxUndoSnapshot(sandbox && sandbox.lastAppliedSnapshot);
+}
+
+function setSandboxUndoSnapshot(snapshot, sandbox = getCurrentSandboxState()) {
+  if (!sandbox) {
+    return null;
+  }
+  sandbox.lastAppliedSnapshot = normalizeSandboxUndoSnapshot(snapshot);
+  return sandbox.lastAppliedSnapshot;
+}
+
+function clearSandboxUndoSnapshot(sandbox = getCurrentSandboxState()) {
+  if (sandbox) {
+    sandbox.lastAppliedSnapshot = null;
   }
 }
 
@@ -3458,7 +3556,7 @@ function getTextLinesForDiff(text = "") {
   return lines;
 }
 
-function getLineChangeStats(beforeText = "", afterText = "") {
+function getSandboxDiffWindow(beforeText = "", afterText = "") {
   const beforeLines = getTextLinesForDiff(beforeText);
   const afterLines = getTextLinesForDiff(afterText);
 
@@ -3481,6 +3579,24 @@ function getLineChangeStats(beforeText = "", afterText = "") {
     beforeEnd -= 1;
     afterEnd -= 1;
   }
+
+  return {
+    beforeLines,
+    afterLines,
+    prefix,
+    beforeEnd,
+    afterEnd
+  };
+}
+
+function getLineChangeStats(beforeText = "", afterText = "") {
+  const {
+    beforeLines,
+    afterLines,
+    prefix,
+    beforeEnd,
+    afterEnd
+  } = getSandboxDiffWindow(beforeText, afterText);
 
   const beforeCore = beforeLines.slice(prefix, beforeEnd + 1);
   const afterCore = afterLines.slice(prefix, afterEnd + 1);
@@ -3521,20 +3637,142 @@ function getLineChangeStats(beforeText = "", afterText = "") {
   };
 }
 
+function getSandboxLineCountLabel(count = 0) {
+  const total = Math.max(0, Number(count) || 0);
+  return `${total} line${total === 1 ? "" : "s"}`;
+}
+
+function formatSandboxPreviewLines(lines = [], startIndex = 0, maxLines = SANDBOX_CHANGE_PREVIEW_MAX_LINES) {
+  const safeLines = Array.isArray(lines) ? lines : [];
+  if (!safeLines.length) {
+    return {
+      text: "(empty file)",
+      clipped: false,
+      shownLines: 0
+    };
+  }
+
+  const lineNumberWidth = String(startIndex + safeLines.length).length;
+  const formatLine = (line, index) => `${String(startIndex + index + 1).padStart(lineNumberWidth, " ")} | ${line}`;
+
+  if (safeLines.length <= maxLines) {
+    return {
+      text: safeLines.map((line, index) => formatLine(line, index)).join("\n"),
+      clipped: false,
+      shownLines: safeLines.length
+    };
+  }
+
+  const headCount = Math.max(4, Math.ceil(maxLines / 2));
+  const tailCount = Math.max(3, maxLines - headCount);
+  const omittedCount = Math.max(0, safeLines.length - headCount - tailCount);
+  const head = safeLines.slice(0, headCount).map((line, index) => formatLine(line, index));
+  const tailStartIndex = safeLines.length - tailCount;
+  const tail = safeLines.slice(-tailCount).map((line, index) => formatLine(line, tailStartIndex + index));
+  const marker = `${" ".repeat(lineNumberWidth)} | ... ${omittedCount} more lines ...`;
+
+  return {
+    text: [...head, marker, ...tail].join("\n"),
+    clipped: true,
+    shownLines: safeLines.length
+  };
+}
+
+function getSandboxPreviewRangeText(startIndex = 0, lineCount = 0, totalLineCount = 0) {
+  if (!lineCount || !totalLineCount) {
+    return getSandboxLineCountLabel(totalLineCount);
+  }
+  const startLine = startIndex + 1;
+  const endLine = startIndex + lineCount;
+  return `lines ${startLine}-${endLine} of ${totalLineCount}`;
+}
+
+function buildSandboxPreviewPane(label, lines, startIndex, totalLineCount, tone = "current") {
+  const preview = formatSandboxPreviewLines(lines, startIndex, SANDBOX_CHANGE_PREVIEW_MAX_LINES);
+  return {
+    label: `${label} | ${getSandboxPreviewRangeText(startIndex, lines.length, totalLineCount)}`,
+    tone,
+    text: preview.text,
+    clipped: preview.clipped
+  };
+}
+
+function buildSandboxChangePreviewData(change) {
+  const currentContent = String(change.currentContent || "");
+  const proposedContent = String(change.proposedContent || "");
+  const currentLines = getTextLinesForDiff(currentContent);
+  const proposedLines = getTextLinesForDiff(proposedContent);
+
+  if (change.action === "create") {
+    const pane = buildSandboxPreviewPane("Proposed file", proposedLines, 0, proposedLines.length, "create");
+    return {
+      panes: [pane],
+      note: pane.clipped
+        ? "This preview is shortened for a long new file."
+        : "This new file will be created when you apply the plan."
+    };
+  }
+
+  if (change.action === "delete") {
+    const pane = buildSandboxPreviewPane("Current file", currentLines, 0, currentLines.length, "delete");
+    return {
+      panes: [pane],
+      note: pane.clipped
+        ? "This preview is shortened for a long file that will be removed."
+        : "This file will be removed when you apply the plan."
+    };
+  }
+
+  const { beforeLines, afterLines, prefix, beforeEnd, afterEnd } = getSandboxDiffWindow(currentContent, proposedContent);
+  const beforeStart = Math.max(0, prefix - SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES);
+  const afterStart = Math.max(0, prefix - SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES);
+  const beforeStop = Math.min(beforeLines.length, Math.max(prefix, beforeEnd + 1) + SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES);
+  const afterStop = Math.min(afterLines.length, Math.max(prefix, afterEnd + 1) + SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES);
+  const beforeSlice = beforeLines.slice(beforeStart, beforeStop);
+  const afterSlice = afterLines.slice(afterStart, afterStop);
+  const currentPane = buildSandboxPreviewPane("Current", beforeSlice, beforeStart, beforeLines.length, "current");
+  const proposedPane = buildSandboxPreviewPane("Proposed", afterSlice, afterStart, afterLines.length, "proposed");
+
+  const notes = [];
+  if (
+    beforeStart > 0
+    || afterStart > 0
+    || beforeStop < beforeLines.length
+    || afterStop < afterLines.length
+  ) {
+    notes.push("Preview focuses on the changed section with nearby context.");
+  }
+  if (currentPane.clipped || proposedPane.clipped) {
+    notes.push("Long sections are shortened inside each preview.");
+  }
+  if (!notes.length) {
+    notes.push("Review the current and proposed code before you apply the plan.");
+  }
+
+  return {
+    panes: [currentPane, proposedPane],
+    note: notes.join(" ")
+  };
+}
+
 function getSandboxAnalysisChangeRows(analysis, sandbox = getCurrentSandboxState()) {
   const normalized = normalizeSandboxAnalysis(analysis);
   const currentFiles = new Map((sandbox.files || []).map((item) => [String(item.path || "").toLowerCase(), item]));
   const rows = normalized.files.map((change) => {
     const currentFile = currentFiles.get(change.path.toLowerCase()) || null;
+    const currentContent = currentFile ? String(currentFile.content || "") : "";
+    const proposedContent = change.action === "delete" ? "" : String(change.content || "");
+    const currentLineCount = getTextLinesForDiff(currentContent).length;
+    const proposedLineCount = getTextLinesForDiff(proposedContent).length;
     let additions = 0;
     let deletions = 0;
 
     if (change.action === "create" || !currentFile) {
-      additions = getTextLinesForDiff(change.content).length;
+      additions = proposedLineCount;
     } else if (change.action === "delete") {
-      deletions = getTextLinesForDiff(currentFile.content).length;
+      deletions = currentLineCount;
     } else {
-      const stats = getLineChangeStats(currentFile.content, change.content);
+      const stats = getLineChangeStats(currentContent, proposedContent);
       additions = stats.additions;
       deletions = stats.deletions;
     }
@@ -3543,6 +3781,11 @@ function getSandboxAnalysisChangeRows(analysis, sandbox = getCurrentSandboxState
       path: change.path,
       action: change.action,
       reason: change.reason,
+      currentContent,
+      proposedContent,
+      currentLineCount,
+      proposedLineCount,
+      canOpenCurrentFile: Boolean(currentFile),
       additions,
       deletions
     };
@@ -3614,6 +3857,7 @@ function saveSandboxDraftToState(options = {}) {
     return false;
   }
 
+  const changed = selectedFile.path !== nextPath || String(selectedFile.content || "") !== nextContent;
   selectedFile.path = nextPath;
   selectedFile.content = String(nextContent || "");
   selectedFile.updatedAt = Date.now();
@@ -3622,6 +3866,9 @@ function saveSandboxDraftToState(options = {}) {
   sandboxDraftPath = selectedFile.path;
   sandboxDraftContent = selectedFile.content;
   sandboxDraftDirty = false;
+  if (changed) {
+    clearSandboxUndoSnapshot(sandbox);
+  }
   sandbox.statusText = selectedFile.content.trim() ? "Saved" : "Empty";
   syncCurrentSessionFromHistory();
   if (!skipRender) {
@@ -3654,6 +3901,20 @@ function selectSandboxFile(fileId, options = {}) {
   renderSandboxUI();
 }
 
+function selectSandboxFileByPath(path, options = {}) {
+  const sandbox = getCurrentSandboxState();
+  const normalizedPath = normalizeSandboxFilePath(path);
+  if (!normalizedPath) {
+    return false;
+  }
+  const file = sandbox.files.find((item) => item.path.toLowerCase() === normalizedPath.toLowerCase());
+  if (!file) {
+    return false;
+  }
+  selectSandboxFile(file.id, options);
+  return true;
+}
+
 function createSandboxFileFromEditor(path = "", content = "") {
   if (sandboxDraftDirty && !saveSandboxDraftToState({ silent: false, skipRender: true })) {
     renderSandboxUI();
@@ -3663,6 +3924,7 @@ function createSandboxFileFromEditor(path = "", content = "") {
   const file = createSandboxFile(path || getNextSandboxUntitledPath(sandbox.files), content);
   sandbox.files.push(file);
   sandbox.selectedFileId = file.id;
+  clearSandboxUndoSnapshot(sandbox);
   sandbox.statusText = "New file ready";
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
@@ -3683,6 +3945,7 @@ function deleteSelectedSandboxFile() {
   sandboxDraftPath = "";
   sandboxDraftContent = "";
   sandboxDraftDirty = false;
+  clearSandboxUndoSnapshot(sandbox);
   sandbox.statusText = sandbox.files.length ? "File deleted" : "Workspace empty";
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
@@ -3694,6 +3957,7 @@ function clearSandboxAnalysis() {
   sandbox.analysis = createDefaultSandboxAnalysis();
   clearActiveSandboxAnalysisMemory();
   clearActiveSandboxActivity();
+  clearSandboxExpandedChangePaths();
   sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
   syncCurrentSessionFromHistory();
   renderSandboxUI();
@@ -3704,6 +3968,7 @@ function clearSandboxConversation() {
   sandbox.analysis = createDefaultSandboxAnalysis();
   clearActiveSandboxAnalysisMemory();
   clearActiveSandboxActivity();
+  clearSandboxExpandedChangePaths();
   sandbox.messages = [];
   sandbox.statusText = sandbox.files.length ? "Idle" : "Workspace empty";
   sandboxChatDraft = "";
@@ -3719,6 +3984,17 @@ function applySandboxAnalysis() {
     renderSandboxUI();
     return;
   }
+
+  setSandboxUndoSnapshot(
+    {
+      files: cloneSandboxFiles(sandbox.files),
+      selectedFileId: sandbox.selectedFileId,
+      appliedAt: Date.now(),
+      summary: plan.summary || "",
+      changeCount: plan.files.length
+    },
+    sandbox
+  );
 
   const fileMap = new Map(sandbox.files.map((item) => [item.path.toLowerCase(), item]));
   for (const change of plan.files) {
@@ -3743,7 +4019,32 @@ function applySandboxAnalysis() {
   sandbox.analysis = createDefaultSandboxAnalysis();
   clearActiveSandboxAnalysisMemory();
   clearActiveSandboxActivity();
+  clearSandboxExpandedChangePaths();
   sandbox.statusText = `Applied ${plan.files.length} AI change${plan.files.length === 1 ? "" : "s"}`;
+  syncCurrentSessionFromHistory();
+  loadSandboxDraftFromSelectedFile(true);
+  renderSandboxUI();
+}
+
+function undoLastSandboxApply() {
+  const sandbox = getCurrentSandboxState();
+  const snapshot = getSandboxUndoSnapshot(sandbox);
+  if (!snapshot) {
+    setSandboxStatus("No recent AI apply is available to undo.", "idle");
+    renderSandboxUI();
+    return;
+  }
+
+  sandbox.files = cloneSandboxFiles(snapshot.files);
+  sandbox.selectedFileId = sandbox.files.some((item) => item.id === snapshot.selectedFileId)
+    ? snapshot.selectedFileId
+    : sandbox.files[0]?.id || "";
+  sandbox.analysis = createDefaultSandboxAnalysis();
+  clearActiveSandboxAnalysisMemory();
+  clearActiveSandboxActivity();
+  clearSandboxExpandedChangePaths();
+  clearSandboxUndoSnapshot(sandbox);
+  sandbox.statusText = "Restored the workspace from before the last AI apply";
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
   renderSandboxUI();
@@ -3758,6 +4059,7 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
     sandboxChangesMeta.textContent = "";
     return;
   }
+
   const changeSet = getSandboxAnalysisChangeRows(analysis);
   const fileCount = changeSet.rows.length;
   if (!fileCount) {
@@ -3768,24 +4070,69 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
     return;
   }
 
-  sandboxChangesSummary.textContent = `${fileCount} file${fileCount === 1 ? "" : "s"} changed +${changeSet.additions} -${changeSet.deletions}`;
+  const currentExpandedPaths = getSandboxExpandedChangePaths();
+  const validExpandedPaths = new Set(
+    currentExpandedPaths.filter((path) => changeSet.rows.some((change) => change.path.toLowerCase() === path))
+  );
+  if (validExpandedPaths.size) {
+    setSandboxExpandedChangePaths([...validExpandedPaths]);
+  } else if (currentExpandedPaths.length) {
+    clearSandboxExpandedChangePaths();
+  }
+
+  sandboxChangesSummary.textContent = `Plan ready: ${fileCount} file${fileCount === 1 ? "" : "s"} | +${changeSet.additions} -${changeSet.deletions}`;
   sandboxChangesList.innerHTML = changeSet.rows
-    .map((change) => {
+    .map((change, index) => {
+      const changePathKey = change.path.toLowerCase();
+      const isExpanded = validExpandedPaths.size
+        ? validExpandedPaths.has(changePathKey)
+        : index === 0 && fileCount <= 2;
       const actionLabel = change.action === "create" ? "new" : change.action;
       const reason = change.reason ? `<div class="sandbox-change-reason">${escapeHtml(change.reason)}</div>` : "";
-      return `
-        <div class="sandbox-change-row">
-          <div class="sandbox-change-main">
-            <div class="sandbox-change-path-row">
-              <span class="sandbox-change-path">${escapeHtml(change.path)}</span>
-              <span class="sandbox-change-action" data-tone="${escapeHtml(change.action)}">${escapeHtml(actionLabel)}</span>
+      const previewData = isExpanded ? buildSandboxChangePreviewData(change) : null;
+      const previewButtonLabel = isExpanded ? "Hide preview" : "Review preview";
+      const previewHtml = previewData
+        ? `
+          <div class="sandbox-change-preview">
+            <div class="sandbox-change-preview-grid${previewData.panes.length === 1 ? " is-single" : ""}">
+              ${previewData.panes.map((pane) => `
+                <section class="sandbox-change-preview-pane" data-tone="${escapeHtml(pane.tone || "current")}">
+                  <div class="sandbox-change-preview-label">${escapeHtml(pane.label || "")}</div>
+                  <pre class="sandbox-change-preview-code">${escapeHtml(pane.text || "")}</pre>
+                </section>
+              `).join("")}
             </div>
-            ${reason}
+            ${previewData.note ? `<div class="sandbox-change-preview-note">${escapeHtml(previewData.note)}</div>` : ""}
           </div>
-          <div class="sandbox-change-stats">
-            <span class="sandbox-change-plus">+${change.additions}</span>
-            <span class="sandbox-change-minus">-${change.deletions}</span>
+        `
+        : "";
+      const openFileButton = change.canOpenCurrentFile
+        ? `<button type="button" class="sandbox-change-mini-btn" data-sandbox-open-path="${escapeHtml(change.path)}">Open file</button>`
+        : "";
+
+      return `
+        <div class="sandbox-change-row" data-expanded="${isExpanded ? "true" : "false"}">
+          <div class="sandbox-change-head">
+            <div class="sandbox-change-main">
+              <div class="sandbox-change-path-row">
+                <span class="sandbox-change-path">${escapeHtml(change.path)}</span>
+                <span class="sandbox-change-action" data-tone="${escapeHtml(change.action)}">${escapeHtml(actionLabel)}</span>
+                <span class="sandbox-change-lines">${escapeHtml(getSandboxLineCountLabel(change.proposedLineCount || change.currentLineCount || 0))}</span>
+              </div>
+              ${reason}
+            </div>
+            <div class="sandbox-change-side">
+              <div class="sandbox-change-stats">
+                <span class="sandbox-change-plus">+${change.additions}</span>
+                <span class="sandbox-change-minus">-${change.deletions}</span>
+              </div>
+              <div class="sandbox-change-controls">
+                ${openFileButton}
+                <button type="button" class="sandbox-change-mini-btn" data-sandbox-preview-path="${escapeHtml(change.path)}">${escapeHtml(previewButtonLabel)}</button>
+              </div>
+            </div>
           </div>
+          ${previewHtml}
         </div>
       `;
     })
@@ -3793,7 +4140,7 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
 
   if (changeSet.setupSteps.length) {
     sandboxChangesMeta.hidden = false;
-    sandboxChangesMeta.textContent = `Setup: ${changeSet.setupSteps.join(" • ")}`;
+    sandboxChangesMeta.textContent = `Setup: ${changeSet.setupSteps.join(" | ")}`;
   } else {
     sandboxChangesMeta.hidden = true;
     sandboxChangesMeta.textContent = "";
@@ -3934,6 +4281,9 @@ function renderSandboxUI() {
   if (sandboxAnalyzeBtn) {
     sandboxAnalyzeBtn.textContent = isSending ? "Stop" : "Analyze";
     sandboxAnalyzeBtn.disabled = false;
+  }
+  if (sandboxUndoBtn) {
+    sandboxUndoBtn.disabled = isSending || !getSandboxUndoSnapshot(sandbox) || sandboxDraftDirty;
   }
   if (sandboxApplyBtn) {
     sandboxApplyBtn.disabled = isSending || !(Array.isArray(activeAnalysis.files) && activeAnalysis.files.length);
@@ -5476,6 +5826,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     attachments,
     sandboxFiles: sandbox.files
   });
+  clearSandboxExpandedChangePaths();
   setActiveSandboxAnalysis(createDefaultSandboxAnalysis());
   startSandboxActivity(promptText, sandbox);
   sandbox.statusText = "ROK is working...";
@@ -5501,8 +5852,8 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     const analysis = setActiveSandboxAnalysis(parseSandboxAnalysisResponse(payload, promptText, analysisModel));
     completeSandboxActivity(analysis, sandbox);
     sandbox.statusText = analysis.files.length
-      ? `Plan ready (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
-      : "Plan ready";
+      ? `Plan ready to review (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
+      : "Plan ready to review";
     syncCurrentSessionFromHistory();
     renderSandboxUI();
     return analysis;
@@ -6982,6 +7333,9 @@ async function addSelectedSandboxFiles(fileList) {
   }
 
   sandbox.selectedFileId = selectedId || sandbox.selectedFileId;
+  if (importedCount) {
+    clearSandboxUndoSnapshot(sandbox);
+  }
   sandbox.statusText = importedCount ? `Imported ${importedCount} file${importedCount === 1 ? "" : "s"}` : "No readable files imported";
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
@@ -9156,6 +9510,17 @@ if (sandboxAnalyzeBtn) {
   });
 }
 
+if (sandboxUndoBtn) {
+  sandboxUndoBtn.addEventListener("click", () => {
+    if (isSending) return;
+    if (sandboxDraftDirty) {
+      setSandboxStatus("Save the current file before undoing the last AI apply.", "error");
+      return;
+    }
+    undoLastSandboxApply();
+  });
+}
+
 if (sandboxApplyBtn) {
   sandboxApplyBtn.addEventListener("click", () => {
     if (sandboxDraftDirty) {
@@ -9181,6 +9546,29 @@ if (sandboxFilesList) {
     const fileId = button.getAttribute("data-sandbox-file-id");
     if (!fileId) return;
     selectSandboxFile(fileId);
+  });
+}
+
+if (sandboxChangesList) {
+  sandboxChangesList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const previewButton = target.closest("[data-sandbox-preview-path]");
+    if (previewButton instanceof HTMLElement) {
+      const path = previewButton.getAttribute("data-sandbox-preview-path");
+      if (!path) return;
+      toggleSandboxExpandedChangePath(path);
+      renderSandboxUI();
+      return;
+    }
+
+    const openFileButton = target.closest("[data-sandbox-open-path]");
+    if (openFileButton instanceof HTMLElement) {
+      const path = openFileButton.getAttribute("data-sandbox-open-path");
+      if (!path) return;
+      selectSandboxFileByPath(path);
+    }
   });
 }
 

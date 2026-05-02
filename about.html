@@ -1,22 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0d1117" />
-  <title>About Me | ROK</title>
+  <title>About ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="docs.css?v=docs1" />
+  <link rel="stylesheet" href="docs.css?v=docs5" />
 </head>
 <body>
   <div class="docs-wrap">
     <header class="docs-topbar">
       <a class="docs-brand" href="index.html">
-        <img src="roklogo.svg" alt="ROK" class="rok-logo-img" />
+        <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
         <span class="docs-brand-text">
           <span class="docs-brand-title">ROK</span>
-          <span class="docs-brand-subtitle">About Me</span>
+          <span class="docs-brand-subtitle">About</span>
         </span>
       </a>
       <nav class="docs-top-links" aria-label="About quick links">
@@ -27,56 +27,198 @@
 
     <div class="docs-shell">
       <aside class="docs-toc" aria-label="About sections">
-        <p class="docs-toc-title">About</p>
+        <p class="docs-toc-title">About ROK</p>
         <ul>
           <li><a href="#intro">Intro</a></li>
-          <li><a href="#why-rok">Why ROK</a></li>
-          <li><a href="#focus">Focus</a></li>
-          <li><a href="#vision">Vision</a></li>
+          <li><a href="#why">Why It Exists</a></li>
+          <li><a href="#principles">Principles</a></li>
+          <li><a href="#models">Models</a></li>
+          <li><a href="#direction">Current Direction</a></li>
+          <li><a href="#vision">Long-Term Vision</a></li>
         </ul>
       </aside>
 
       <main class="docs-main">
-        <section id="intro" class="docs-card">
-          <span class="docs-kicker">About Me</span>
-          <h1>Building ROK as a private local AI workspace</h1>
-          <p>
-            I built ROK because I wanted an AI setup that feels like a real workspace, not a generic chat clone.
-            The goal is fast iteration, local-first control, and a cleaner place to build ideas, code, and writing.
+        <section id="intro" class="docs-card docs-hero">
+          <span class="docs-kicker">About ROK</span>
+          <h1>ROK is being built as a personal AI workstation, not a generic chat tab.</h1>
+          <p class="docs-lead">
+            The point of ROK is simple: make local-first AI feel practical, direct, and useful for real work.
+            It should feel like a place where you can think, code, write, study, and iterate without losing control
+            of the workspace or the model behind it.
           </p>
+          <div class="docs-stat-grid" aria-label="ROK values">
+            <div class="docs-stat">
+              <span class="docs-stat-value">Local-first</span>
+              <span class="docs-stat-label">Runs best when the user decides where the model and data live.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">Workspace-led</span>
+              <span class="docs-stat-label">The product should help make things, not just answer questions.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">Model-flexible</span>
+              <span class="docs-stat-label">ROK should stay useful even as runtimes and providers change.</span>
+            </div>
+            <div class="docs-stat">
+              <span class="docs-stat-value">Direct</span>
+              <span class="docs-stat-label">Less marketing gloss, more clear behavior and honest controls.</span>
+            </div>
+          </div>
         </section>
 
-        <section id="why-rok" class="docs-card">
+        <section id="why" class="docs-card">
           <h2>Why ROK Exists</h2>
-          <p>
-            Most AI tools prioritize polished chat marketing over practical workflow control. ROK is meant to be
-            simple, direct, and yours. You decide how it runs, where it points, and what it stores.
-          </p>
+          <div class="docs-split">
+            <div>
+              <p>
+                A lot of AI products feel polished on the surface but shallow once you try to use them as an actual
+                workspace. They are good at demo moments and weak at staying useful over a longer session.
+              </p>
+              <p>
+                ROK exists to push in the opposite direction. The goal is a product that stays grounded in practical use:
+                persistent context, editable work surfaces, model choice, and a clearer sense of what the system is
+                doing on your behalf.
+              </p>
+            </div>
+            <div class="docs-callout">
+              <strong>Short version:</strong>
+              <p>
+                ROK is trying to feel like your own AI desk, not a branded wrapper around chat bubbles.
+              </p>
+            </div>
+          </div>
         </section>
 
-        <section id="focus" class="docs-card">
-          <h2>Current Focus</h2>
-          <ul>
-            <li>Workspace-first user experience.</li>
-            <li>Reliable local + proxy runtime behavior.</li>
-            <li>Clear docs and practical onboarding.</li>
-            <li>Quality improvements based on real usage.</li>
+        <section id="principles" class="docs-card">
+          <h2>Core Principles</h2>
+          <div class="docs-grid-2">
+            <div class="docs-mini-card">
+              <strong>1. Keep the user in control</strong>
+              <p>
+                ROK should make it easy to understand where data is stored, which model is active, and what changes are
+                about to be applied.
+              </p>
+            </div>
+            <div class="docs-mini-card">
+              <strong>2. Favor workspace flows over novelty</strong>
+              <p>
+                Features earn their place when they improve writing, coding, studying, or problem-solving in the main
+                workspace.
+              </p>
+            </div>
+            <div class="docs-mini-card">
+              <strong>3. Make the product feel deliberate</strong>
+              <p>
+                ROK should feel like one coherent tool with one point of view, not a pile of loosely connected AI modes.
+              </p>
+            </div>
+            <div class="docs-mini-card">
+              <strong>4. Stay honest about the system</strong>
+              <p>
+                If something is local, say so. If something is hosted, say so. If something is experimental, label it.
+              </p>
+            </div>
+          </div>
+
+          <h3>What ROK Is Not Trying To Be</h3>
+          <ul class="docs-list-plain">
+            <li><strong>Not</strong> a clone of a mainstream chatbot homepage.</li>
+            <li><strong>Not</strong> a feature buffet where every experiment becomes a permanent product surface.</li>
+            <li><strong>Not</strong> a black box that hides routing, storage, or model behavior behind vague branding.</li>
           </ul>
+        </section>
+
+        <section id="models" class="docs-card">
+          <h2>Models</h2>
+          <div class="docs-grid-2">
+            <div class="docs-mini-card">
+              <strong>ROK Hermes</strong>
+              <p>
+                ROK Hermes is built on GPT-OSS 120B to bring you the smartest yet quickest answers. It is the main
+                all-around model for fast chat, writing help, and strong general reasoning across the workspace.
+              </p>
+            </div>
+            <div class="docs-mini-card">
+              <strong>ROK Daedalus</strong>
+              <p>
+                ROK Daedalus is built from DeepSeek v3.2 to provide more insightful and agentic coding while still
+                staying fast and smart. It is aimed at heavier code work, deeper technical tasks, and longer build
+                flows inside ROK CODE.
+              </p>
+            </div>
+          </div>
+          <div class="docs-callout">
+            <strong>Cloud model provider:</strong>
+            <p>
+              Ollama is the cloud provider for the AI models that power ROK's core model experience. That lets ROK keep
+              the product surface consistent while still giving the workspace access to fast hosted model runtimes.
+            </p>
+            <p>
+              Because ROK is a free, community-based AI project, we cannot guarantee that the models will always feel
+              fast enough or smart enough at every moment. Right now, ROK is on Ollama's free plan and relies on
+              multiple API keys to help keep the experience responsive enough to use.
+            </p>
+            <p>
+              If you would like to donate an Ollama API key to help ROK stay stable and stay up longer, email
+              <a href="mailto:mrguineabird@gmail.com">mrguineabird@gmail.com</a> with the key. You can revoke the key at
+              any time from <a href="https://ollama.com">ollama.com</a>. We will not abuse your key or share it with
+              anyone else. Thank you for helping make ROK great.
+            </p>
+          </div>
+        </section>
+
+        <section id="direction" class="docs-card">
+          <h2>Current Direction</h2>
+          <div class="docs-step-grid">
+            <article class="docs-step-card">
+              <div class="docs-step-number">01</div>
+              <div class="docs-step-body">
+                <strong>Make ROK CODE feel trustworthy</strong>
+                <p>
+                  Better review loops, clearer file plans, stronger previews, and safer apply behavior are a big part of
+                  making the workspace feel real.
+                </p>
+              </div>
+            </article>
+            <article class="docs-step-card">
+              <div class="docs-step-number">02</div>
+              <div class="docs-step-body">
+                <strong>Tighten the workspace identity</strong>
+                <p>
+                  Chat, code, writing, math, and experimental tools should feel like one assistant inside one environment,
+                  not separate mini-products.
+                </p>
+              </div>
+            </article>
+            <article class="docs-step-card">
+              <div class="docs-step-number">03</div>
+              <div class="docs-step-body">
+                <strong>Improve clarity for real users</strong>
+                <p>
+                  Better onboarding, cleaner docs, and stronger defaults matter because ROK should be understandable the
+                  first time someone opens it.
+                </p>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section id="vision" class="docs-card">
           <h2>Long-Term Vision</h2>
+          <blockquote class="docs-quote">
+            Build a serious personal AI workstation where privacy, control, and useful work are the baseline rather than
+            the marketing line.
+          </blockquote>
           <p>
-            Turn ROK into a serious personal AI workstation where local-first control and strong UX are the baseline.
-            Fewer gimmicks, more useful work.
+            If ROK succeeds, it should give people a place where AI feels grounded: a tool you can actually use every day
+            to think through problems, shape code, draft writing, and keep momentum without giving up ownership of the
+            setup.
           </p>
-          <div class="docs-footer">ROK About - updated February 20, 2026</div>
+          <div class="docs-footer">About ROK - updated May 2, 2026</div>
         </section>
       </main>
     </div>
   </div>
 </body>
 </html>
-
-
-

@@ -2103,10 +2103,8 @@ body.settings-compact .attachment-list {
 }
 
 .sandbox-change-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+  display: grid;
+  gap: 10px;
   padding: 11px 12px;
   border-top: 1px solid rgba(58, 27, 27, 0.82);
   background: rgba(8, 12, 18, 0.88);
@@ -2116,10 +2114,17 @@ body.settings-compact .attachment-list {
   border-top: 0;
 }
 
+.sandbox-change-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .sandbox-change-main {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .sandbox-change-path-row {
@@ -2169,10 +2174,30 @@ body.settings-compact .attachment-list {
   color: #FFCECE;
 }
 
+.sandbox-change-lines {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(104, 71, 71, 0.72);
+  background: rgba(24, 18, 18, 0.8);
+  color: #C8A3A3;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .sandbox-change-reason {
   font-size: 10px;
   line-height: 1.45;
   color: #B88E8E;
+}
+
+.sandbox-change-side {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
 }
 
 .sandbox-change-stats {
@@ -2191,6 +2216,100 @@ body.settings-compact .attachment-list {
 
 .sandbox-change-minus {
   color: #E98686;
+}
+
+.sandbox-change-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sandbox-change-mini-btn {
+  appearance: none;
+  border: 1px solid rgba(91, 53, 53, 0.82);
+  border-radius: 999px;
+  background: rgba(25, 18, 18, 0.92);
+  color: #E6CACA;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.sandbox-change-mini-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(209, 75, 75, 0.72);
+  background: rgba(47, 21, 21, 0.96);
+}
+
+.sandbox-change-preview {
+  border-radius: 10px;
+  border: 1px solid rgba(75, 42, 42, 0.85);
+  background: rgba(10, 14, 20, 0.94);
+  overflow: hidden;
+}
+
+.sandbox-change-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.sandbox-change-preview-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sandbox-change-preview-pane {
+  min-width: 0;
+  border-right: 1px solid rgba(75, 42, 42, 0.75);
+}
+
+.sandbox-change-preview-pane:last-child {
+  border-right: 0;
+}
+
+.sandbox-change-preview-pane[data-tone="create"] .sandbox-change-preview-label,
+.sandbox-change-preview-pane[data-tone="proposed"] .sandbox-change-preview-label {
+  color: #D0F0D7;
+}
+
+.sandbox-change-preview-pane[data-tone="delete"] .sandbox-change-preview-label {
+  color: #FFCECE;
+}
+
+.sandbox-change-preview-label {
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid rgba(75, 42, 42, 0.75);
+  background: rgba(20, 16, 16, 0.94);
+  color: #F4D9D9;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sandbox-change-preview-code {
+  margin: 0;
+  padding: 12px;
+  max-height: 260px;
+  overflow: auto;
+  background: rgba(8, 11, 16, 0.96);
+  color: #D9C9C9;
+  font-size: 11px;
+  line-height: 1.55;
+  font-family: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
+}
+
+.sandbox-change-preview-note {
+  padding: 9px 12px 11px;
+  border-top: 1px solid rgba(75, 42, 42, 0.75);
+  background: rgba(15, 16, 22, 0.92);
+  color: #AF8B8B;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .sandbox-setup-note {
@@ -2234,11 +2353,37 @@ body.settings-compact .attachment-list {
   }
 
   .sandbox-change-row {
+    gap: 12px;
+  }
+
+  .sandbox-change-head {
     flex-direction: column;
   }
 
+  .sandbox-change-side,
   .sandbox-change-stats {
     align-self: flex-start;
+  }
+
+  .sandbox-change-side {
+    justify-items: start;
+  }
+
+  .sandbox-change-controls {
+    justify-content: flex-start;
+  }
+
+  .sandbox-change-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sandbox-change-preview-pane {
+    border-right: 0;
+    border-bottom: 1px solid rgba(75, 42, 42, 0.75);
+  }
+
+  .sandbox-change-preview-pane:last-child {
+    border-bottom: 0;
   }
 }
 
