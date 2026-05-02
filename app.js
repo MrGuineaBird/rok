@@ -8368,7 +8368,15 @@ async function send() {
     const fn = toolCall && (toolCall.function || toolCall);
     return String((fn && fn.name) || "").trim().toLowerCase();
   };
-  const isSlashToolDraft = (text) => /^\/(websearch|web_search|webfetch|web_fetch)\b/i.test(String(text || "").trim());
+  const isSlashToolDraft = (text) => {
+    const trimmed = String(text || "").trim().toLowerCase();
+    return (
+      trimmed.startsWith("/websearch") ||
+      trimmed.startsWith("/web_search") ||
+      trimmed.startsWith("/webfetch") ||
+      trimmed.startsWith("/web_fetch")
+    );
+  };
   const isJsonToolDraft = (text) => {
     const trimmed = String(text || "").trim();
     return /^\{[\s\S]*\}$/.test(trimmed) && (/"query"\s*:/.test(trimmed) || /"url"\s*:/.test(trimmed));
