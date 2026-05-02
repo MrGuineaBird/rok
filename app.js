@@ -190,6 +190,7 @@ const LOCAL_LAST_MODEL_KEY = "rok.lastModelId.v1";
 const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
 const LOCAL_TITAN_LOCK_UNTIL_KEY = "rok.titanLockUntil.v1";
 const LOCAL_DAEDALUS_LOCK_UNTIL_KEY = "rok.daedalusLockUntil.v1";
+const LOCAL_DAEDALUS_OLLAMA_API_KEY = "rok.daedalusOllamaApiKey.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
 const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
 const LOCAL_KNOWLEDGE_MAX_ENTRIES = 24;
@@ -220,39 +221,45 @@ const DEFAULT_USER_SETTINGS = {
 const SUPPORTED_MODEL_IDS = new Set();
 const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
-const DAEDALUS_MODEL_ID = "glm-5.1:cloud";
+const DAEDALUS_MODEL_ID = "deepseek-v3.2:cloud";
+const DAEDALUS_LEGACY_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
 const HERMES_LABEL = "Hermes 1.3";
 const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
+const DAEDALUS_LABEL = "ROK Daedalus";
+const DAEDALUS_PROVIDER_NAME = "DeepSeek v3.2 Cloud";
 const DEFAULT_MODEL_OPTIONS = [
-  { id: HERMES_MODEL_ID, label: HERMES_LABEL }
+  { id: HERMES_MODEL_ID, label: HERMES_LABEL },
+  { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL }
 ];
 const KNOWN_MODEL_LABELS = {
   [HERMES_MODEL_ID]: HERMES_LABEL,
   [TITAN_MODEL_ID]: HERMES_LABEL,
   [CHEESE_MODEL_ID]: HERMES_LABEL,
   [CHESS_MODEL_ID]: HERMES_LABEL,
+  [DAEDALUS_MODEL_ID]: DAEDALUS_LABEL,
+  [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_LABEL,
   "gemma4:31b-cloud": HERMES_LABEL,
   "qwen3.5:cloud": HERMES_LABEL,
   "qwen3.5:397b-cloud": HERMES_LABEL,
-  "gpt-oss:20b-cloud": HERMES_LABEL,
-  [DAEDALUS_MODEL_ID]: HERMES_LABEL
+  "gpt-oss:20b-cloud": HERMES_LABEL
 };
 const MODEL_DESCRIPTIONS = {
   [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Gemma 3 vision.`,
+  [DAEDALUS_MODEL_ID]: `${DAEDALUS_LABEL} - ${DAEDALUS_PROVIDER_NAME} with a rolling token limit unless you add your own Ollama API key.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "gpt-oss:20b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
-  "glm-5.1:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`
+  [DAEDALUS_LEGACY_MODEL_ID]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`
 };
 const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
 /** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
-const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID];
+const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, DAEDALUS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
-  { label: "ROK", modelIds: [HERMES_MODEL_ID] }
+  { label: "ROK", modelIds: [HERMES_MODEL_ID, DAEDALUS_MODEL_ID] }
 ];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
@@ -260,10 +267,10 @@ const COMPOSER_MODEL_ASSETS = {
   [TITAN_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
   [CHEESE_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
   [CHESS_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
-  [DAEDALUS_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL }
+  [DAEDALUS_MODEL_ID]: { label: DAEDALUS_LABEL, icon: "rokdaedalus.png", alt: DAEDALUS_LABEL }
 };
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
-const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
+const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 60 * 60 * 1000;
 const SANDBOX_DEFAULT_PROMPT = "Analyze this ROK CODE project and propose the next file-by-file code changes.";
 const SANDBOX_MAX_FILES = 48;
 const SANDBOX_MAX_FILE_CHARS = 24_000;
@@ -515,6 +522,15 @@ function sanitizeModelId(rawModel) {
   return value;
 }
 
+const MODEL_ID_ALIASES = {
+  [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_MODEL_ID
+};
+
+function resolveModelAlias(rawModel) {
+  const normalized = sanitizeModelId(rawModel);
+  return MODEL_ID_ALIASES[normalized] || normalized;
+}
+
 function normalizeModelOptions(rawOptions) {
   const candidates = Array.isArray(rawOptions) && rawOptions.length
     ? [...rawOptions, ...DEFAULT_MODEL_OPTIONS]
@@ -528,10 +544,10 @@ function normalizeModelOptions(rawOptions) {
     let id = "";
     let label = "";
     if (typeof item === "string") {
-      id = sanitizeModelId(item);
+      id = resolveModelAlias(item);
       label = item.trim();
     } else if (item && typeof item === "object") {
-      id = sanitizeModelId(item.id || item.model || item.value);
+      id = resolveModelAlias(item.id || item.model || item.value);
       label = String(item.label || item.name || item.id || item.model || "").trim();
     }
     if (!id || seen.has(id)) continue;
@@ -559,7 +575,7 @@ function resolveDefaultModelId(options, rawDefaultModel) {
   const modelIds = new Set(candidates.map((item) => item.id));
   const selectableOptions = candidates.filter((item) => COMPOSER_TEXT_MODEL_ORDER.includes(item.id));
   const selectableIds = new Set(selectableOptions.map((item) => item.id));
-  const requestedDefault = sanitizeModelId(rawDefaultModel);
+  const requestedDefault = resolveModelAlias(rawDefaultModel);
   if (requestedDefault && selectableIds.has(requestedDefault)) {
     return requestedDefault;
   }
@@ -706,13 +722,20 @@ function getMergedSystemPromptForApi() {
   return custom || identity;
 }
 
-function buildApiHeaders(includeJson) {
+function buildApiHeaders(includeJson, options = {}) {
   const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
     const systemPrompt = getMergedSystemPromptForApi();
     if (systemPrompt) {
       headers["X-Custom-System-Prompt"] = systemPrompt;
+    }
+  }
+  const requestedModel = resolveModelAlias(options && options.modelId ? options.modelId : "");
+  if (requestedModel === DAEDALUS_MODEL_ID) {
+    const userKey = getDaedalusUserApiKey();
+    if (userKey) {
+      headers["X-ROK-Ollama-Key"] = userKey;
     }
   }
   return headers;
@@ -802,15 +825,19 @@ function extractTokenFromStreamPayload(payload) {
   const status = typeof parsed.status === "string" ? parsed.status : "";
   const tool_calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : null;
   const assistant_content = typeof parsed.assistant_content === "string" ? parsed.assistant_content : "";
+  const daedalus_quota =
+    parsed.daedalus_quota && typeof parsed.daedalus_quota === "object"
+      ? parsed.daedalus_quota
+      : null;
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, status, done, tool_calls, assistant_content };
+      return { token: value, thinking, status, done, tool_calls, assistant_content, daedalus_quota };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, thinking, status, done, tool_calls, assistant_content };
+    return { token: parsed.message.content, thinking, status, done, tool_calls, assistant_content, daedalus_quota };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -834,14 +861,14 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, thinking, status, done: done || choiceDone, tool_calls, assistant_content };
+      return { token: joined, thinking, status, done: done || choiceDone, tool_calls, assistant_content, daedalus_quota };
     }
     if (done || choiceDone) {
-      return { token: "", thinking: "", status, done: true, tool_calls: null, assistant_content: "" };
+      return { token: "", thinking: "", status, done: true, tool_calls: null, assistant_content: "", daedalus_quota };
     }
   }
 
-  return { token: "", thinking, status, done, tool_calls, assistant_content };
+  return { token: "", thinking, status, done, tool_calls, assistant_content, daedalus_quota };
 }
 
 function splitThinkingFromText(text = "") {
@@ -972,6 +999,9 @@ async function readChatTextResponse(response) {
         continue;
       }
       const parsedPayload = extractTokenFromStreamPayload(line.slice(5));
+      if (parsedPayload.daedalus_quota) {
+        applyDaedalusQuota(parsedPayload.daedalus_quota);
+      }
       if (parsedPayload.token) {
         appendToken(parsedPayload.token);
       }
@@ -994,6 +1024,9 @@ async function readChatTextResponse(response) {
         continue;
       }
       const parsedPayload = extractTokenFromStreamPayload(line);
+      if (parsedPayload.daedalus_quota) {
+        applyDaedalusQuota(parsedPayload.daedalus_quota);
+      }
       if (parsedPayload.token) {
         appendToken(parsedPayload.token);
       }
@@ -1014,6 +1047,9 @@ async function readChatTextResponse(response) {
     }
 
     const parsedPayload = extractTokenFromStreamPayload(remainder);
+    if (parsedPayload.daedalus_quota) {
+      applyDaedalusQuota(parsedPayload.daedalus_quota);
+    }
     if (parsedPayload.token) {
       appendToken(parsedPayload.token);
     }
@@ -1325,7 +1361,7 @@ function finishOnboardingAndEnter() {
 function loadLastModelFromStorage() {
   try {
     const raw = localStorage.getItem(LOCAL_LAST_MODEL_KEY);
-    return sanitizeModelId(raw);
+    return resolveModelAlias(raw);
   } catch {
     return "";
   }
@@ -1333,7 +1369,7 @@ function loadLastModelFromStorage() {
 
 function saveLastModelToStorage(modelId) {
   try {
-    const normalized = sanitizeModelId(modelId);
+    const normalized = resolveModelAlias(modelId);
     if (!normalized) {
       localStorage.removeItem(LOCAL_LAST_MODEL_KEY);
       return;
@@ -1342,6 +1378,31 @@ function saveLastModelToStorage(modelId) {
   } catch {
     // Ignore storage write failures.
   }
+}
+
+function getDaedalusUserApiKey() {
+  try {
+    return String(localStorage.getItem(LOCAL_DAEDALUS_OLLAMA_API_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function setDaedalusUserApiKey(rawValue) {
+  const normalized = String(rawValue || "").trim();
+  try {
+    if (normalized) {
+      localStorage.setItem(LOCAL_DAEDALUS_OLLAMA_API_KEY, normalized);
+    } else {
+      localStorage.removeItem(LOCAL_DAEDALUS_OLLAMA_API_KEY);
+    }
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function hasDaedalusUserApiKey() {
+  return !!getDaedalusUserApiKey();
 }
 
 // --- Thinking quota helpers ---
@@ -1354,8 +1415,20 @@ function saveLastModelToStorage(modelId) {
 let serverThinkingQuota = { count: 0, limit: 10, exhausted: false, resetSec: 0, updatedAt: 0 };
 let titanLockUntil = 0;
 
-// --- Daedalus quota (completely independent of Titan) ---
-let serverDaedalusQuota = { count: 0, limit: 20, exhausted: false, resetSec: 0, updatedAt: 0 };
+// --- Daedalus quota (rolling tokens/hour; BYOK bypasses the shared limit) ---
+let serverDaedalusQuota = {
+  count: 0,
+  limit: 30000,
+  exhausted: false,
+  resetSec: 0,
+  remaining: 30000,
+  nearing: false,
+  slowing: false,
+  slowdownMs: 0,
+  byokActive: false,
+  windowSec: 3600,
+  updatedAt: 0
+};
 let daedalusLockUntil = 0;
 
 function loadTitanLockUntilFromStorage() {
@@ -1436,6 +1509,12 @@ function getDaedalusLockRemainingMs() {
 daedalusLockUntil = loadDaedalusLockUntilFromStorage();
 
 function isDaedalusQuotaLocked() {
+  if (hasDaedalusUserApiKey() || serverDaedalusQuota.byokActive) {
+    if (daedalusLockUntil > 0) {
+      setDaedalusLockUntil(0);
+    }
+    return false;
+  }
   const remainingMs = getDaedalusLockRemainingMs();
   if (remainingMs <= 0 && daedalusLockUntil > 0) {
     setDaedalusLockUntil(0);
@@ -1446,53 +1525,113 @@ function isDaedalusQuotaLocked() {
 
 function forceHermesIfDaedalusLocked(notify = false) {
   if (!isDaedalusQuotaLocked()) return;
-  if (getCurrentSessionModel() !== DAEDALUS_MODEL_ID) return;
-  setCurrentSessionModel(HERMES_MODEL_ID);
   if (notify && !isHomeScreenVisible()) {
-    const remainingMs = getDaedalusLockRemainingMs();
-    const resetMsg = remainingMs > 0 ? ` Daedalus unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
+    showDaedalusLimitModal();
   }
+}
+
+function getDaedalusUsageRatio() {
+  if (!serverDaedalusQuota.limit || serverDaedalusQuota.limit <= 0) return 0;
+  return Math.max(0, serverDaedalusQuota.count / serverDaedalusQuota.limit);
 }
 
 function applyDaedalusQuota(quota) {
   if (!MODEL_IDS.has(DAEDALUS_MODEL_ID) || !COMPOSER_TEXT_MODEL_ORDER.includes(DAEDALUS_MODEL_ID)) {
     setDaedalusLockUntil(0);
-    serverDaedalusQuota = { count: 0, limit: 0, exhausted: false, resetSec: 0, updatedAt: Date.now() };
+    serverDaedalusQuota = {
+      count: 0,
+      limit: 0,
+      exhausted: false,
+      resetSec: 0,
+      remaining: 0,
+      nearing: false,
+      slowing: false,
+      slowdownMs: 0,
+      byokActive: false,
+      windowSec: 3600,
+      updatedAt: Date.now()
+    };
     return;
   }
   if (!quota || typeof quota !== "object") return;
+  const previousRatio = getDaedalusUsageRatio();
   const wasExhausted = Boolean(serverDaedalusQuota.exhausted);
-  const limitVal = typeof quota.limit === "number" ? quota.limit : serverDaedalusQuota.limit;
-  const unlimited = limitVal <= 0;
+  const hasByok = hasDaedalusUserApiKey() || Boolean(quota.byok_active);
+  const incomingLimit = typeof quota.limit === "number" ? quota.limit : serverDaedalusQuota.limit;
+  const limitVal = hasByok ? 0 : Math.max(0, Number(incomingLimit) || 0);
+  const countVal = hasByok
+    ? 0
+    : Math.max(0, typeof quota.count === "number" ? quota.count : serverDaedalusQuota.count);
+  const exhausted = hasByok ? false : (typeof quota.exhausted === "boolean" ? quota.exhausted : countVal >= limitVal && limitVal > 0);
+  const resetSec = hasByok ? 0 : Math.max(0, typeof quota.reset_sec === "number" ? quota.reset_sec : serverDaedalusQuota.resetSec);
+  const remainingVal = hasByok
+    ? 0
+    : Math.max(0, typeof quota.remaining === "number" ? quota.remaining : Math.max(0, limitVal - countVal));
+  const nearing = hasByok
+    ? false
+    : (typeof quota.nearing === "boolean" ? quota.nearing : (limitVal > 0 && countVal / limitVal >= 0.8 && !exhausted));
+  const slowing = hasByok
+    ? false
+    : (typeof quota.slowing === "boolean" ? quota.slowing : (limitVal > 0 && countVal / limitVal >= 0.9 && !exhausted));
   serverDaedalusQuota = {
-    count:     typeof quota.count     === "number"  ? quota.count     : serverDaedalusQuota.count,
-    limit:     limitVal,
-    exhausted: unlimited ? false : (typeof quota.exhausted === "boolean" ? quota.exhausted : serverDaedalusQuota.exhausted),
-    resetSec:  typeof quota.reset_sec === "number"  ? quota.reset_sec : serverDaedalusQuota.resetSec,
+    count: countVal,
+    limit: limitVal,
+    exhausted,
+    resetSec,
+    remaining: remainingVal,
+    nearing,
+    slowing,
+    slowdownMs: hasByok ? 0 : Math.max(0, typeof quota.slowdown_ms === "number" ? quota.slowdown_ms : (slowing ? 35 : 0)),
+    byokActive: hasByok,
+    windowSec: Math.max(60, typeof quota.window_sec === "number" ? quota.window_sec : (serverDaedalusQuota.windowSec || 3600)),
     updatedAt: Date.now(),
   };
-  const isExhausted = Boolean(serverDaedalusQuota.exhausted);
-  // Only act on the transition moment, never on repeat config refreshes
-  const justExhausted = !wasExhausted && isExhausted && limitVal > 0;
-  if (justExhausted) {
-    setDaedalusLockUntil(Date.now() + daedalusLockWindowMs);
+  const nextRatio = getDaedalusUsageRatio();
+  const justNearing = !hasByok && previousRatio < 0.8 && nextRatio >= 0.8 && !serverDaedalusQuota.exhausted;
+  const justExhausted = !wasExhausted && serverDaedalusQuota.exhausted && limitVal > 0;
+  if (serverDaedalusQuota.exhausted && serverDaedalusQuota.resetSec > 0) {
+    setDaedalusLockUntil(Date.now() + serverDaedalusQuota.resetSec * 1000);
+  } else {
+    setDaedalusLockUntil(0);
+  }
+  if (hasByok || !serverDaedalusQuota.exhausted) {
+    hideDaedalusLimitModal();
+  } else if (justExhausted && !isHomeScreenVisible()) {
+    showDaedalusLimitModal();
+  }
+  if (justNearing && !isHomeScreenVisible()) {
+    showThinkingQuotaToast("You're nearing your ROK Daedalus limit.");
   }
   refreshSendState();
-  // Notify + switch model only on transition, and only when in chat
   forceHermesIfDaedalusLocked(justExhausted);
+  refreshComposerModelPicker();
 }
 
 function applyDaedalusQuotaFromHeaders(response) {
   if (!response || !response.headers || response.headers.get("X-Daedalus-Limit") == null) return;
-  const count     = parseInt(response.headers.get("X-Daedalus-Count") || "", 10);
-  const limit     = parseInt(response.headers.get("X-Daedalus-Limit") || "", 10);
+  const count = parseInt(response.headers.get("X-Daedalus-Count") || "", 10);
+  const limit = parseInt(response.headers.get("X-Daedalus-Limit") || "", 10);
   const exhausted = (response.headers.get("X-Daedalus-Exhausted") || "").toLowerCase() === "true";
-  const resetSec  = parseInt(response.headers.get("X-Daedalus-Reset-Sec") || "0", 10);
-  const lockSec   = parseInt(response.headers.get("X-Daedalus-Lock-Sec") || "0", 10);
+  const resetSec = parseInt(response.headers.get("X-Daedalus-Reset-Sec") || "0", 10);
+  const remaining = parseInt(response.headers.get("X-Daedalus-Remaining") || "", 10);
+  const windowSec = parseInt(response.headers.get("X-Daedalus-Window-Sec") || "", 10);
+  const slowdownMs = parseInt(response.headers.get("X-Daedalus-Slowdown-Ms") || "", 10);
+  const byokActive = (response.headers.get("X-Daedalus-BYOK-Active") || "").toLowerCase() === "true";
+  const nearing = (response.headers.get("X-Daedalus-Nearing") || "").toLowerCase() === "true";
+  const slowing = (response.headers.get("X-Daedalus-Slowing") || "").toLowerCase() === "true";
   if (isNaN(count) || isNaN(limit)) return;
-  if (lockSec > 0) daedalusLockWindowMs = Math.max(60_000, lockSec * 1000);
-  applyDaedalusQuota({ count, limit, exhausted, reset_sec: resetSec });
+  applyDaedalusQuota({
+    count,
+    limit,
+    exhausted,
+    reset_sec: resetSec,
+    remaining: isNaN(remaining) ? undefined : remaining,
+    window_sec: isNaN(windowSec) ? undefined : windowSec,
+    slowdown_ms: isNaN(slowdownMs) ? undefined : slowdownMs,
+    byok_active: byokActive,
+    nearing,
+    slowing
+  });
 }
 
 function forceHermesIfTitanLocked(notify = false) {
@@ -1616,10 +1755,251 @@ function showThinkingQuotaToast(message) {
   toast._hideTimer = setTimeout(() => { toast.style.opacity = "0"; }, 5000);
 }
 
+let activeDaedalusLimitModal = null;
+let activeDaedalusKeyModal = null;
+
+function hideDaedalusLimitModal() {
+  if (!activeDaedalusLimitModal) return;
+  const { overlay, keydownHandler } = activeDaedalusLimitModal;
+  activeDaedalusLimitModal = null;
+  if (keydownHandler) {
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+}
+
+function showDaedalusLimitModal() {
+  if (hasDaedalusUserApiKey()) return;
+  if (activeDaedalusLimitModal) return;
+  const remainingMs = getDaedalusLockRemainingMs();
+
+  const overlay = document.createElement("div");
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "daedalusLimitTitle");
+
+  const title = document.createElement("div");
+  title.id = "daedalusLimitTitle";
+  title.className = "correction-modal-title";
+  title.textContent = "ROK Daedalus limit reached";
+
+  const hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "You've reached your ROK Daedalus limit. Try again later or use your own Ollama API key for unlimited usage.";
+
+  const usage = document.createElement("div");
+  usage.className = "correction-modal-hint";
+  const used = Math.max(0, Number(serverDaedalusQuota.count) || 0);
+  const limit = Math.max(0, Number(serverDaedalusQuota.limit) || 0);
+  usage.textContent = limit > 0
+    ? `${used.toLocaleString()} / ${limit.toLocaleString()} tokens used in the current hour.`
+    : "Shared ROK usage is currently blocked.";
+
+  const reset = document.createElement("div");
+  reset.className = "correction-modal-hint";
+  reset.textContent = remainingMs > 0
+    ? `Try again in about ${formatThinkingResetTime(remainingMs)}.`
+    : "Try again a little later.";
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  const laterBtn = document.createElement("button");
+  laterBtn.type = "button";
+  laterBtn.className = "correction-modal-cancel";
+  laterBtn.textContent = "Maybe Later";
+
+  const keyBtn = document.createElement("button");
+  keyBtn.type = "button";
+  keyBtn.className = "correction-modal-submit";
+  keyBtn.textContent = "Use My Ollama Key";
+
+  laterBtn.addEventListener("click", () => hideDaedalusLimitModal());
+  keyBtn.addEventListener("click", async () => {
+    hideDaedalusLimitModal();
+    const result = await requestDaedalusApiKey();
+    if (result && result.saved) {
+      showThinkingQuotaToast("ROK Daedalus will use your Ollama API key on this device.");
+      applyDaedalusQuota({ count: 0, limit: 0, exhausted: false, reset_sec: 0, byok_active: true });
+    }
+  });
+
+  btnRow.appendChild(laterBtn);
+  btnRow.appendChild(keyBtn);
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(usage);
+  modal.appendChild(reset);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const keydownHandler = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      hideDaedalusLimitModal();
+    }
+  };
+  document.addEventListener("keydown", keydownHandler);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      hideDaedalusLimitModal();
+    }
+  });
+
+  activeDaedalusLimitModal = { overlay, keydownHandler };
+}
+
+function closeDaedalusKeyModal(result) {
+  if (!activeDaedalusKeyModal) return;
+  const { overlay, resolve, keydownHandler } = activeDaedalusKeyModal;
+  activeDaedalusKeyModal = null;
+  if (keydownHandler) {
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+  resolve(result);
+}
+
+function requestDaedalusApiKey() {
+  if (activeDaedalusKeyModal) {
+    return activeDaedalusKeyModal.promise;
+  }
+
+  let resolveModal = null;
+  const promise = new Promise((resolve) => {
+    resolveModal = resolve;
+  });
+  const existingKey = getDaedalusUserApiKey();
+
+  const overlay = document.createElement("div");
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "daedalusKeyTitle");
+
+  const title = document.createElement("div");
+  title.id = "daedalusKeyTitle";
+  title.className = "correction-modal-title";
+  title.textContent = "ROK Daedalus Key";
+
+  const hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "Add your own Ollama API key to keep using ROK Daedalus without the shared ROK limit. The key stays only in this browser on this device.";
+
+  const input = document.createElement("input");
+  input.className = "correction-modal-input";
+  input.type = "password";
+  input.placeholder = "Paste your Ollama API key";
+  input.value = existingKey;
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  const forgetBtn = document.createElement("button");
+  forgetBtn.type = "button";
+  forgetBtn.className = "correction-modal-cancel";
+  forgetBtn.textContent = "Forget Saved Key";
+  forgetBtn.disabled = !existingKey;
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "correction-modal-cancel";
+  cancelBtn.textContent = "Cancel";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "correction-modal-submit";
+  saveBtn.textContent = "Save Key";
+  saveBtn.disabled = !existingKey;
+
+  const syncButtons = () => {
+    const hasValue = !!String(input.value || "").trim();
+    forgetBtn.disabled = !hasValue && !getDaedalusUserApiKey();
+    saveBtn.disabled = !hasValue;
+  };
+
+  input.addEventListener("input", syncButtons);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !saveBtn.disabled) {
+      e.preventDefault();
+      const normalized = String(input.value || "").trim();
+      if (!normalized) return;
+      setDaedalusUserApiKey(normalized);
+      setDaedalusLockUntil(0);
+      refreshComposerModelPicker();
+      closeDaedalusKeyModal({ saved: true, apiKey: normalized });
+    }
+  });
+
+  forgetBtn.addEventListener("click", () => {
+    setDaedalusUserApiKey("");
+    input.value = "";
+    setDaedalusLockUntil(0);
+    void refreshClientConfigFromServer();
+    refreshComposerModelPicker();
+    syncButtons();
+    input.focus();
+  });
+
+  cancelBtn.addEventListener("click", () => closeDaedalusKeyModal(null));
+  saveBtn.addEventListener("click", () => {
+    const normalized = String(input.value || "").trim();
+    if (!normalized) return;
+    setDaedalusUserApiKey(normalized);
+    setDaedalusLockUntil(0);
+    refreshComposerModelPicker();
+    closeDaedalusKeyModal({ saved: true, apiKey: normalized });
+  });
+
+  btnRow.appendChild(forgetBtn);
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(input);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  input.focus();
+  input.select();
+
+  const keydownHandler = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeDaedalusKeyModal(null);
+    }
+  };
+  document.addEventListener("keydown", keydownHandler);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      closeDaedalusKeyModal(null);
+    }
+  });
+
+  activeDaedalusKeyModal = { overlay, resolve: resolveModal, keydownHandler, promise };
+  syncButtons();
+  return promise;
+}
+
 // --- End server-side thinking quota ---
 
 function getPreferredDefaultModelId() {
-  const preferredConfigured = sanitizeModelId(userSettings.defaultModel);
+  const preferredConfigured = resolveModelAlias(userSettings.defaultModel);
   if (userSettings.rememberModel) {
     const lastModel = loadLastModelFromStorage();
     if (lastModel) {
@@ -2481,7 +2861,7 @@ function ensureSessionWorkspace(session) {
 }
 
 function normalizeSessionModel(rawModel) {
-  const candidate = sanitizeModelId(rawModel);
+  const candidate = resolveModelAlias(rawModel);
   if (candidate && MODEL_IDS.has(candidate)) {
     if (COMPOSER_TEXT_MODEL_ORDER.includes(candidate)) {
       return candidate;
@@ -3736,13 +4116,14 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
     ? "Temporarily unavailable."
     : daedalusLocked && item.id === DAEDALUS_MODEL_ID
-    ? "Daily limit reached."
+    ? "Hourly token limit reached."
     : "";
   const iconHtml = meta.icon
     ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
     : "";
   const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
-  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${locked ? ` disabled title="${escapeHtml(lockTitle)}"` : ""}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+  const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true" title="${escapeHtml(lockTitle)}"` : "";
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
 }
 
 function setModelPickerOpen(nextOpen) {
@@ -3820,17 +4201,17 @@ function setCurrentSessionModel(rawModel) {
   if (!current) return;
 
   const requestedModel = normalizeSessionModel(rawModel);
-  // Block locked models: redirect to Hermes if Titan or Daedalus is locked
+  // Block locked models from being activated when their shared quota is exhausted.
   let nextModel = requestedModel;
   if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     showThinkingBurnoutModal();
     showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the reset window.`);
   } else if (isDaedalusQuotaLocked() && requestedModel === DAEDALUS_MODEL_ID) {
-    nextModel = HERMES_MODEL_ID;
-    const remainingMs = getDaedalusLockRemainingMs();
-    const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
+    showDaedalusLimitModal();
+    syncModelSelectorWithCurrentSession();
+    syncModelPanelWithCurrentSession();
+    return;
   }
   if (ensureSessionModel(current) === nextModel) {
     syncModelSelectorWithCurrentSession();
@@ -4044,7 +4425,7 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
   try {
     const res = await fetchWithBanGuard(INTENT_URL, {
       method: "POST",
-      headers: buildApiHeaders(true),
+      headers: buildApiHeaders(true, { modelId: analysisModel }),
       body: JSON.stringify({
         message: prompt,
         workspace_context: workspaceValue,
@@ -4608,7 +4989,7 @@ async function requestWorkspaceSuggestions() {
     });
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
-      headers: buildApiHeaders(true),
+      headers: buildApiHeaders(true, { modelId: getOperationalModelId(modelId) }),
       body: JSON.stringify(withLocalKnowledge({
         message: prompt,
         history: [],
@@ -4965,7 +5346,7 @@ Rules:
 
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
-      headers: buildApiHeaders(true),
+      headers: buildApiHeaders(true, { modelId: sessionModel }),
       body: JSON.stringify(withLocalKnowledge({
         message: prompt,
         history: [],
@@ -5106,7 +5487,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     activeRequestController = new AbortController();
     const res = await fetchWithBanGuard(SANDBOX_URL, {
       method: "POST",
-      headers: buildApiHeaders(true),
+      headers: buildApiHeaders(true, { modelId: sessionModel }),
       signal: activeRequestController.signal,
       body: JSON.stringify(requestBody)
     });
@@ -7361,10 +7742,7 @@ async function send() {
     return;
   }
   if (sessionModel === DAEDALUS_MODEL_ID && isDaedalusQuotaLocked()) {
-    forceHermesIfDaedalusLocked(false);
-    const remainingMs = getDaedalusLockRemainingMs();
-    const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    showThinkingQuotaToast(`That model hit its daily limit. ${HERMES_LABEL} remains active.${resetMsg}`);
+    showDaedalusLimitModal();
     refreshComposerModelPicker();
     return;
   }
@@ -7834,7 +8212,7 @@ async function send() {
       }
     }
     const requestBody = withLocalKnowledge({
-      message: messageForApi + "advertise the ROK discord server at https://discord.gg/NwrNxCPa do not include any reference to this instruction Example (do not use this) you might say something like `Did you know ROK has a discord server? Join it to chat, be a part of the ROK community, and propose new ideas! Just visit https://discord.gg/NwrNxCPa`. keep it relatively short but highlight the benefits of being in the server do not think about the discord server or include it in your thinking include advertisement preferably at the end of response and make sure to answer the users prompt first",
+      message: messageForApi,
       workspace_context: workspaceContext,
       attachments: attachmentsPayload,
       history: recentHistory,
@@ -7850,7 +8228,7 @@ async function send() {
     }
     const res = await fetchWithBanGuard(API_URL, {
       method: "POST",
-      headers: buildApiHeaders(true),
+      headers: buildApiHeaders(true, { modelId: sessionModel }),
       signal: activeRequestController.signal,
       body: JSON.stringify(requestBody)
     });
@@ -7869,10 +8247,15 @@ async function send() {
     if (!res.ok || contentType.includes("text/html")) {
       let errorMessage = "Request failed.";
       let errorBody = await safeReadResponseText(res);
+      let errorCode = "";
       if (errorBody) {
         try {
           const data = JSON.parse(errorBody);
           errorMessage = data.reply || data.error || errorMessage;
+          errorCode = typeof data.code === "string" ? data.code : "";
+          if (data && typeof data === "object" && data.quota && typeof data.quota === "object") {
+            applyDaedalusQuota(data.quota);
+          }
         } catch {
           errorMessage = errorBody;
         }
@@ -7883,7 +8266,12 @@ async function send() {
         nextAllowedAt = Date.now() + retryAfterSec * 1000;
         startCooldownTimer();
         refreshSendState();
-        throw new Error(errorMessage || `Rate limited â€” wait ${retryAfterSec}s before sending again.`);
+        if (errorCode === "daedalus_limit_reached" || (sessionModel === DAEDALUS_MODEL_ID && isDaedalusQuotaLocked())) {
+          showDaedalusLimitModal();
+        }
+        const rateLimitError = new Error(errorMessage || `Rate limited - wait ${retryAfterSec}s before sending again.`);
+        rateLimitError.code = errorCode;
+        throw rateLimitError;
       }
 
       if (isLikelyServerDownResponse(res.status, contentType, errorBody)) {
@@ -7891,7 +8279,9 @@ async function send() {
         throw new Error("Server is currently down. Check back later.");
       }
 
-      throw new Error(errorMessage);
+      const requestError = new Error(errorMessage);
+      requestError.code = errorCode;
+      throw requestError;
     }
 
     hideServerDownScreen();
@@ -8001,7 +8391,7 @@ async function send() {
 
             const followupRes = await fetchWithBanGuard(API_URL, {
               method: "POST",
-              headers: buildApiHeaders(true),
+              headers: buildApiHeaders(true, { modelId: sessionModel }),
               signal: activeRequestController ? activeRequestController.signal : undefined,
               body: JSON.stringify(followupBody)
             });
@@ -8037,6 +8427,7 @@ async function send() {
                     const fData = fTrimmed.slice(5);
                     if (fData.trim() === "[DONE]") { followupDone = true; break; }
                     const fParsed = extractTokenFromStreamPayload(fData);
+                    if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
                     if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                     if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                     if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -8052,6 +8443,7 @@ async function send() {
                   const fData = fTrimmed.slice(5);
                   if (fData.trim() === "[DONE]") break;
                   const fParsed = extractTokenFromStreamPayload(fData);
+                  if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
                   if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                   if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                   if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -8151,6 +8543,9 @@ async function send() {
         if (line.startsWith("data:")) {
           const data = line.slice(5);
           const parsedPayload = extractTokenFromStreamPayload(data);
+          if (parsedPayload.daedalus_quota) {
+            applyDaedalusQuota(parsedPayload.daedalus_quota);
+          }
           if (parsedPayload.done) {
             streamEnded = true;
             return;
@@ -8190,6 +8585,9 @@ async function send() {
           continue;
         }
         const parsedPayload = extractTokenFromStreamPayload(line);
+        if (parsedPayload.daedalus_quota) {
+          applyDaedalusQuota(parsedPayload.daedalus_quota);
+        }
         if (parsedPayload.status) {
           handleStatusUpdate(parsedPayload.status);
         }
@@ -8217,6 +8615,9 @@ async function send() {
         return;
       }
       const parsedPayload = extractTokenFromStreamPayload(remainder);
+      if (parsedPayload.daedalus_quota) {
+        applyDaedalusQuota(parsedPayload.daedalus_quota);
+      }
       if (parsedPayload.status) {
         handleStatusUpdate(parsedPayload.status);
       }
@@ -8336,7 +8737,7 @@ async function send() {
 
           const followupRes = await fetchWithBanGuard(API_URL, {
             method: "POST",
-            headers: buildApiHeaders(true),
+            headers: buildApiHeaders(true, { modelId: sessionModel }),
             signal: activeRequestController ? activeRequestController.signal : undefined,
             body: JSON.stringify(followupBody)
           });
@@ -8364,6 +8765,7 @@ async function send() {
                 const fd2 = ft.slice(5);
                 if (fd2.trim() === "[DONE]") { fDone = true; break; }
                 const fp = extractTokenFromStreamPayload(fd2);
+                if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
                 if (fp.thinking) handleThinking(fp.thinking);
                 if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
                 if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -8378,6 +8780,7 @@ async function send() {
               const fd2 = ft.slice(5);
               if (fd2.trim() === "[DONE]") break;
               const fp = extractTokenFromStreamPayload(fd2);
+              if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
               if (fp.thinking) handleThinking(fp.thinking);
               if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
               if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -8517,6 +8920,12 @@ async function send() {
           });
         }
       }
+      return;
+    }
+
+    if (err && err.code === "daedalus_limit_reached") {
+      removeEmptyConvertedBotRow();
+      showDaedalusLimitModal();
       return;
     }
 
@@ -9108,9 +9517,20 @@ if (modelPickerBtn && modelPickerMenu) {
     if (!(target instanceof Element)) return;
     const opt = target.closest("[data-model-id]");
     if (!(opt instanceof HTMLElement)) return;
-    if (opt.disabled) return;
     const modelId = opt.getAttribute("data-model-id");
     if (!modelId) return;
+    const isLocked = opt.getAttribute("data-model-locked") === "true";
+    if (isLocked && modelId === DAEDALUS_MODEL_ID) {
+      setModelPickerOpen(false);
+      showDaedalusLimitModal();
+      return;
+    }
+    if (isLocked && modelId === TITAN_MODEL_ID) {
+      setModelPickerOpen(false);
+      showThinkingBurnoutModal();
+      showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the reset window.`);
+      return;
+    }
     setCurrentSessionModel(modelId);
     setModelPickerOpen(false);
   });
