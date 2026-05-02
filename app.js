@@ -228,7 +228,7 @@ const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
 const HERMES_LABEL = "Hermes 1.3";
 const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
-const DAEDALUS_LABEL = "ROK Daedalus";
+const DAEDALUS_LABEL = "Daedalus 1.0";
 const DAEDALUS_PROVIDER_NAME = "DeepSeek v3.2 Cloud";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
@@ -1600,7 +1600,7 @@ function applyDaedalusQuota(quota) {
     showDaedalusLimitModal();
   }
   if (justNearing && !isHomeScreenVisible()) {
-    showThinkingQuotaToast("You're nearing your ROK Daedalus limit.");
+    showThinkingQuotaToast("You're nearing your Daedalus 1.0 limit.");
   }
   refreshSendState();
   forceHermesIfDaedalusLocked(justExhausted);
@@ -1787,11 +1787,11 @@ function showDaedalusLimitModal() {
   const title = document.createElement("div");
   title.id = "daedalusLimitTitle";
   title.className = "correction-modal-title";
-  title.textContent = "ROK Daedalus limit reached";
+  title.textContent = "Daedalus 1.0 limit reached";
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "You've reached your ROK Daedalus limit. Try again later or use your own Ollama API key for unlimited usage.";
+  hint.textContent = "You've reached your Daedalus 1.0 limit. Try again later or use your own Ollama API key for unlimited usage.";
 
   const usage = document.createElement("div");
   usage.className = "correction-modal-hint";
@@ -1825,7 +1825,7 @@ function showDaedalusLimitModal() {
     hideDaedalusLimitModal();
     const result = await requestDaedalusApiKey();
     if (result && result.saved) {
-      showThinkingQuotaToast("ROK Daedalus will use your Ollama API key on this device.");
+      showThinkingQuotaToast("Daedalus 1.0 will use your Ollama API key on this device.");
       applyDaedalusQuota({ count: 0, limit: 0, exhausted: false, reset_sec: 0, byok_active: true });
     }
   });
@@ -1892,11 +1892,11 @@ function requestDaedalusApiKey() {
   const title = document.createElement("div");
   title.id = "daedalusKeyTitle";
   title.className = "correction-modal-title";
-  title.textContent = "ROK Daedalus Key";
+  title.textContent = "Daedalus 1.0 Key";
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Add your own Ollama API key to keep using ROK Daedalus without the shared ROK limit. The key stays only in this browser on this device.";
+  hint.textContent = "Add your own Ollama API key to keep using Daedalus 1.0 without the shared ROK limit. The key stays only in this browser on this device.";
 
   const input = document.createElement("input");
   input.className = "correction-modal-input";
