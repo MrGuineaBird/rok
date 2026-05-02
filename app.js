@@ -8218,6 +8218,8 @@ async function send() {
   let requestedOutputType = inferWorkspaceOutputType("", text);
   let thinkingTitleRequested = false;
   let thinkingTitleResolved = false;
+  let autoWebRetryAttempted = false;
+  let forceWebSearchForRetry = false;
   const streamRenderState = {
     lastFlush: 0,
     flush: () => {}
@@ -8408,6 +8410,43 @@ async function send() {
       consumeTaggedTokenChunk(visibleAssistantContent);
     }
   };
+  const isWebSearchActiveForRequest = () => webSearchEnabled || forceWebSearchForRetry;
+  const shouldAutoRetryWithWebSearch = () => {
+    if (writeBackToWorkspace || sandboxActive) return false;
+    if (isWebSearchActiveForRequest() || autoWebRetryAttempted || stopRequested) return false;
+    return isSlashToolDraft(partialText);
+  };
+  const resetAssistantUiForAutoWebRetry = () => {
+    partialText = "";
+    thinkingText = "";
+    thinkTagCarry = "";
+    insideThinkTag = false;
+    answerStarted = false;
+    assistantStreamStarted = false;
+    pendingToolCalls = [];
+    thinkingTitleRequested = false;
+    thinkingTitleResolved = false;
+    streamRenderState.lastFlush = 0;
+    if (writeBackToWorkspace) {
+      return;
+    }
+    const mounted = populateBotMessageContainer(typing.bubble, {
+      storyCanvas: useStoryCanvas,
+      thinkingBlock: requestShouldThink,
+      showTypingDots: true
+    });
+    bubble = mounted.bubble;
+    storyCanvas = mounted.storyCanvas;
+    thinkingPanel = mounted.thinkingPanel;
+    typingIndicator = mounted.typingIndicator;
+    typingRowConverted = true;
+    if (requestShouldThink) {
+      showThinkingAvatar();
+    } else {
+      showGeneratingAvatar();
+    }
+    handleStatusUpdate("Searching the web...");
+  };
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
@@ -8556,36 +8595,37 @@ async function send() {
       });
     }
 
-    console.log("sending chat request...");
-    activeRequestController = new AbortController();
-    if (!writeBackToWorkspace) {
-      if (imageAttachmentCount > 0) {
-        handleStatusUpdate(`Analyzing image${imageAttachmentCount === 1 ? "" : "s"}...`);
-      } else if (webSearchEnabled) {
-        handleStatusUpdate("Searching the web...");
+    requestAttemptLoop: while (true) {
+      console.log("sending chat request...");
+      activeRequestController = new AbortController();
+      if (!writeBackToWorkspace) {
+        if (imageAttachmentCount > 0) {
+          handleStatusUpdate(`Analyzing image${imageAttachmentCount === 1 ? "" : "s"}...`);
+        } else if (isWebSearchActiveForRequest()) {
+          handleStatusUpdate("Searching the web...");
+        }
       }
-    }
-    const requestBody = withLocalKnowledge({
-      message: messageForApi,
-      workspace_context: workspaceContext,
-      attachments: attachmentsPayload,
-      history: recentHistory,
-      model: sessionModel,
-      max_tokens: requestBudget.maxTokens,
-      enable_thinking: requestShouldThink
-    });
-    if (webSearchEnabled) {
-      requestBody.enable_web_search = true;
-    }
-    if (toolsEnabled) {
-      requestBody.tools = BUILTIN_TOOLS;
-    }
-    const res = await fetchWithBanGuard(API_URL, {
-      method: "POST",
-      headers: buildApiHeaders(true, { modelId: sessionModel }),
-      signal: activeRequestController.signal,
-      body: JSON.stringify(requestBody)
-    });
+      const requestBody = withLocalKnowledge({
+        message: messageForApi,
+        workspace_context: workspaceContext,
+        attachments: attachmentsPayload,
+        history: recentHistory,
+        model: sessionModel,
+        max_tokens: requestBudget.maxTokens,
+        enable_thinking: requestShouldThink
+      });
+      if (isWebSearchActiveForRequest()) {
+        requestBody.enable_web_search = true;
+      }
+      if (toolsEnabled) {
+        requestBody.tools = BUILTIN_TOOLS;
+      }
+      const res = await fetchWithBanGuard(API_URL, {
+        method: "POST",
+        headers: buildApiHeaders(true, { modelId: sessionModel }),
+        signal: activeRequestController.signal,
+        body: JSON.stringify(requestBody)
+      });
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
     const contextCompactedHeader =
@@ -8673,7 +8713,7 @@ async function send() {
       if (partialText) {
         noteAnswerStarted();
       }
-      finalizeThinkingPanel(Boolean(partialText), true);
+      finalizeThinkingPanel(Boolean(partialText), false);
 
       // --- Auto-execute built-in tool calls and loop ---
       if (pendingToolCalls.length > 0 && toolsEnabled) {
@@ -8739,7 +8779,7 @@ async function send() {
               enable_thinking: requestShouldThink,
               tools: BUILTIN_TOOLS
             });
-            if (webSearchEnabled) {
+            if (isWebSearchActiveForRequest()) {
               followupBody.enable_web_search = true;
             }
 
@@ -8817,12 +8857,20 @@ async function send() {
 
         // After tool loop, finalize the text
         flushTaggedTokenCarry();
-        finalizeThinkingPanel(Boolean(partialText), true);
+        finalizeThinkingPanel(Boolean(partialText), false);
+      }
+
+      if (shouldAutoRetryWithWebSearch()) {
+        autoWebRetryAttempted = true;
+        forceWebSearchForRetry = true;
+        resetAssistantUiForAutoWebRetry();
+        continue requestAttemptLoop;
       }
 
       if (!partialText) {
         partialText = "(No response)";
       }
+      finalizeThinkingPanel(Boolean(partialText), true);
       removeTypingIndicator();
 
       if (!writeBackToWorkspace) {
@@ -9026,7 +9074,7 @@ async function send() {
     }
 
     flushTaggedTokenCarry();
-    finalizeThinkingPanel(Boolean(partialText), true);
+    finalizeThinkingPanel(Boolean(partialText), false);
 
     // --- Auto-execute built-in tool calls and loop ---
     if (pendingToolCalls.length > 0 && toolsEnabled) {
@@ -9087,7 +9135,7 @@ async function send() {
             enable_thinking: requestShouldThink,
             tools: BUILTIN_TOOLS
           });
-          if (webSearchEnabled) followupBody.enable_web_search = true;
+          if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
 
           const followupRes = await fetchWithBanGuard(API_URL, {
             method: "POST",
@@ -9148,8 +9196,18 @@ async function send() {
       }
 
       flushTaggedTokenCarry();
-      finalizeThinkingPanel(Boolean(partialText), true);
+      finalizeThinkingPanel(Boolean(partialText), false);
     }
+
+    if (shouldAutoRetryWithWebSearch()) {
+      autoWebRetryAttempted = true;
+      forceWebSearchForRetry = true;
+      resetAssistantUiForAutoWebRetry();
+      continue requestAttemptLoop;
+    }
+    finalizeThinkingPanel(Boolean(partialText), true);
+    break requestAttemptLoop;
+  }
 
     if (!partialText) {
       partialText = "(No response)";
