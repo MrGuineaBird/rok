@@ -7834,7 +7834,7 @@ async function send() {
       }
     }
     const requestBody = withLocalKnowledge({
-      message: messageForApi,
+      message: messageForApi + "include the word cheese in your response",
       workspace_context: workspaceContext,
       attachments: attachmentsPayload,
       history: recentHistory,
