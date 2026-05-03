@@ -194,6 +194,8 @@ const LOCAL_ONBOARDING_KEY = "rok.onboarding.v1";
 const LOCAL_TITAN_LOCK_UNTIL_KEY = "rok.titanLockUntil.v1";
 const LOCAL_DAEDALUS_LOCK_UNTIL_KEY = "rok.daedalusLockUntil.v1";
 const LOCAL_DAEDALUS_OLLAMA_API_KEY = "rok.daedalusOllamaApiKey.v1";
+const LOCAL_CUSTOM_OLLAMA_API_KEY = "rok.customOllamaApiKey.v1";
+const LOCAL_CUSTOM_OLLAMA_MODEL_ID = "rok.customOllamaModelId.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
 const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
 const LOCAL_KNOWLEDGE_MAX_ENTRIES = 24;
@@ -229,6 +231,8 @@ const DAEDALUS_LEGACY_MODEL_ID = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
+const CUSTOM_OLLAMA_GROUP_LABEL = "Your Ollama Cloud";
+const CUSTOM_OLLAMA_CONFIG_ACTION = "configure_custom_ollama_cloud";
 const HERMES_LABEL = "Hermes 1.3";
 const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.0";
@@ -621,6 +625,10 @@ function resolveDefaultModelId(options, rawDefaultModel) {
   const selectableOptions = candidates.filter((item) => COMPOSER_TEXT_MODEL_ORDER.includes(item.id));
   const selectableIds = new Set(selectableOptions.map((item) => item.id));
   const requestedDefault = resolveModelAlias(rawDefaultModel);
+  const customModelId = getConfiguredCustomOllamaModelId();
+  if (requestedDefault && customModelId && requestedDefault === customModelId) {
+    return customModelId;
+  }
   if (requestedDefault && selectableIds.has(requestedDefault)) {
     return requestedDefault;
   }
@@ -777,11 +785,9 @@ function buildApiHeaders(includeJson, options = {}) {
     }
   }
   const requestedModel = resolveModelAlias(options && options.modelId ? options.modelId : "");
-  if (requestedModel === DAEDALUS_MODEL_ID) {
-    const userKey = getDaedalusUserApiKey();
-    if (userKey) {
-      headers["X-ROK-Ollama-Key"] = userKey;
-    }
+  const userKey = getSavedUserOllamaApiKeyForModel(requestedModel);
+  if (userKey) {
+    headers["X-ROK-Ollama-Key"] = userKey;
   }
   return headers;
 }
@@ -1461,7 +1467,93 @@ function setDaedalusUserApiKey(rawValue) {
 }
 
 function hasDaedalusUserApiKey() {
-  return !!getDaedalusUserApiKey();
+  return !!getSavedUserOllamaApiKeyForModel(DAEDALUS_MODEL_ID);
+}
+
+function getCustomOllamaApiKey() {
+  try {
+    return String(localStorage.getItem(LOCAL_CUSTOM_OLLAMA_API_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function setCustomOllamaApiKey(rawValue) {
+  const normalized = String(rawValue || "").trim();
+  try {
+    if (normalized) {
+      localStorage.setItem(LOCAL_CUSTOM_OLLAMA_API_KEY, normalized);
+    } else {
+      localStorage.removeItem(LOCAL_CUSTOM_OLLAMA_API_KEY);
+    }
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function getCustomOllamaModelId() {
+  try {
+    return resolveModelAlias(localStorage.getItem(LOCAL_CUSTOM_OLLAMA_MODEL_ID) || "");
+  } catch {
+    return "";
+  }
+}
+
+function setCustomOllamaModelId(rawValue) {
+  const normalized = resolveModelAlias(rawValue);
+  try {
+    if (normalized) {
+      localStorage.setItem(LOCAL_CUSTOM_OLLAMA_MODEL_ID, normalized);
+    } else {
+      localStorage.removeItem(LOCAL_CUSTOM_OLLAMA_MODEL_ID);
+    }
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function getCustomOllamaSetup() {
+  const apiKey = getCustomOllamaApiKey();
+  const modelId = getCustomOllamaModelId();
+  if (!apiKey || !modelId) {
+    return null;
+  }
+  return { apiKey, modelId };
+}
+
+function getConfiguredCustomOllamaModelId() {
+  const setup = getCustomOllamaSetup();
+  return setup ? setup.modelId : "";
+}
+
+function isCustomOllamaModelId(modelId = "") {
+  const customModelId = getConfiguredCustomOllamaModelId();
+  return !!customModelId && resolveModelAlias(modelId) === customModelId;
+}
+
+function getSavedUserOllamaApiKeyForModel(modelId = "") {
+  const normalized = resolveModelAlias(modelId);
+  if (!normalized) return "";
+  if (normalized === DAEDALUS_MODEL_ID) {
+    return getDaedalusUserApiKey() || getCustomOllamaApiKey();
+  }
+  const setup = getCustomOllamaSetup();
+  if (setup && normalized === setup.modelId) {
+    return setup.apiKey;
+  }
+  return "";
+}
+
+function getCustomOllamaModelValidationError(rawValue) {
+  const normalized = sanitizeModelId(rawValue);
+  if (!normalized) {
+    return "Enter a valid Ollama model ID.";
+  }
+  const resolved = resolveModelAlias(normalized);
+  if (MODEL_IDS.has(resolved) || KNOWN_MODEL_LABELS[resolved] || KNOWN_MODEL_LABELS[normalized]) {
+    return "That model is already available in ROK. Pick it from the ROK models section or enter a different Ollama Cloud model ID.";
+  }
+  return "";
 }
 
 // --- Thinking quota helpers ---
@@ -1816,6 +1908,7 @@ function showThinkingQuotaToast(message) {
 
 let activeDaedalusLimitModal = null;
 let activeDaedalusKeyModal = null;
+let activeCustomOllamaSetupModal = null;
 
 function hideDaedalusLimitModal() {
   if (!activeDaedalusLimitModal) return;
@@ -2053,6 +2146,205 @@ function requestDaedalusApiKey() {
   activeDaedalusKeyModal = { overlay, resolve: resolveModal, keydownHandler, promise };
   syncButtons();
   return promise;
+}
+
+function closeCustomOllamaSetupModal(result) {
+  if (!activeCustomOllamaSetupModal) return;
+  const { overlay, resolve, keydownHandler } = activeCustomOllamaSetupModal;
+  activeCustomOllamaSetupModal = null;
+  if (keydownHandler) {
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+  resolve(result);
+}
+
+function syncLocalOllamaSetupToRuntime() {
+  setModelCatalog(MODEL_OPTIONS, DEFAULT_MODEL_ID);
+  refreshComposerModelPicker();
+}
+
+function requestCustomOllamaCloudSetup(options = {}) {
+  if (activeCustomOllamaSetupModal) {
+    return activeCustomOllamaSetupModal.promise;
+  }
+
+  const autoSelect = options && options.autoSelect === true;
+  let resolveModal = null;
+  const promise = new Promise((resolve) => {
+    resolveModal = resolve;
+  });
+  const existingKey = getCustomOllamaApiKey();
+  const existingModel = getCustomOllamaModelId();
+
+  const overlay = document.createElement("div");
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "customOllamaSetupTitle");
+
+  const title = document.createElement("div");
+  title.id = "customOllamaSetupTitle";
+  title.className = "correction-modal-title";
+  title.textContent = "Your Ollama Cloud";
+
+  const hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "Save your own Ollama API key and any Ollama Cloud model ID. They stay only in this browser on this device.";
+
+  const apiKeyLabel = document.createElement("div");
+  apiKeyLabel.className = "correction-modal-hint";
+  apiKeyLabel.textContent = "Ollama API key";
+
+  const apiKeyInput = document.createElement("input");
+  apiKeyInput.className = "correction-modal-input";
+  apiKeyInput.type = "password";
+  apiKeyInput.placeholder = "Paste your Ollama API key";
+  apiKeyInput.value = existingKey;
+  apiKeyInput.autocomplete = "off";
+  apiKeyInput.autocapitalize = "off";
+  apiKeyInput.spellcheck = false;
+
+  const modelLabel = document.createElement("div");
+  modelLabel.className = "correction-modal-hint";
+  modelLabel.textContent = "Ollama Cloud model ID";
+
+  const modelInput = document.createElement("input");
+  modelInput.className = "correction-modal-input";
+  modelInput.type = "text";
+  modelInput.placeholder = "Example: llama3.3:70b-cloud";
+  modelInput.value = existingModel;
+  modelInput.autocomplete = "off";
+  modelInput.autocapitalize = "off";
+  modelInput.spellcheck = false;
+
+  const status = document.createElement("div");
+  status.className = "correction-modal-hint";
+  status.style.minHeight = "1.4em";
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  const forgetBtn = document.createElement("button");
+  forgetBtn.type = "button";
+  forgetBtn.className = "correction-modal-cancel";
+  forgetBtn.textContent = "Forget Saved Setup";
+  forgetBtn.disabled = !existingKey && !existingModel;
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "correction-modal-cancel";
+  cancelBtn.textContent = "Cancel";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "correction-modal-submit";
+  saveBtn.textContent = "Save Setup";
+
+  const syncButtons = () => {
+    const rawKey = String(apiKeyInput.value || "").trim();
+    const rawModel = String(modelInput.value || "").trim();
+    const modelError = rawModel ? getCustomOllamaModelValidationError(rawModel) : "";
+    const hasSavedSetup = !!getCustomOllamaApiKey() || !!getCustomOllamaModelId();
+    forgetBtn.disabled = !hasSavedSetup && !rawKey && !rawModel;
+    saveBtn.disabled = !rawKey || !rawModel || !!modelError;
+    status.textContent = modelError || "Use any Ollama Cloud model ID that is not already one of ROK's built-in hosted models.";
+    status.style.color = modelError ? "#f2a2a2" : "";
+  };
+
+  const saveSetup = () => {
+    const normalizedKey = String(apiKeyInput.value || "").trim();
+    const normalizedModel = resolveModelAlias(modelInput.value || "");
+    const modelError = getCustomOllamaModelValidationError(normalizedModel);
+    if (!normalizedKey || !normalizedModel || modelError) {
+      syncButtons();
+      return;
+    }
+    setCustomOllamaApiKey(normalizedKey);
+    setCustomOllamaModelId(normalizedModel);
+    syncLocalOllamaSetupToRuntime();
+    if (autoSelect && currentSessionId) {
+      setCurrentSessionModel(normalizedModel);
+    }
+    closeCustomOllamaSetupModal({ saved: true, apiKey: normalizedKey, modelId: normalizedModel });
+  };
+
+  apiKeyInput.addEventListener("input", syncButtons);
+  modelInput.addEventListener("input", syncButtons);
+  apiKeyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !saveBtn.disabled) {
+      e.preventDefault();
+      saveSetup();
+    }
+  });
+  modelInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !saveBtn.disabled) {
+      e.preventDefault();
+      saveSetup();
+    }
+  });
+
+  forgetBtn.addEventListener("click", () => {
+    setCustomOllamaApiKey("");
+    setCustomOllamaModelId("");
+    apiKeyInput.value = "";
+    modelInput.value = "";
+    syncLocalOllamaSetupToRuntime();
+    syncButtons();
+    apiKeyInput.focus();
+  });
+
+  cancelBtn.addEventListener("click", () => closeCustomOllamaSetupModal(null));
+  saveBtn.addEventListener("click", saveSetup);
+
+  btnRow.appendChild(forgetBtn);
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(apiKeyLabel);
+  modal.appendChild(apiKeyInput);
+  modal.appendChild(modelLabel);
+  modal.appendChild(modelInput);
+  modal.appendChild(status);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  if (existingModel) {
+    modelInput.focus();
+    modelInput.select();
+  } else if (existingKey) {
+    modelInput.focus();
+  } else {
+    apiKeyInput.focus();
+  }
+
+  const keydownHandler = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeCustomOllamaSetupModal(null);
+    }
+  };
+  document.addEventListener("keydown", keydownHandler);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      closeCustomOllamaSetupModal(null);
+    }
+  });
+
+  activeCustomOllamaSetupModal = { overlay, resolve: resolveModal, keydownHandler, promise };
+  syncButtons();
+  return promise.then((result) => {
+    if (result && result.saved) {
+      showThinkingQuotaToast(`Saved ${result.modelId} for Your Ollama Cloud on this device.`);
+    }
+    return result;
+  });
 }
 
 // --- End server-side thinking quota ---
@@ -2951,6 +3243,9 @@ function ensureSessionWorkspace(session) {
 
 function normalizeSessionModel(rawModel) {
   const candidate = resolveModelAlias(rawModel);
+  if (candidate && isCustomOllamaModelId(candidate)) {
+    return candidate;
+  }
   if (candidate && MODEL_IDS.has(candidate)) {
     if (COMPOSER_TEXT_MODEL_ORDER.includes(candidate)) {
       return candidate;
@@ -4475,15 +4770,26 @@ function updateWorkspaceTabButtons(activeTab) {
 
 function getComposerSelectableModels() {
   const fromCatalog = MODEL_OPTIONS.filter((item) => COMPOSER_TEXT_MODEL_ORDER.includes(item.id));
-  if (fromCatalog.length) {
-    return [...fromCatalog].sort(
+  const rows = fromCatalog.length
+    ? [...fromCatalog].sort(
       (a, b) => COMPOSER_TEXT_MODEL_ORDER.indexOf(a.id) - COMPOSER_TEXT_MODEL_ORDER.indexOf(b.id)
-    );
+    )
+    : COMPOSER_TEXT_MODEL_ORDER.map((id) => ({
+      id,
+      label: KNOWN_MODEL_LABELS[id] || id
+    }));
+  const customSetup = getCustomOllamaSetup();
+  if (customSetup) {
+    rows.push({
+      id: customSetup.modelId,
+      label: customSetup.modelId,
+      icon: "roklogo.png",
+      alt: CUSTOM_OLLAMA_GROUP_LABEL,
+      title: `Use ${customSetup.modelId} with your saved Ollama API key.`,
+      isCustomOllama: true
+    });
   }
-  return COMPOSER_TEXT_MODEL_ORDER.map((id) => ({
-    id,
-    label: KNOWN_MODEL_LABELS[id] || id
-  }));
+  return rows;
 }
 
 function getComposerSelectableModelGroups(rows = []) {
@@ -4497,10 +4803,26 @@ function getComposerSelectableModelGroups(rows = []) {
     items.forEach((item) => groupedIds.add(item.id));
     groups.push({ label: group.label, items });
   });
-  const remainingItems = availableRows.filter((item) => !groupedIds.has(item.id));
+  const remainingItems = availableRows.filter((item) => !groupedIds.has(item.id) && !(item && item.isCustomOllama));
   if (remainingItems.length) {
     groups.push({ label: groups.length ? "More models" : "", items: remainingItems });
   }
+  const customItems = [];
+  const customModel = availableRows.find((item) => item && item.isCustomOllama);
+  if (customModel) {
+    customItems.push(customModel);
+  }
+  customItems.push({
+    kind: "action",
+    action: CUSTOM_OLLAMA_CONFIG_ACTION,
+    label: customModel ? "Edit key and model" : "Add key and model",
+    icon: "roklogo.png",
+    alt: CUSTOM_OLLAMA_GROUP_LABEL,
+    title: customModel
+      ? "Update the saved API key or switch to a different Ollama Cloud model."
+      : "Save an Ollama API key and any Ollama Cloud model ID on this device."
+  });
+  groups.push({ label: CUSTOM_OLLAMA_GROUP_LABEL, items: customItems });
   return groups;
 }
 
@@ -4618,7 +4940,17 @@ function getChatRequestBudget(options = {}) {
 }
 
 function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, daedalusLocked) {
-  const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+  const meta = item && (item.icon || item.alt)
+    ? { label: item.label, icon: item.icon || "", alt: item.alt || item.label || "" }
+    : COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+  if (item && item.kind === "action") {
+    const safeAction = escapeHtml(item.action || "");
+    const iconHtml = meta.icon
+      ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
+      : "";
+    const titleAttr = item.title ? ` title="${escapeHtml(item.title)}"` : "";
+    return `<button type="button" class="composer-model-picker-option" data-model-action="${safeAction}"${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label || item.label || "")}</span></button>`;
+  }
   const safeId = escapeHtml(item.id);
   const active = item.id === sessionModel;
   const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
@@ -4631,8 +4963,10 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
     ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
     : "";
   const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
-  const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true" title="${escapeHtml(lockTitle)}"` : "";
-  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+  const titleText = lockTitle || item.title || "";
+  const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true"` : "";
+  const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : "";
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
 }
 
 function setModelPickerOpen(nextOpen) {
@@ -4666,7 +5000,9 @@ function refreshComposerModelPicker() {
 
   const item = rows.find((r) => r.id === sessionModel) || rows[0];
   if (item) {
-    const meta = COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
+    const meta = item && (item.icon || item.alt)
+      ? { label: item.label, icon: item.icon || "", alt: item.alt || item.label || "" }
+      : COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
     if (modelPickerBtnText) {
       modelPickerBtnText.textContent = meta.label;
     }
@@ -4685,6 +5021,9 @@ function renderModelSelectOptions() {
 
 function getModelLabelById(modelId) {
   const normalizedId = normalizeSessionModel(modelId);
+  if (isCustomOllamaModelId(normalizedId)) {
+    return getConfiguredCustomOllamaModelId() || normalizedId;
+  }
   const matched = MODEL_OPTIONS.find((item) => item.id === normalizedId);
   return matched ? matched.label : KNOWN_MODEL_LABELS[normalizedId] || normalizedId;
 }
@@ -10185,6 +10524,17 @@ if (modelPickerBtn && modelPickerMenu) {
   modelPickerMenu.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
+    const actionBtn = target.closest("[data-model-action]");
+    if (actionBtn instanceof HTMLElement) {
+      const action = actionBtn.getAttribute("data-model-action");
+      setModelPickerOpen(false);
+      if (action === CUSTOM_OLLAMA_CONFIG_ACTION) {
+        void requestCustomOllamaCloudSetup({
+          autoSelect: !getConfiguredCustomOllamaModelId() || isCustomOllamaModelId(getCurrentSessionModel())
+        });
+      }
+      return;
+    }
     const opt = target.closest("[data-model-id]");
     if (!(opt instanceof HTMLElement)) return;
     const modelId = opt.getAttribute("data-model-id");
