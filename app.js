@@ -203,7 +203,7 @@ const LOCAL_KNOWLEDGE_PROMPT_LIMIT = 8;
 const LOCAL_KNOWLEDGE_MAX_FACT_CHARS = 280;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
-const ONBOARDING_TOUR_VERSION = 3;
+const ONBOARDING_TOUR_VERSION = 4;
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_USER_SETTINGS = {
@@ -541,7 +541,7 @@ const sandboxActivityMemory = new Map();
 const sandboxExpandedChangeMemory = new Map();
 let sandboxActivityTimer = null;
 let isBanOverlayActive = false;
-let isSidebarCollapsed = false;
+let isSidebarCollapsed = true;
 let isMobileLayout = false;
 let isMobileSidebarOpen = false;
 let mobileLayoutMediaQueryList = null;
@@ -1278,10 +1278,17 @@ function isOnboardingCompleted() {
 }
 
 let onboardingStepIndex = 0;
+const ONBOARDING_SLIDE_COUNT = 4;
 const ONBOARDING_NAME_SLIDE = 3;
+const ONBOARDING_NEXT_LABELS = [
+  "Show me around",
+  "See the work modes",
+  "One last thing",
+  "Start chatting"
+];
 
 function renderOnboardingStep() {
-  for (let i = 0; i <= 3; i += 1) {
+  for (let i = 0; i < ONBOARDING_SLIDE_COUNT; i += 1) {
     const slide = document.getElementById(`onboardingSlide${i}`);
     if (slide) slide.hidden = i !== onboardingStepIndex;
   }
@@ -1292,7 +1299,7 @@ function renderOnboardingStep() {
     onboardingBackBtn.hidden = onboardingStepIndex === 0;
   }
   if (onboardingNextBtn) {
-    onboardingNextBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Start chatting" : "Next";
+    onboardingNextBtn.textContent = ONBOARDING_NEXT_LABELS[onboardingStepIndex] || "Next";
   }
   if (onboardingSkipBtn) {
     onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip tour";
@@ -1301,6 +1308,9 @@ function renderOnboardingStep() {
 
 function openOnboardingModal() {
   if (!onboardingModal) return;
+  if (!hasSavedSidebarCollapsedPreference()) {
+    applySidebarCollapsedState(true, { persist: false });
+  }
   onboardingStepIndex = 0;
   renderOnboardingStep();
   onboardingModal.hidden = false;
@@ -1418,6 +1428,9 @@ function enterAppWithTosCheck() {
 }
 
 function finishOnboardingAndEnter() {
+  if (!hasSavedSidebarCollapsedPreference()) {
+    applySidebarCollapsedState(true);
+  }
   saveOnboardingCompletedRecord();
   closeOnboardingModal();
   enterAppWithTosCheck();
@@ -2604,6 +2617,14 @@ function loadSidebarCollapsedFromStorage() {
     return raw === "1";
   } catch {
     return true;
+  }
+}
+
+function hasSavedSidebarCollapsedPreference() {
+  try {
+    return localStorage.getItem(LOCAL_SIDEBAR_COLLAPSED_KEY) != null;
+  } catch {
+    return false;
   }
 }
 

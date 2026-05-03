@@ -7,12 +7,12 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=95" />
+  <link rel="stylesheet" href="style.css?v=96" />
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
   <meta name="google-site-verification" content="9AHzloNzCGXCnzi8LGMdIUoTnvdxaqkAsa_Ua7Qyka0" />
 </head>
 <body>
-  <div class="app">
+  <div class="app sidebar-collapsed">
     <aside id="appSidebar" class="sidebar">
       <div class="side-header">
         <button id="brandHomeBtn" class="brand brand-btn" type="button" aria-label="ROK Home">
@@ -58,11 +58,11 @@
             class="ghost sidebar-toggle-btn"
             type="button"
             aria-controls="appSidebar"
-            aria-expanded="true"
-            aria-label="Collapse left panel"
-            title="Collapse left panel"
+            aria-expanded="false"
+            aria-label="Expand left panel"
+            title="Expand left panel"
           >
-            <span aria-hidden="true">&lt;</span>
+            <span aria-hidden="true">&gt;</span>
           </button>
           <div class="title">
             <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
@@ -729,31 +729,107 @@ Change Scope: Short</p>
       </div>
       <div class="onboarding-body">
         <div id="onboardingSlide0" class="onboarding-slide" data-onb-slide="0">
+          <div class="onboarding-step-kicker">Focused first</div>
           <h2 id="onboardingHeading" class="onboarding-title">Welcome to ROK</h2>
           <p id="onboardingDesc" class="onboarding-text">
-            ROK works best as a workspace, not just a chatbot. Use it when you want to ask, revise, compare, and keep the
-            work in front of you. This short tour shows the main surfaces, then we'll ask what to call you.
+            ROK works best as a workspace, not just a chatbot. This quick tour shows the core surfaces with a few live-feeling previews,
+            then we’ll ask what to call you.
           </p>
+          <div class="onboarding-visual onboarding-visual-hero" aria-hidden="true">
+            <div class="onboarding-pill-row">
+              <span class="onboarding-pill">Chat</span>
+              <span class="onboarding-pill">ROK CODE</span>
+              <span class="onboarding-pill">Model choice</span>
+            </div>
+            <div class="onboarding-bubble-stack">
+              <div class="onboarding-bubble onboarding-bubble-user">Tighten this draft without losing the tone.</div>
+              <div class="onboarding-bubble onboarding-bubble-rok">ROK keeps the work in front of you instead of feeling like a disposable tab.</div>
+            </div>
+            <div class="onboarding-feature-grid">
+              <div class="onboarding-feature-card">
+                <strong>Start fast</strong>
+                <span>Ask one thing and keep moving.</span>
+              </div>
+              <div class="onboarding-feature-card">
+                <strong>Stay in control</strong>
+                <span>Pick the path that fits the work.</span>
+              </div>
+              <div class="onboarding-feature-card">
+                <strong>Keep context nearby</strong>
+                <span>Chats live on this browser by default.</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="onboardingSlide1" class="onboarding-slide" hidden data-onb-slide="1">
-          <h2 class="onboarding-title">Sidebar &amp; chats</h2>
+          <div class="onboarding-step-kicker">Calm by default</div>
+          <h2 class="onboarding-title">The sidebar starts tucked away</h2>
           <p class="onboarding-text">
-            Use <strong>New chat</strong> to start fresh. Your recent conversations appear under <strong>Saved Chats</strong> and stay in this browser only.
-            That keeps sessions easy to reopen on this device, but it also means ROK is not doing cloud sync here.
+            You should land in the chat, not in a wall of tabs. Open the sidebar only when you want <strong>New chat</strong>, recent sessions,
+            or a jump into another mode.
           </p>
+          <div class="onboarding-visual" aria-hidden="true">
+            <div class="onboarding-mini-shell">
+              <div class="onboarding-mini-sidebar is-collapsed"></div>
+              <div class="onboarding-mini-main">
+                <div class="onboarding-mini-topbar">
+                  <span class="onboarding-mini-toggle">&gt;</span>
+                  <span class="onboarding-mini-logo">rok</span>
+                </div>
+                <div class="onboarding-mini-canvas">
+                  <span class="onboarding-mini-callout">Open chats only when you need them.</span>
+                </div>
+              </div>
+            </div>
+            <div class="onboarding-mini-list">
+              <div class="onboarding-mini-list-item">New chat</div>
+              <div class="onboarding-mini-list-item">Recent chats</div>
+              <div class="onboarding-mini-list-item">ROK CODE / MATH</div>
+            </div>
+          </div>
         </div>
         <div id="onboardingSlide2" class="onboarding-slide" hidden data-onb-slide="2">
-          <h2 class="onboarding-title">Tabs &amp; tools</h2>
+          <div class="onboarding-step-kicker">Pick the surface</div>
+          <h2 class="onboarding-title">Each mode has one clear job</h2>
           <p class="onboarding-text">
-            Start in <strong>Chat</strong> for quick questions. Move to <strong>ROK CODE</strong> when you want file-based edits,
-            requested changes, and an apply step before code lands. Use <strong>ROK MATH</strong> when you need a graphing surface.
+            Start in <strong>Chat</strong> for fast questions. Move to <strong>ROK CODE</strong> for requested file changes before apply.
+            Use <strong>ROK MATH</strong> when you want a graphing surface instead of a plain reply.
           </p>
+          <div class="onboarding-visual" aria-hidden="true">
+            <div class="onboarding-mode-grid">
+              <div class="onboarding-mode-card">
+                <strong>Chat</strong>
+                <span>Ask, revise, compare</span>
+              </div>
+              <div class="onboarding-mode-card">
+                <strong>ROK CODE</strong>
+                <span>Plan file changes first</span>
+              </div>
+              <div class="onboarding-mode-card">
+                <strong>ROK MATH</strong>
+                <span>Use a graph when it helps</span>
+              </div>
+            </div>
+            <div class="onboarding-composer-preview">
+              <span class="onboarding-composer-attach">+</span>
+              <span class="onboarding-composer-input">Ask, paste, or drop a file...</span>
+              <span class="onboarding-composer-model">Model</span>
+              <span class="onboarding-composer-send">Send</span>
+            </div>
+          </div>
         </div>
         <div id="onboardingSlide3" class="onboarding-slide" hidden data-onb-slide="3">
+          <div class="onboarding-step-kicker">One last thing</div>
           <h2 class="onboarding-title">What should we call you?</h2>
           <p class="onboarding-text">
             ROK will use this name when it makes sense in replies. Stored only on this device; you can clear site data to remove it.
           </p>
+          <div class="onboarding-visual onboarding-visual-name" aria-hidden="true">
+            <div class="onboarding-name-preview">
+              <span class="onboarding-name-chip">Hi there</span>
+              <p class="onboarding-name-note">A small personal touch, only when it fits the conversation.</p>
+            </div>
+          </div>
           <label class="onboarding-name-label" for="onboardingNameInput">Your name (optional)</label>
           <input
             id="onboardingNameInput"
@@ -847,6 +923,6 @@ Change Scope: Short</p>
       window.ROK_API_BASE = isLocalHost ? "" : "https://rokbackendreal.kyklos.online";
     })();
   </script>
-<script type="module" src="app.js?v=allgames22"></script>
+<script type="module" src="app.js?v=allgames23"></script>
 </body>
 </html>
