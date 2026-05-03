@@ -8304,6 +8304,16 @@ button.stop-mode:hover {
   scroll-behavior: smooth;
 }
 
+#homeScreen.home-screen {
+  display: block;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 100%;
+  height: auto;
+  padding: 0;
+  overflow: visible !important;
+}
+
 #homeScreen .rok-home-shell {
   display: block !important;
   width: min(1180px, 100%);

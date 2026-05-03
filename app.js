@@ -2420,6 +2420,10 @@ function showHomeScreen() {
   hideServerDownScreen();
   if (homeScreen) {
     homeScreen.hidden = false;
+    homeScreen.scrollTop = 0;
+  }
+  if (mainPanel) {
+    mainPanel.scrollTop = 0;
   }
   startHomeHeroTyping();
   if (appRoot) {
