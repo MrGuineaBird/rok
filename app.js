@@ -151,6 +151,7 @@ const homeDemoReply = document.getElementById("homeDemoReply");
 const homeDemoCards = document.getElementById("homeDemoCards");
 const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
+const homeSloganText = document.getElementById("homeSloganText");
 const onboardingModal = document.getElementById("onboardingModal");
 const onboardingCloseBtn = document.getElementById("onboardingCloseBtn");
 const onboardingBackBtn = document.getElementById("onboardingBackBtn");
@@ -319,6 +320,16 @@ const HOME_DEMO_LOOP_MS = 12000;
 const HOME_PREVIEW_REVEAL_DELAY_MS = 260;
 const HOME_PREVIEW_LINE_DELAY_MS = 180;
 const HOME_PREVIEW_TYPING_SPEED_MS = 14;
+const HOME_SLOGANS = [
+  "Keep the work yours.",
+  "AI without giving up control.",
+  "Switch between ROK and your own runtime.",
+  "Local when you want it. Hosted when you choose it.",
+  "The user-controlled side of AI."
+];
+const HOME_SLOGAN_TYPING_SPEED_MS = 34;
+const HOME_SLOGAN_HOLD_MS = 1600;
+const HOME_SLOGAN_ERASE_SPEED_MS = 18;
 const STORY_MIN_CANVAS_CHARS = 260;
 const INTENT_HISTORY_CONTEXT_LIMIT = 6;
 const STORY_PROMPT_PATTERN =
@@ -503,6 +514,7 @@ let hasShownReadyMessage = false;
 let homeDemoTimer = null;
 let homeDemoLastIndex = -1;
 let homePreviewRunToken = 0;
+let homeSloganRunToken = 0;
 let pendingHomeEnterTab = "";
 let workspaceSaveTimer = null;
 let workspaceApplyResolver = null;
@@ -2406,10 +2418,10 @@ function showHomeScreen() {
   closeMobileSidebarIfNeeded();
   wasWorkspaceTabActive = false;
   hideServerDownScreen();
-  startHomeDemoRotation();
   if (homeScreen) {
     homeScreen.hidden = false;
   }
+  startHomeHeroTyping();
   if (appRoot) {
     appRoot.classList.add("home-mode");
   }
@@ -2440,12 +2452,10 @@ function showHomeScreen() {
   if (composerWrap) {
     composerWrap.hidden = true;
   }
-  void startHomeWorkspacePreview();
 }
 
 function hideHomeScreen() {
-  stopHomeDemoRotation();
-  stopHomeWorkspacePreview();
+  stopHomeHeroTyping();
   closeMobileSidebarIfNeeded();
   if (homeScreen) {
     homeScreen.hidden = true;
@@ -7527,6 +7537,53 @@ function submitSandboxChatRequest(options = {}) {
       sandboxChatInput.value = "";
       autoResizeSandboxChatInput();
     }
+  }
+}
+
+function stopHomeHeroTyping() {
+  homeSloganRunToken += 1;
+  if (homeSloganText) {
+    homeSloganText.textContent = "";
+  }
+}
+
+function waitForHomeSlogan(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function startHomeHeroTyping() {
+  if (!homeSloganText || !HOME_SLOGANS.length) return;
+
+  const runToken = ++homeSloganRunToken;
+  const firstSlogan = HOME_SLOGANS[0] || "";
+
+  if (prefersReducedMotion()) {
+    homeSloganText.textContent = firstSlogan;
+    return;
+  }
+
+  let sloganIndex = 0;
+  while (runToken === homeSloganRunToken && isHomeScreenVisible()) {
+    const slogan = HOME_SLOGANS[sloganIndex % HOME_SLOGANS.length] || firstSlogan;
+    homeSloganText.textContent = "";
+
+    for (let index = 1; index <= slogan.length; index += 1) {
+      if (runToken !== homeSloganRunToken || !isHomeScreenVisible()) return;
+      homeSloganText.textContent = slogan.slice(0, index);
+      await waitForHomeSlogan(HOME_SLOGAN_TYPING_SPEED_MS);
+    }
+
+    await waitForHomeSlogan(HOME_SLOGAN_HOLD_MS);
+    if (runToken !== homeSloganRunToken || !isHomeScreenVisible()) return;
+
+    for (let index = slogan.length - 1; index >= 0; index -= 1) {
+      if (runToken !== homeSloganRunToken || !isHomeScreenVisible()) return;
+      homeSloganText.textContent = slogan.slice(0, index);
+      await waitForHomeSlogan(HOME_SLOGAN_ERASE_SPEED_MS);
+    }
+
+    sloganIndex += 1;
+    await waitForHomeSlogan(160);
   }
 }
 

@@ -158,71 +158,79 @@
           </nav>
 
           <main class="rok-home-main">
-            <section class="rok-home-copy">
-              <div class="rok-home-kicker">Local-first AI workspace</div>
-              <h1 class="rok-home-title">Keep the work yours.</h1>
-              <p class="rok-home-subtitle">
-                ROK is the AI workspace for unfinished, personal, and real work. Sessions stay on this device by default,
-                you can switch between ROK's hosted models and your own local Ollama runtime, and the app should make that
-                choice clear while you work.
-              </p>
-              <div class="rok-home-actions">
-                <button id="homeStartBtnAlt" class="hs-cta rok-home-cta" type="button">
-                  Open ROK
-                  <span class="hs-cta-arrow">-&gt;</span>
-                </button>
-                <button id="homePrivacyBtn" class="rok-home-secondary-btn" type="button">See How Privacy Works</button>
-              </div>
-              <div class="rok-home-trust-grid" aria-label="ROK trust notes">
-                <article class="rok-home-trust-card">
-                  <span class="rok-home-trust-title">Chats stored locally by default</span>
-                  <p>Sessions and saved chats live in this browser unless you choose a hosted path or build a different setup around ROK.</p>
-                </article>
-                <article class="rok-home-trust-card">
-                  <span class="rok-home-trust-title">Switch runtimes on purpose</span>
-                  <p>Use ROK's hosted models or your own local Ollama runtime depending on how much speed, privacy, and control you want.</p>
-                </article>
-                <article class="rok-home-trust-card">
-                  <span class="rok-home-trust-title">Built for user control</span>
-                  <p>ROK is aiming to feel more like the Linux side of AI: configurable, transparent, and eventually more community-shaped than a generic corporate chat tab.</p>
-                </article>
-              </div>
-              <div class="rok-home-pills" aria-hidden="true">
-                <span class="home-prompt-pill">Draft this without changing my tone</span>
-                <span class="home-prompt-pill">Check this unreleased diff</span>
-                <span class="home-prompt-pill">Explain this local log file</span>
-                <span class="home-prompt-pill">Summarize these private notes</span>
+            <section class="rok-home-hero" aria-labelledby="homeSloganText">
+              <div class="rok-home-hero-stack">
+                <div class="rok-home-kicker">User-controlled AI workspace</div>
+                <div class="rok-home-generator">
+                  <img src="rokgenerating.gif" alt="ROK generating text" class="rok-home-generator-gif" />
+                  <div class="rok-home-generator-copy">
+                    <h1 class="rok-home-title">
+                      <span id="homeSloganText">Keep the work yours.</span>
+                      <span class="rok-home-slogan-caret" aria-hidden="true"></span>
+                    </h1>
+                  </div>
+                </div>
+                <p class="rok-home-subtitle">
+                  ROK is for unfinished, personal, and real work. Use ROK's hosted models or your own local Ollama runtime,
+                  and keep the choice visible while you work.
+                </p>
+                <div class="rok-home-actions">
+                  <button id="homeStartBtnAlt" class="hs-cta rok-home-cta" type="button">
+                    Open ROK
+                    <span class="hs-cta-arrow">-&gt;</span>
+                  </button>
+                  <button id="homePrivacyBtn" class="rok-home-secondary-btn" type="button">See How Privacy Works</button>
+                </div>
+                <a class="rok-home-scroll-cue" href="#rokHomeStory">Scroll to explore</a>
               </div>
             </section>
 
-            <aside class="rok-home-side" aria-label="ROK features">
-              <section class="rok-home-panel">
-                <div class="rok-home-panel-label">Why People Choose ROK</div>
-                <div class="rok-home-feature-list">
-                  <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">Work you are not ready to paste anywhere</span>
-                    <p>Use ROK when the draft, code, screenshot, or notes still feel too personal, messy, or unfinished for a generic cloud chat.</p>
-                  </article>
-                  <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">Local or hosted, but visible</span>
-                    <p>ROK should tell you when work stays on-device and when it goes to a hosted model instead of hiding that choice behind branding.</p>
-                  </article>
-                  <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">Community-minded direction</span>
-                    <p>The long-term goal is a more user-controlled AI tool that people can shape, self-host, and trust beyond one company's defaults.</p>
-                  </article>
-                </div>
-              </section>
+            <section id="rokHomeStory" class="rok-home-section">
+              <div class="rok-home-section-kicker">Why ROK</div>
+              <h2 class="rok-home-section-title">Control first. Convenience second.</h2>
+              <div class="rok-home-card-grid">
+                <article class="rok-home-card">
+                  <span class="rok-home-card-title">Work you are not ready to paste anywhere</span>
+                  <p>ROK fits drafts, screenshots, notes, logs, and code that still feel too personal, messy, or unfinished for a generic cloud chat.</p>
+                </article>
+                <article class="rok-home-card">
+                  <span class="rok-home-card-title">Local or hosted, but visible</span>
+                  <p>Switch between ROK's models and your own local Ollama runtime instead of getting locked into one hidden path.</p>
+                </article>
+                <article class="rok-home-card">
+                  <span class="rok-home-card-title">Built toward user control</span>
+                  <p>ROK is aiming to feel more like the Linux side of AI: configurable, transparent, and more community-shaped over time.</p>
+                </article>
+              </div>
+            </section>
 
-              <section class="rok-home-panel rok-home-panel-muted">
-                <div class="rok-home-panel-label">Use ROK Instead Of ChatGPT When</div>
-                <div class="rok-home-example-list">
-                  <div class="rok-home-example">the work is personal, unfinished, or sensitive</div>
-                  <div class="rok-home-example">you want chats stored on this device by default</div>
-                  <div class="rok-home-example">you want to switch between ROK's models and your own Ollama runtime</div>
-                </div>
-              </section>
-            </aside>
+            <section id="rokHomeUseCases" class="rok-home-section rok-home-section-muted">
+              <div class="rok-home-section-kicker">Use ROK When</div>
+              <h2 class="rok-home-section-title">The work is yours and the choice matters.</h2>
+              <div class="rok-home-list-grid">
+                <div class="rok-home-list-item">you want chats stored on this device by default</div>
+                <div class="rok-home-list-item">you want to switch between ROK's models and your own Ollama runtime</div>
+                <div class="rok-home-list-item">the draft, diff, or screenshot is personal, unfinished, or sensitive</div>
+                <div class="rok-home-list-item">you want a tool that feels user-controlled instead of purely corporate</div>
+              </div>
+            </section>
+
+            <section id="rokHomeRuntime" class="rok-home-section">
+              <div class="rok-home-section-kicker">Runtime Choice</div>
+              <h2 class="rok-home-section-title">Choose the setup that fits the work.</h2>
+              <div class="rok-home-runtime-grid">
+                <article class="rok-home-runtime-card">
+                  <span class="rok-home-runtime-label">ROK Models</span>
+                  <h3>Fast hosted help</h3>
+                  <p>Use ROK's hosted models when you want speed, lower setup, and a quick way to get moving.</p>
+                </article>
+                <article class="rok-home-runtime-card">
+                  <span class="rok-home-runtime-label">Your Local Ollama</span>
+                  <h3>More control on your machine</h3>
+                  <p>Point ROK at your own local runtime when you want the work path to stay closer to you and your setup.</p>
+                </article>
+              </div>
+            </section>
           </main>
 
           <footer class="rok-home-footer">
