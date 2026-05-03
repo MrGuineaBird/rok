@@ -73,6 +73,8 @@ const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
+const memoryToggleBtn = document.getElementById("memoryToggleBtn");
+const incognitoToggleBtn = document.getElementById("incognitoToggleBtn");
 const toolsToggleBtn = document.getElementById("toolsToggleBtn");
 const fileInput = document.getElementById("fileInput");
 const sandboxFileInput = document.getElementById("sandboxFileInput");
@@ -207,9 +209,14 @@ const LOCAL_CUSTOM_OLLAMA_API_KEY = "rok.customOllamaApiKey.v1";
 const LOCAL_CUSTOM_OLLAMA_MODEL_ID = "rok.customOllamaModelId.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
 const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
+const LOCAL_MEMORY_KEY = "rok.localMemory.v1";
 const LOCAL_KNOWLEDGE_MAX_ENTRIES = 24;
 const LOCAL_KNOWLEDGE_PROMPT_LIMIT = 8;
 const LOCAL_KNOWLEDGE_MAX_FACT_CHARS = 280;
+const LOCAL_MEMORY_MAX_ENTRIES = 80;
+const LOCAL_MEMORY_PROMPT_LIMIT = 10;
+const LOCAL_PROJECT_MEMORY_PROMPT_LIMIT = 8;
+const LOCAL_MEMORY_MAX_FACT_CHARS = 320;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 5;
@@ -228,7 +235,11 @@ const DEFAULT_USER_SETTINGS = {
   compactMode: false,
   reduceMotion: false,
   customSystemPrompt: "",
-  preferredName: ""
+  preferredName: "",
+  memoryEnabled: true,
+  projectMemoryEnabled: true,
+  autoLearn: true,
+  incognitoMode: false
 };
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
@@ -801,6 +812,9 @@ function getCustomSystemPromptHeaderValue() {
 
 function getMergedSystemPromptForApi() {
   const custom = getCustomSystemPromptHeaderValue();
+  if (isIncognitoModeEnabled()) {
+    return custom || "";
+  }
   let name = "";
   try {
     const rawSettings = localStorage.getItem(USER_SETTINGS_KEY);
@@ -838,6 +852,9 @@ function buildApiHeaders(includeJson, options = {}) {
   const userKey = getSavedUserOllamaApiKeyForModel(requestedModel);
   if (userKey) {
     headers["X-ROK-Ollama-Key"] = userKey;
+  }
+  if (isIncognitoModeEnabled()) {
+    headers["X-ROK-Incognito"] = "1";
   }
   return headers;
 }
@@ -1282,6 +1299,10 @@ function savePreferredNameToStorage(rawName) {
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, 64);
+  if (isIncognitoModeEnabled()) {
+    userSettings = { ...userSettings, preferredName: name };
+    return;
+  }
   try {
     const s = { ...loadUserSettingsFromStorage(), preferredName: name };
     localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(s));
@@ -2641,6 +2662,33 @@ function applyUserSettingsToRuntime(options = {}) {
   }
 }
 
+function persistUserSettingsPatch(patch = {}, options = {}) {
+  const { syncModelDefaults = false } = options;
+  try {
+    const nextSettings = { ...loadUserSettingsFromStorage(), ...patch };
+    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(nextSettings));
+  } catch {
+    userSettings = { ...userSettings, ...patch };
+  }
+  applyUserSettingsToRuntime({ syncModelDefaults });
+}
+
+function isMemoryEnabled() {
+  return Boolean(userSettings.memoryEnabled) && !Boolean(userSettings.incognitoMode);
+}
+
+function isProjectMemoryEnabled() {
+  return Boolean(userSettings.projectMemoryEnabled) && !Boolean(userSettings.incognitoMode);
+}
+
+function isAutoLearnEnabled() {
+  return Boolean(userSettings.autoLearn) && isMemoryEnabled();
+}
+
+function isIncognitoModeEnabled() {
+  return Boolean(userSettings.incognitoMode);
+}
+
 function getHistoryLimitValue() {
   return normalizeClientLimit(clientLimits.historyLimit, DEFAULT_CLIENT_LIMITS.historyLimit, 1, 1000);
 }
@@ -3468,6 +3516,57 @@ function normalizeWorkspace(rawWorkspace) {
   };
 }
 
+function sanitizeMemoryText(value, maxLength = LOCAL_MEMORY_MAX_FACT_CHARS) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.slice(0, maxLength);
+}
+
+function normalizeMemoryKind(rawKind = "fact") {
+  const normalized = String(rawKind || "").trim().toLowerCase();
+  if (["preference", "rule", "fact", "project", "decision", "correction"].includes(normalized)) {
+    return normalized;
+  }
+  return "fact";
+}
+
+function normalizeMemoryEntry(rawEntry, scope = "global") {
+  if (!rawEntry || typeof rawEntry !== "object") return null;
+  const fact = sanitizeMemoryText(rawEntry.fact, LOCAL_MEMORY_MAX_FACT_CHARS);
+  if (!fact) return null;
+  const nowIso = new Date().toISOString();
+  return {
+    id: sanitizeMemoryText(rawEntry.id, 64) || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (`memory-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`)),
+    fact,
+    kind: normalizeMemoryKind(rawEntry.kind),
+    scope: scope === "project" ? "project" : "global",
+    source: sanitizeMemoryText(rawEntry.source, 80) || "manual",
+    createdAt: sanitizeMemoryText(rawEntry.createdAt || rawEntry.created_at, 64) || nowIso,
+    updatedAt: sanitizeMemoryText(rawEntry.updatedAt || rawEntry.updated_at, 64) || nowIso
+  };
+}
+
+function createDefaultSessionMemory() {
+  return {
+    projectEntries: []
+  };
+}
+
+function normalizeSessionMemory(rawMemory) {
+  const fallback = createDefaultSessionMemory();
+  if (!rawMemory || typeof rawMemory !== "object") {
+    return fallback;
+  }
+  const entries = Array.isArray(rawMemory.projectEntries)
+    ? rawMemory.projectEntries.map((item) => normalizeMemoryEntry(item, "project")).filter(Boolean)
+    : Array.isArray(rawMemory.entries)
+    ? rawMemory.entries.map((item) => normalizeMemoryEntry(item, "project")).filter(Boolean)
+    : [];
+  return {
+    projectEntries: entries.slice(-LOCAL_MEMORY_MAX_ENTRIES)
+  };
+}
+
 function ensureSessionWorkspace(session) {
   if (!session) {
     return createDefaultWorkspace();
@@ -3487,6 +3586,13 @@ function ensureSessionWorkspace(session) {
     session.workspace = normalizeWorkspace(session.workspace);
   }
   return session.workspace;
+}
+
+function ensureSessionMemory(session) {
+  if (!session || !session.memory || typeof session.memory !== "object" || !Array.isArray(session.memory.projectEntries)) {
+    session.memory = normalizeSessionMemory(session && session.memory);
+  }
+  return session ? session.memory : createDefaultSessionMemory();
 }
 
 function normalizeSessionModel(rawModel) {
@@ -3516,6 +3622,7 @@ function getWorkspaceCurrentSession() {
   const current = getSessionById(currentSessionId);
   if (!current) return null;
   ensureSessionWorkspace(current);
+  ensureSessionMemory(current);
   ensureSessionModel(current);
   return current;
 }
@@ -6515,7 +6622,7 @@ function getWorkspaceContextForPrompt() {
 
 function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, enableThinking, sandbox = getCurrentSandboxState()) {
   const promptText = String(userPrompt || SANDBOX_DEFAULT_PROMPT).trim() || SANDBOX_DEFAULT_PROMPT;
-  return {
+  return withLocalKnowledge({
     prompt: promptText,
     files: sandbox.files.slice(0, SANDBOX_MAX_FILES).map((item) => ({
       path: item.path,
@@ -6525,7 +6632,7 @@ function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, ena
     history: Array.isArray(recentHistory) ? recentHistory : [],
     model: getOperationalModelId(sessionModel),
     enable_thinking: Boolean(enableThinking)
-  };
+  });
 }
 
 function parseSandboxAnalysisResponse(payload, promptText, modelId) {
@@ -7116,7 +7223,8 @@ function createSession(messages = []) {
     updatedAt: now,
     messages: safeMessages,
     model: getDefaultModelForNewSession(),
-    workspace: createDefaultWorkspace()
+    workspace: createDefaultWorkspace(),
+    memory: createDefaultSessionMemory()
   };
 }
 
@@ -7163,7 +7271,8 @@ function loadSessionsFromStorage() {
         updatedAt,
         messages: safeMessages,
         model,
-        workspace
+        workspace,
+        memory: normalizeSessionMemory(item.memory)
       });
     }
 
@@ -7174,6 +7283,9 @@ function loadSessionsFromStorage() {
 }
 
 function saveSessionsToStorage() {
+  if (isIncognitoModeEnabled()) {
+    return;
+  }
   try {
     localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
   } catch {
@@ -7191,6 +7303,9 @@ function loadCurrentSessionIdFromStorage() {
 }
 
 function saveCurrentSessionIdToStorage() {
+  if (isIncognitoModeEnabled()) {
+    return;
+  }
   try {
     if (currentSessionId) {
       localStorage.setItem(LOCAL_CURRENT_SESSION_KEY, currentSessionId);
@@ -7818,6 +7933,95 @@ function buildIntentAttachmentsPayload(attachedFiles = []) {
       content_preview: preview.slice(0, 280)
     };
   });
+}
+
+function handleMemoryCommand(rawText = "") {
+  const text = String(rawText || "").trim();
+  if (!text) return false;
+
+  const rememberMatch = text.match(/^\/remember\s+(.+)/i);
+  if (rememberMatch) {
+    const incognitoEnabled = isIncognitoModeEnabled();
+    const saved = upsertRememberedFact(rememberMatch[1], {
+      scope: "global",
+      kind: "fact",
+      source: "command"
+    });
+    renderLocalKnowledgeList();
+    addMessage(
+      "system",
+      incognitoEnabled
+        ? "Incognito is on, so ROK did not save that memory."
+        : saved
+          ? "Saved to browser memory. ROK can reuse it in future replies here."
+        : "ROK couldn't save that memory."
+    );
+    input.value = "";
+    autoResizeInput();
+    return true;
+  }
+
+  const projectMatch = text.match(/^\/project\s+(.+)/i);
+  if (projectMatch) {
+    const incognitoEnabled = isIncognitoModeEnabled();
+    const saved = upsertRememberedFact(projectMatch[1], {
+      scope: "project",
+      kind: "project",
+      source: "command"
+    });
+    renderLocalKnowledgeList();
+    addMessage(
+      "system",
+      incognitoEnabled
+        ? "Incognito is on, so ROK did not save that project memory."
+        : saved
+          ? "Saved to project memory for this chat and workspace."
+        : "ROK couldn't save that project memory."
+    );
+    input.value = "";
+    autoResizeInput();
+    return true;
+  }
+
+  return false;
+}
+
+function maybeCaptureMemoryFromUserTurn(rawText = "") {
+  if (!isAutoLearnEnabled()) return null;
+  const text = String(rawText || "").trim();
+  if (!text) return null;
+
+  let fact = "";
+  let scope = "global";
+  let kind = "fact";
+  let source = "auto";
+
+  const explicitRemember = text.match(/^(?:remember(?: that)?|note(?: this)?|save this|keep in mind)[:\s,-]+(.+)/i);
+  if (explicitRemember) {
+    fact = explicitRemember[1];
+    source = "explicit-remember";
+  } else if (/^(?:for this project|in this project|for this repo|in this repo)[:\s,-]+/i.test(text)) {
+    fact = text.replace(/^(?:for this project|in this project|for this repo|in this repo)[:\s,-]+/i, "");
+    scope = "project";
+    kind = "project";
+    source = "project-directive";
+  } else if (/^(?:this project uses|the project uses|this repo uses|the repo uses)\b/i.test(text)) {
+    fact = text;
+    scope = "project";
+    kind = "project";
+    source = "project-convention";
+  } else if (/^(?:i prefer|please keep|please use|use a|write in|be more|be less|keep answers|don't|do not|always|never)\b/i.test(text)) {
+    fact = text;
+    kind = inferMemoryKindFromText(text, "preference");
+    source = "style-preference";
+  }
+
+  if (!fact) return null;
+  const saved = upsertRememberedFact(fact, { scope, kind, source });
+  if (saved) {
+    renderLocalKnowledgeList();
+  }
+  return saved;
 }
 
 function estimateBase64ByteSize(base64Text = "") {
@@ -8558,6 +8762,39 @@ function setWebSearchEnabled(nextEnabled) {
   webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
 }
 
+function refreshMemoryToggleButtons() {
+  const uiLocked = isSending || isIntentClassificationLoading;
+  const incognitoEnabled = isIncognitoModeEnabled();
+  const memoryActive = isMemoryEnabled();
+
+  if (memoryToggleBtn) {
+    memoryToggleBtn.setAttribute("aria-pressed", memoryActive ? "true" : "false");
+    memoryToggleBtn.classList.toggle("is-active", memoryActive);
+    memoryToggleBtn.textContent = incognitoEnabled ? "Memory Paused" : (memoryActive ? "Memory On" : "Memory Off");
+    memoryToggleBtn.disabled = uiLocked || incognitoEnabled;
+  }
+
+  if (incognitoToggleBtn) {
+    incognitoToggleBtn.setAttribute("aria-pressed", incognitoEnabled ? "true" : "false");
+    incognitoToggleBtn.classList.toggle("is-active", incognitoEnabled);
+    incognitoToggleBtn.textContent = incognitoEnabled ? "Incognito On" : "Incognito Off";
+    incognitoToggleBtn.disabled = uiLocked;
+  }
+}
+
+function setMemoryEnabled(nextEnabled) {
+  persistUserSettingsPatch({ memoryEnabled: Boolean(nextEnabled) });
+  refreshMemoryToggleButtons();
+  renderLocalKnowledgeList();
+}
+
+function setIncognitoMode(nextEnabled) {
+  persistUserSettingsPatch({ incognitoMode: Boolean(nextEnabled) });
+  setComposerTrayOpen(false);
+  refreshMemoryToggleButtons();
+  renderLocalKnowledgeList();
+}
+
 function setToolsEnabled(nextEnabled) {
   toolsEnabled = false;
   if (!toolsToggleBtn) return;
@@ -8694,6 +8931,7 @@ function refreshSendState() {
   if (toolsToggleBtn) {
     toolsToggleBtn.disabled = uiLocked;
   }
+  refreshMemoryToggleButtons();
   if (fileInput) {
     fileInput.disabled = uiLocked;
   }
@@ -8845,6 +9083,7 @@ async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
   const text = input.value?.trim() || "";
+  if (handleMemoryCommand(text)) return;
   
   // Handle /imagine command for pixel painting
   if (text && text.startsWith("/imagine")) {
@@ -8908,6 +9147,7 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
+  maybeCaptureMemoryFromUserTurn(text);
   const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
     text: text || displayText,
     workspaceContext: sessionWorkspaceContext,
@@ -8956,15 +9196,16 @@ async function send() {
   );
   const botAvatar = typing.row.querySelector(".avatar");
   const botAvatarMarkup = botAvatar ? botAvatar.innerHTML : "R";
-  const setBotAvatarGif = (src) => {
+  const setBotAvatarGif = (src, variant = "") => {
     if (!botAvatar) return;
-    botAvatar.innerHTML = `<img src="${src}" class="avatar-gif" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    const variantClass = variant ? ` is-${variant}` : "";
+    botAvatar.innerHTML = `<img src="${src}" class="avatar-gif${variantClass}" alt="">`;
   };
   const showThinkingAvatar = () => {
-    setBotAvatarGif("rokthinking.gif");
+    setBotAvatarGif("rokthinking.gif", "thinking");
   };
   const showGeneratingAvatar = () => {
-    setBotAvatarGif("rokgenerating.gif");
+    setBotAvatarGif("rokgenerating.gif", "generating");
   };
   const restoreBotAvatar = () => {
     if (!botAvatar) return;
@@ -10500,6 +10741,20 @@ if (toolsToggleBtn) {
   });
 }
 
+if (memoryToggleBtn) {
+  memoryToggleBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading || isIncognitoModeEnabled()) return;
+    setMemoryEnabled(!Boolean(userSettings.memoryEnabled));
+  });
+}
+
+if (incognitoToggleBtn) {
+  incognitoToggleBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setIncognitoMode(!isIncognitoModeEnabled());
+  });
+}
+
 if (attachmentList) {
   attachmentList.addEventListener("click", (e) => {
     const target = e.target;
@@ -10979,6 +11234,7 @@ setComposerTrayOpen(false);
 setWebSearchEnabled(false);
 setToolsEnabled(false);
 applyUserSettingsToRuntime();
+refreshMemoryToggleButtons();
 refreshSendState();
 syncComposerMetaVisibility();
 setWorkspaceAssistantSuggestButtonLoading(false);
@@ -11210,6 +11466,9 @@ function loadLocalKnowledge() {
 }
 
 function saveLocalKnowledge(entries) {
+  if (isIncognitoModeEnabled()) {
+    return;
+  }
   try {
     var normalized = Array.isArray(entries) ? entries.map(normalizeLocalKnowledgeEntry).filter(Boolean) : [];
     normalized = normalized.slice(-LOCAL_KNOWLEDGE_MAX_ENTRIES);
@@ -11219,7 +11478,251 @@ function saveLocalKnowledge(entries) {
   }
 }
 
+function loadLocalMemory() {
+  if (isIncognitoModeEnabled()) {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(LOCAL_MEMORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set();
+    const normalized = [];
+    parsed.forEach((entry) => {
+      const item = normalizeMemoryEntry(entry, "global");
+      if (!item) return;
+      const key = `${item.kind}:${item.fact.toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(item);
+    });
+    return normalized.slice(-LOCAL_MEMORY_MAX_ENTRIES);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalMemory(entries) {
+  if (isIncognitoModeEnabled()) {
+    return;
+  }
+  try {
+    const normalized = Array.isArray(entries)
+      ? entries.map((entry) => normalizeMemoryEntry(entry, "global")).filter(Boolean).slice(-LOCAL_MEMORY_MAX_ENTRIES)
+      : [];
+    localStorage.setItem(LOCAL_MEMORY_KEY, JSON.stringify(normalized));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function getCurrentProjectMemoryEntries(session = getWorkspaceCurrentSession()) {
+  if (!session) return [];
+  const memory = ensureSessionMemory(session);
+  return Array.isArray(memory.projectEntries) ? memory.projectEntries.slice(-LOCAL_MEMORY_MAX_ENTRIES) : [];
+}
+
+function saveCurrentProjectMemoryEntries(entries, session = getWorkspaceCurrentSession()) {
+  if (!session) return;
+  const memory = ensureSessionMemory(session);
+  memory.projectEntries = Array.isArray(entries)
+    ? entries.map((entry) => normalizeMemoryEntry(entry, "project")).filter(Boolean).slice(-LOCAL_MEMORY_MAX_ENTRIES)
+    : [];
+  session.updatedAt = Date.now();
+  saveSessionsToStorage();
+}
+
+function inferMemoryKindFromText(text = "", fallback = "fact") {
+  const value = String(text || "").toLowerCase();
+  if (/\b(prefer|tone|style|format|concise|shorter|longer|bullet|voice)\b/.test(value)) {
+    return "preference";
+  }
+  if (/\b(always|never|don'?t|do not|must|should|avoid|use)\b/.test(value)) {
+    return "rule";
+  }
+  if (/\b(decided|decision|chosen|we're using|we are using|ship|final)\b/.test(value)) {
+    return "decision";
+  }
+  return normalizeMemoryKind(fallback);
+}
+
+function upsertRememberedFact(fact, options = {}) {
+  const normalizedFact = sanitizeMemoryText(fact, LOCAL_MEMORY_MAX_FACT_CHARS);
+  if (!normalizedFact || !isMemoryEnabled()) return null;
+
+  const scope = options.scope === "project" ? "project" : "global";
+  const source = sanitizeMemoryText(options.source, 80) || "manual";
+  const kind = inferMemoryKindFromText(normalizedFact, options.kind || (scope === "project" ? "project" : "fact"));
+  const nowIso = new Date().toISOString();
+
+  if (scope === "project") {
+    const session = options.session || getWorkspaceCurrentSession();
+    if (!session) return null;
+    const entries = getCurrentProjectMemoryEntries(session);
+    const existingIndex = entries.findIndex((entry) => String(entry.fact || "").toLowerCase() === normalizedFact.toLowerCase());
+    const nextEntry = {
+      id: existingIndex >= 0 ? entries[existingIndex].id : ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (`pmem-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`)),
+      fact: normalizedFact,
+      kind,
+      scope: "project",
+      source,
+      createdAt: existingIndex >= 0 ? entries[existingIndex].createdAt : nowIso,
+      updatedAt: nowIso
+    };
+    if (existingIndex >= 0) {
+      entries.splice(existingIndex, 1);
+    }
+    entries.push(nextEntry);
+    saveCurrentProjectMemoryEntries(entries, session);
+    return nextEntry;
+  }
+
+  const entries = loadLocalMemory();
+  const existingIndex = entries.findIndex((entry) => String(entry.fact || "").toLowerCase() === normalizedFact.toLowerCase());
+  const nextEntry = {
+    id: existingIndex >= 0 ? entries[existingIndex].id : ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (`gmem-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`)),
+    fact: normalizedFact,
+    kind,
+    scope: "global",
+    source,
+    createdAt: existingIndex >= 0 ? entries[existingIndex].createdAt : nowIso,
+    updatedAt: nowIso
+  };
+  if (existingIndex >= 0) {
+    entries.splice(existingIndex, 1);
+  }
+  entries.push(nextEntry);
+  saveLocalMemory(entries);
+  return nextEntry;
+}
+
+function buildDerivedProjectMemoryEntries(session = getWorkspaceCurrentSession()) {
+  if (!session || !isProjectMemoryEnabled()) return [];
+  const derived = [];
+  const workspaceText = String(session.workspace && session.workspace.content || "").trim();
+  const sandbox = session.workspace && session.workspace.sandbox;
+  const sandboxFiles = sandbox && Array.isArray(sandbox.files) ? sandbox.files : [];
+  if (workspaceText) {
+    derived.push({
+      fact: `Workspace draft focus: ${sanitizeMemoryText(workspaceText, 180)}`,
+      kind: "project",
+      scope: "project",
+      source: "workspace"
+    });
+  }
+  if (sandboxFiles.length) {
+    const fileList = sandboxFiles.slice(0, 8).map((item) => sanitizeMemoryText(item.path, 80)).filter(Boolean).join(", ");
+    if (fileList) {
+      derived.push({
+        fact: `Current project files include: ${fileList}.`,
+        kind: "project",
+        scope: "project",
+        source: "sandbox"
+      });
+    }
+  }
+  const plannedChanges = sandbox && sandbox.analysis && Array.isArray(sandbox.analysis.files)
+    ? sandbox.analysis.files.slice(0, 6).map((item) => sanitizeMemoryText(item.path, 80)).filter(Boolean)
+    : [];
+  if (plannedChanges.length) {
+    derived.push({
+      fact: `Recent planned changes touched: ${plannedChanges.join(", ")}.`,
+      kind: "decision",
+      scope: "project",
+      source: "sandbox-plan"
+    });
+  }
+  const assistantSummary = sanitizeMemoryText(
+    session.workspace && session.workspace.assistantMemory && session.workspace.assistantMemory.summary,
+    220
+  );
+  if (assistantSummary) {
+    derived.push({
+      fact: `Workspace assistant summary: ${assistantSummary}`,
+      kind: "project",
+      scope: "project",
+      source: "workspace-assistant"
+    });
+  }
+  return derived;
+}
+
+function tokenizeMemoryText(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .split(/[^a-z0-9_]+/i)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 3);
+}
+
+function scoreMemoryEntry(entry, queryText = "", queryWords = new Set()) {
+  const factText = String(entry && entry.fact || "").toLowerCase();
+  if (!factText) return 0;
+  let score = 0;
+  queryWords.forEach((word) => {
+    if (factText.includes(word)) score += 2;
+  });
+  if (queryText && factText.includes(queryText)) {
+    score += 4;
+  }
+  if (entry.kind === "preference" || entry.kind === "rule") {
+    score += 1.2;
+  }
+  if (entry.scope === "project") {
+    score += 0.6;
+  }
+  return score;
+}
+
+function getRelevantLocalMemory(options = {}) {
+  if (!isMemoryEnabled()) return [];
+  const session = options.session || getWorkspaceCurrentSession();
+  const queryText = sanitizeMemoryText(
+    `${options.message || ""} ${options.workspaceContext || ""}`,
+    600
+  ).toLowerCase();
+  const queryWords = new Set(tokenizeMemoryText(queryText));
+  const candidateEntries = [
+    ...loadLocalMemory(),
+    ...(isProjectMemoryEnabled() ? getCurrentProjectMemoryEntries(session) : []),
+    ...buildDerivedProjectMemoryEntries(session)
+  ];
+  if (!candidateEntries.length) return [];
+
+  const scored = candidateEntries
+    .map((entry) => ({ entry, score: scoreMemoryEntry(entry, queryText, queryWords) }))
+    .filter((item) => item.score > 0 || item.entry.kind === "preference" || item.entry.kind === "rule")
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(b.entry.updatedAt || "").localeCompare(String(a.entry.updatedAt || ""));
+    });
+
+  const selected = [];
+  const seenFacts = new Set();
+  scored.forEach((item) => {
+    if (selected.length >= LOCAL_MEMORY_PROMPT_LIMIT) return;
+    const key = String(item.entry.fact || "").toLowerCase();
+    if (!key || seenFacts.has(key)) return;
+    seenFacts.add(key);
+    selected.push(item.entry);
+  });
+  return selected;
+}
+
+function buildLocalMemoryPayload(options = {}) {
+  return getRelevantLocalMemory(options).slice(0, LOCAL_MEMORY_PROMPT_LIMIT).map((entry) => ({
+    fact: entry.fact,
+    kind: entry.kind,
+    scope: entry.scope,
+    source: entry.source || ""
+  }));
+}
+
 function buildLocalKnowledgePayload() {
+  if (isIncognitoModeEnabled() || !isMemoryEnabled()) {
+    return [];
+  }
   return loadLocalKnowledge()
     .slice(-LOCAL_KNOWLEDGE_PROMPT_LIMIT)
     .map(function (entry) {
@@ -11232,11 +11735,23 @@ function buildLocalKnowledgePayload() {
 
 function withLocalKnowledge(payload) {
   if (!payload || typeof payload !== "object") return payload;
-  var localKnowledge = buildLocalKnowledgePayload();
+  const localKnowledge = buildLocalKnowledgePayload();
+  const session = getWorkspaceCurrentSession();
+  const localMemory = buildLocalMemoryPayload({
+    message: payload.message || payload.prompt || "",
+    workspaceContext: payload.workspace_context || "",
+    session
+  });
+  payload.incognito = isIncognitoModeEnabled();
   if (localKnowledge.length) {
     payload.local_knowledge = localKnowledge;
   } else {
     delete payload.local_knowledge;
+  }
+  if (localMemory.length) {
+    payload.local_memory = localMemory;
+  } else {
+    delete payload.local_memory;
   }
   return payload;
 }
@@ -11470,6 +11985,14 @@ function deleteKnowledgeFact(id) {
 renderLocalKnowledgeList();
 
 function submitLocalCorrection(correction, botResponse, callback) {
+  if (isIncognitoModeEnabled()) {
+    if (callback) callback(false, "Incognito mode is on, so corrections are not being saved.");
+    return;
+  }
+  if (!isMemoryEnabled()) {
+    if (callback) callback(false, "Memory is off, so corrections are not being saved.");
+    return;
+  }
   try {
     var saved = upsertLocalKnowledgeFact(correction, String(botResponse || "").slice(0, 200));
     if (!saved) {
@@ -11483,28 +12006,82 @@ function submitLocalCorrection(correction, botResponse, callback) {
   }
 }
 
+function deleteRememberedFact(id, scope = "global") {
+  const targetId = sanitizeMemoryText(id, 64);
+  if (!targetId) return;
+  if (scope === "project") {
+    const session = getWorkspaceCurrentSession();
+    if (!session) return;
+    const remaining = getCurrentProjectMemoryEntries(session).filter((entry) => String(entry.id || "") !== targetId);
+    saveCurrentProjectMemoryEntries(remaining, session);
+    return;
+  }
+  const remaining = loadLocalMemory().filter((entry) => String(entry.id || "") !== targetId);
+  saveLocalMemory(remaining);
+}
+
+function buildRenderableMemoryEntries() {
+  if (isIncognitoModeEnabled()) {
+    return [];
+  }
+  const globalEntries = loadLocalMemory().map((entry) => ({
+    id: entry.id,
+    fact: entry.fact,
+    scope: "Browser",
+    store: "memory-global"
+  }));
+  const projectEntries = getCurrentProjectMemoryEntries().map((entry) => ({
+    id: entry.id,
+    fact: entry.fact,
+    scope: "Project",
+    store: "memory-project"
+  }));
+  const correctionEntries = loadLocalKnowledge().map((entry) => ({
+    id: entry.id,
+    fact: entry.fact,
+    scope: "Correction",
+    store: "knowledge"
+  }));
+  return [...projectEntries, ...globalEntries, ...correctionEntries];
+}
+
 function renderLocalKnowledgeList() {
   if (!knowledgeListEl) return;
-  var entries = loadLocalKnowledge();
+  if (isIncognitoModeEnabled()) {
+    if (knowledgeCountEl) knowledgeCountEl.textContent = "0";
+    knowledgeListEl.innerHTML = '<div class="side-empty">Incognito is on. ROK will not remember this session.</div>';
+    return;
+  }
+  var entries = buildRenderableMemoryEntries();
   if (knowledgeCountEl) knowledgeCountEl.textContent = String(entries.length);
   if (!entries.length) {
-    knowledgeListEl.innerHTML = '<div class="side-empty">Nothing learned on this browser yet.</div>';
+    knowledgeListEl.innerHTML = '<div class="side-empty">Nothing remembered on this browser yet.</div>';
     return;
   }
   knowledgeListEl.innerHTML = entries.slice().reverse().map(function (entry) {
     var safeFact = escapeHtml(entry.fact || "");
     var safeId = escapeHtml(entry.id || "");
+    var safeScope = escapeHtml(entry.scope || "Memory");
+    var safeStore = escapeHtml(entry.store || "");
     return '<div class="knowledge-item" data-knowledge-id="' + safeId + '">' +
+      '<span class="knowledge-scope">' + safeScope + '</span>' +
       '<span class="knowledge-fact">' + safeFact + '</span>' +
-      '<button class="knowledge-delete-btn" type="button" data-delete-knowledge-id="' + safeId + '" aria-label="Delete fact" title="Delete">&times;</button>' +
+      '<button class="knowledge-delete-btn" type="button" data-delete-knowledge-id="' + safeId + '" data-memory-store="' + safeStore + '" aria-label="Delete fact" title="Delete">&times;</button>' +
       '</div>';
   }).join("");
   knowledgeListEl.querySelectorAll(".knowledge-delete-btn").forEach(function (btn) {
     btn.addEventListener("click", function (ev) {
       ev.stopPropagation();
       var id = btn.getAttribute("data-delete-knowledge-id");
+      var store = btn.getAttribute("data-memory-store") || "";
       if (!id) return;
-      deleteLocalKnowledgeFact(id);
+      if (store === "memory-project") {
+        deleteRememberedFact(id, "project");
+      } else if (store === "memory-global") {
+        deleteRememberedFact(id, "global");
+      } else {
+        deleteLocalKnowledgeFact(id);
+      }
     });
   });
 }
@@ -11520,7 +12097,14 @@ function deleteLocalKnowledgeFact(id) {
 }
 
 window.addEventListener("storage", function (event) {
-  if (event && event.key === LOCAL_KNOWLEDGE_KEY) {
+  if (!event) return;
+  if (event.key === USER_SETTINGS_KEY) {
+    applyUserSettingsToRuntime();
+    refreshMemoryToggleButtons();
+    renderLocalKnowledgeList();
+    return;
+  }
+  if (event.key === LOCAL_KNOWLEDGE_KEY || event.key === LOCAL_MEMORY_KEY || event.key === LOCAL_SESSIONS_KEY) {
     renderLocalKnowledgeList();
   }
 });

@@ -4284,6 +4284,19 @@ body.settings-compact .attachment-list {
   border: none;
 }
 
+.avatar-gif {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-gif.is-thinking {
+  transform: scale(1.18);
+  transform-origin: center;
+}
+
 .bubble {
   max-width: min(680px, 88vw);
   padding: 10px 14px;
@@ -4824,6 +4837,19 @@ body.settings-compact .attachment-list {
   font-size: 11px;
   line-height: 1.4;
   color: #b09090;
+}
+
+.knowledge-scope {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 75, 75, 0.28);
+  background: rgba(209, 75, 75, 0.08);
+  color: #d7aaaa;
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .knowledge-fact {
