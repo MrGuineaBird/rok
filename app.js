@@ -2632,6 +2632,7 @@ function applyUserSettingsToRuntime(options = {}) {
     document.body.classList.toggle("settings-compact", Boolean(userSettings.compactMode));
     document.body.classList.toggle("settings-reduce-motion", Boolean(userSettings.reduceMotion));
   }
+  refreshIncognitoChatTheme();
 
   clientLimits.typingSpeedMs = normalizeClientLimit(
     userSettings.typingSpeed,
@@ -2687,6 +2688,11 @@ function isAutoLearnEnabled() {
 
 function isIncognitoModeEnabled() {
   return Boolean(userSettings.incognitoMode);
+}
+
+function refreshIncognitoChatTheme() {
+  if (!appRoot) return;
+  appRoot.classList.toggle("incognito-chat-theme", isIncognitoModeEnabled());
 }
 
 function getHistoryLimitValue() {

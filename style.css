@@ -124,6 +124,297 @@ body.settings-compact .attachment-list {
   overflow-y: auto;
 }
 
+.app.incognito-chat-theme:not(.home-mode) {
+  --bg: #edf1f5;
+  --panel: #f5f7fa;
+  --panel-2: #ffffff;
+  --sidebar: #f3f6f9;
+  --border: #d6dde5;
+  --text: #151b22;
+  --muted: #66707d;
+  --accent: #eef2f6;
+  --accent-2: #ffffff;
+  --scrollbar-track: #e6ebf0;
+  --scrollbar-thumb: #c5ced8;
+  --scrollbar-thumb-2: #d6dde6;
+  --scrollbar-thumb-hover: #b8c2cd;
+  color-scheme: light;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .sidebar {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .main {
+  background: linear-gradient(180deg, rgba(249, 251, 253, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .topbar,
+.app.incognito-chat-theme:not(.home-mode) .composer-wrap {
+  background: rgba(247, 250, 252, 0.96);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .rok-logo-img {
+  filter: grayscale(1) brightness(2.35) contrast(0.82);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .rok-logo-topbar,
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-logo {
+  filter: grayscale(1) brightness(2.35) contrast(0.82) drop-shadow(0 8px 18px rgba(126, 136, 148, 0.16));
+}
+
+.app.incognito-chat-theme:not(.home-mode) .title-text-logo {
+  color: #4d5965;
+}
+
+.app.incognito-chat-theme:not(.home-mode) button {
+  border-color: #cad3dd;
+  background: linear-gradient(135deg, #ffffff 0%, #e4ebf2 100%);
+  color: #1a2129;
+}
+
+.app.incognito-chat-theme:not(.home-mode) button.ghost,
+.app.incognito-chat-theme:not(.home-mode) .topbar-mode-btn,
+.app.incognito-chat-theme:not(.home-mode) .sidebar-toggle-btn,
+.app.incognito-chat-theme:not(.home-mode) .side-btn,
+.app.incognito-chat-theme:not(.home-mode) .session-delete-btn,
+.app.incognito-chat-theme:not(.home-mode) .workspace-tab,
+.app.incognito-chat-theme:not(.home-mode) .workspace-mini-btn.ghost,
+.app.incognito-chat-theme:not(.home-mode) .composer-plus-btn,
+.app.incognito-chat-theme:not(.home-mode) .composer-tray-btn,
+.app.incognito-chat-theme:not(.home-mode) .correct-me-btn {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: #d1d9e1;
+  color: #4b5662;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .topbar-mode-btn.is-active,
+.app.incognito-chat-theme:not(.home-mode) .workspace-tab.active,
+.app.incognito-chat-theme:not(.home-mode) .composer-tray-btn.is-active,
+.app.incognito-chat-theme:not(.home-mode) .side-item.active,
+.app.incognito-chat-theme:not(.home-mode) .correct-me-btn:hover {
+  background: #ffffff;
+  border-color: #bcc7d2;
+  color: #161d24;
+  box-shadow: 0 8px 20px rgba(148, 159, 171, 0.14);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .topbar-mode-btn:hover,
+.app.incognito-chat-theme:not(.home-mode) .sidebar-toggle-btn:hover,
+.app.incognito-chat-theme:not(.home-mode) .side-btn:hover,
+.app.incognito-chat-theme:not(.home-mode) .side-item:hover,
+.app.incognito-chat-theme:not(.home-mode) .session-delete-btn:hover,
+.app.incognito-chat-theme:not(.home-mode) .workspace-tab:hover,
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-chip:hover,
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-chip:focus-visible,
+.app.incognito-chat-theme:not(.home-mode) .composer-plus-btn.is-open,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-btn:hover,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option:hover {
+  background: #ffffff;
+  border-color: #c5cfd9;
+  color: #1b232c;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-title,
+.app.incognito-chat-theme:not(.home-mode) .workspace-panel-title,
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-title {
+  color: #182029;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-subtitle,
+.app.incognito-chat-theme:not(.home-mode) .workspace-panel-hint,
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-status,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-label,
+.app.incognito-chat-theme:not(.home-mode) .cooldown {
+  color: #697381;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .chat-welcome-chip,
+.app.incognito-chat-theme:not(.home-mode) .knowledge-item,
+.app.incognito-chat-theme:not(.home-mode) .bubble.story-status,
+.app.incognito-chat-theme:not(.home-mode) .compacting-bar {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: #d2dae3;
+  color: #5b6673;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .knowledge-count-badge,
+.app.incognito-chat-theme:not(.home-mode) .knowledge-scope {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #d2dae3;
+  color: #5f6b78;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .knowledge-delete-btn {
+  color: #8a95a2;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .knowledge-delete-btn:hover {
+  color: #46515d;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .workspace-tabs-top {
+  border-bottom-color: #d9e0e7;
+  background: rgba(248, 250, 252, 0.96);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .workspace-panel {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(240, 244, 248, 0.98) 100%);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .model-panel {
+  background:
+    radial-gradient(560px 260px at 50% 16%, rgba(208, 216, 224, 0.22) 0%, rgba(255, 255, 255, 0) 72%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 244, 248, 0.98) 100%);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .msg .avatar {
+  background: #eef3f7;
+  color: #52606d;
+  border-color: #d4dce4;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .msg.user .avatar {
+  background: #f3f6f9;
+  color: #52606d;
+  border-color: #d5dde5;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .msg.user .bubble {
+  background: #ffffff;
+  border-color: #d8dfe7;
+  color: #151b22;
+  box-shadow: 0 10px 24px rgba(176, 186, 197, 0.12);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .msg.system .bubble {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #c9d1da;
+  color: #697381;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .compacting-progress {
+  background: #b8c2cd;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown a {
+  color: #4a637c;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown code,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown pre,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown details,
+.app.incognito-chat-theme:not(.home-mode) .story-canvas,
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-body,
+.app.incognito-chat-theme:not(.home-mode) .composer-field,
+.app.incognito-chat-theme:not(.home-mode) .composer-tray,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-menu,
+.app.incognito-chat-theme:not(.home-mode) textarea {
+  background: #ffffff;
+  border-color: #d4dce4;
+  color: #171d24;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown blockquote {
+  background: #f6f9fc;
+  border-left-color: #cdd6df;
+  color: #697381;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown hr,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown th,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown td,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown details[open] summary,
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-header,
+.app.incognito-chat-theme:not(.home-mode) .composer-field-rail,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-group + .composer-model-picker-group {
+  border-color: #d5dde5;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown th {
+  background: #f3f7fa;
+  color: #3e4955;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown tr:nth-child(even) td {
+  background: rgba(239, 244, 248, 0.7);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown summary,
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown sup,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-group-label {
+  color: #66717e;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown del {
+  color: #8b95a1;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown mark {
+  background: rgba(214, 222, 230, 0.58);
+  color: #1a2129;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-header {
+  background: #f5f8fb;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .story-canvas-toggle,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-btn {
+  background: #ffffff;
+  border-color: #d1d9e1;
+  color: #20272f;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-field {
+  box-shadow: 0 10px 28px rgba(193, 202, 211, 0.14);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-field:focus-within,
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-btn:focus,
+.app.incognito-chat-theme:not(.home-mode) textarea:focus {
+  border-color: #bcc6d1;
+  box-shadow: 0 0 0 3px rgba(207, 216, 224, 0.58);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-chevron {
+  border-top-color: #7a8591;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option {
+  color: #2a323b;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option.is-active {
+  background: #f2f6fa;
+  border-color: #c1ccd7;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option-lock {
+  border-color: #d4dbe3;
+  background: #f7f9fb;
+  color: #6a7582;
+}
+
+.app.incognito-chat-theme:not(.home-mode) button.stop-mode {
+  border-color: #c4ccd5;
+  background: linear-gradient(135deg, #f7fafc 0%, #dbe3eb 100%);
+  color: #273039;
+}
+
+.app.incognito-chat-theme:not(.home-mode) button.stop-mode::before {
+  background: #273039;
+}
+
+.app.incognito-chat-theme:not(.home-mode) .send-ready {
+  animation: send-pulse-incognito 2s ease-in-out infinite;
+}
+
+@keyframes send-pulse-incognito {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 209, 218, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(201, 209, 218, 0.26); }
+}
+
 .app.is-hidden {
   display: none;
 }
@@ -870,10 +1161,39 @@ body.settings-compact .attachment-list {
   backdrop-filter: blur(12px);
 }
 
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .top-left {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.topbar-mode-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: rgba(15, 17, 23, 0.72);
+  border-color: #442424;
+  color: #d9b5b5;
+}
+
+.topbar-mode-btn.is-active {
+  background: rgba(209, 75, 75, 0.16);
+  border-color: #8a3c3c;
+  color: #f2d8d8;
+}
+
+.topbar-mode-btn:hover {
+  background: rgba(21, 25, 34, 0.92);
 }
 
 .sidebar-toggle-btn {
@@ -6511,6 +6831,16 @@ button.stop-mode:hover {
     padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
   }
 
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .topbar-mode-btn {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
   .top-left {
     min-width: 0;
     gap: 8px;
@@ -6955,6 +7285,15 @@ button.stop-mode:hover {
 @media (max-width: 420px) {
   .topbar {
     padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .topbar-mode-btn {
+    padding: 0 10px;
+    font-size: 10px;
   }
 
   .home-logo .rok-logo-img {
