@@ -125,42 +125,42 @@ body.settings-compact .attachment-list {
 }
 
 .app.incognito-chat-theme:not(.home-mode) {
-  --bg: #edf1f5;
-  --panel: #f5f7fa;
-  --panel-2: #ffffff;
-  --sidebar: #f3f6f9;
-  --border: #d6dde5;
-  --text: #151b22;
-  --muted: #66707d;
-  --accent: #eef2f6;
-  --accent-2: #ffffff;
-  --scrollbar-track: #e6ebf0;
-  --scrollbar-thumb: #c5ced8;
-  --scrollbar-thumb-2: #d6dde6;
-  --scrollbar-thumb-hover: #b8c2cd;
+  --bg: #cfd7df;
+  --panel: #d7dee6;
+  --panel-2: #dfe5ec;
+  --sidebar: #d3dbe3;
+  --border: #b7c1cb;
+  --text: #161d24;
+  --muted: #596470;
+  --accent: #d2dae2;
+  --accent-2: #e2e8ee;
+  --scrollbar-track: #cad2da;
+  --scrollbar-thumb: #9fabb6;
+  --scrollbar-thumb-2: #b2bcc6;
+  --scrollbar-thumb-hover: #909ca8;
   color-scheme: light;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .sidebar {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(180deg, #dbe2e9 0%, #d0d8e0 100%);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .main {
-  background: linear-gradient(180deg, rgba(249, 251, 253, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(224, 230, 236, 0.98) 0%, rgba(210, 217, 224, 0.98) 100%);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .topbar,
 .app.incognito-chat-theme:not(.home-mode) .composer-wrap {
-  background: rgba(247, 250, 252, 0.96);
+  background: rgba(218, 225, 231, 0.94);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .rok-logo-img {
-  filter: grayscale(1) brightness(2.35) contrast(0.82);
+  filter: grayscale(1) brightness(1.72) contrast(0.92);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .rok-logo-topbar,
 .app.incognito-chat-theme:not(.home-mode) .chat-welcome-logo {
-  filter: grayscale(1) brightness(2.35) contrast(0.82) drop-shadow(0 8px 18px rgba(126, 136, 148, 0.16));
+  filter: grayscale(1) brightness(1.72) contrast(0.92) drop-shadow(0 8px 18px rgba(91, 103, 116, 0.12));
 }
 
 .app.incognito-chat-theme:not(.home-mode) .title-text-logo {
@@ -169,7 +169,7 @@ body.settings-compact .attachment-list {
 
 .app.incognito-chat-theme:not(.home-mode) button {
   border-color: #cad3dd;
-  background: linear-gradient(135deg, #ffffff 0%, #e4ebf2 100%);
+  background: linear-gradient(135deg, #e7edf2 0%, #d2d9e1 100%);
   color: #1a2129;
 }
 
@@ -183,7 +183,7 @@ body.settings-compact .attachment-list {
 .app.incognito-chat-theme:not(.home-mode) .composer-plus-btn,
 .app.incognito-chat-theme:not(.home-mode) .composer-tray-btn,
 .app.incognito-chat-theme:not(.home-mode) .correct-me-btn {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(229, 235, 240, 0.9);
   border-color: #d1d9e1;
   color: #4b5662;
 }
@@ -193,7 +193,7 @@ body.settings-compact .attachment-list {
 .app.incognito-chat-theme:not(.home-mode) .composer-tray-btn.is-active,
 .app.incognito-chat-theme:not(.home-mode) .side-item.active,
 .app.incognito-chat-theme:not(.home-mode) .correct-me-btn:hover {
-  background: #ffffff;
+  background: #edf1f4;
   border-color: #bcc7d2;
   color: #161d24;
   box-shadow: 0 8px 20px rgba(148, 159, 171, 0.14);
@@ -210,7 +210,7 @@ body.settings-compact .attachment-list {
 .app.incognito-chat-theme:not(.home-mode) .composer-plus-btn.is-open,
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-btn:hover,
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option:hover {
-  background: #ffffff;
+  background: #e9eef3;
   border-color: #c5cfd9;
   color: #1b232c;
 }
@@ -233,14 +233,14 @@ body.settings-compact .attachment-list {
 .app.incognito-chat-theme:not(.home-mode) .knowledge-item,
 .app.incognito-chat-theme:not(.home-mode) .bubble.story-status,
 .app.incognito-chat-theme:not(.home-mode) .compacting-bar {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(226, 232, 237, 0.82);
   border-color: #d2dae3;
   color: #5b6673;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .knowledge-count-badge,
 .app.incognito-chat-theme:not(.home-mode) .knowledge-scope {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(231, 236, 241, 0.92);
   border: 1px solid #d2dae3;
   color: #5f6b78;
 }
@@ -255,40 +255,40 @@ body.settings-compact .attachment-list {
 
 .app.incognito-chat-theme:not(.home-mode) .workspace-tabs-top {
   border-bottom-color: #d9e0e7;
-  background: rgba(248, 250, 252, 0.96);
+  background: rgba(217, 224, 230, 0.94);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .workspace-panel {
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(240, 244, 248, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(223, 229, 235, 0.98) 0%, rgba(211, 218, 225, 0.98) 100%);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .model-panel {
   background:
-    radial-gradient(560px 260px at 50% 16%, rgba(208, 216, 224, 0.22) 0%, rgba(255, 255, 255, 0) 72%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 244, 248, 0.98) 100%);
+    radial-gradient(560px 260px at 50% 16%, rgba(184, 194, 204, 0.22) 0%, rgba(255, 255, 255, 0) 72%),
+    linear-gradient(180deg, rgba(222, 228, 234, 0.98) 0%, rgba(209, 216, 223, 0.98) 100%);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .msg .avatar {
-  background: #eef3f7;
+  background: #d8e0e7;
   color: #52606d;
   border-color: #d4dce4;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .msg.user .avatar {
-  background: #f3f6f9;
+  background: #dee5eb;
   color: #52606d;
   border-color: #d5dde5;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .msg.user .bubble {
-  background: #ffffff;
+  background: #e6ebf0;
   border-color: #d8dfe7;
   color: #151b22;
-  box-shadow: 0 10px 24px rgba(176, 186, 197, 0.12);
+  box-shadow: 0 8px 18px rgba(151, 161, 172, 0.1);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .msg.system .bubble {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(225, 231, 237, 0.74);
   border-color: #c9d1da;
   color: #697381;
 }
@@ -310,13 +310,13 @@ body.settings-compact .attachment-list {
 .app.incognito-chat-theme:not(.home-mode) .composer-tray,
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-menu,
 .app.incognito-chat-theme:not(.home-mode) textarea {
-  background: #ffffff;
+  background: #e4eaf0;
   border-color: #d4dce4;
   color: #171d24;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .bubble.markdown blockquote {
-  background: #f6f9fc;
+  background: #dbe3ea;
   border-left-color: #cdd6df;
   color: #697381;
 }
@@ -332,12 +332,12 @@ body.settings-compact .attachment-list {
 }
 
 .app.incognito-chat-theme:not(.home-mode) .bubble.markdown th {
-  background: #f3f7fa;
+  background: #dfe6ec;
   color: #3e4955;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .bubble.markdown tr:nth-child(even) td {
-  background: rgba(239, 244, 248, 0.7);
+  background: rgba(217, 224, 231, 0.72);
 }
 
 .app.incognito-chat-theme:not(.home-mode) .bubble.markdown summary,
@@ -356,12 +356,12 @@ body.settings-compact .attachment-list {
 }
 
 .app.incognito-chat-theme:not(.home-mode) .story-canvas-header {
-  background: #f5f8fb;
+  background: #dce3ea;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .story-canvas-toggle,
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-btn {
-  background: #ffffff;
+  background: #e6ebf0;
   border-color: #d1d9e1;
   color: #20272f;
 }
@@ -386,19 +386,19 @@ body.settings-compact .attachment-list {
 }
 
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option.is-active {
-  background: #f2f6fa;
+  background: #dfe6ec;
   border-color: #c1ccd7;
 }
 
 .app.incognito-chat-theme:not(.home-mode) .composer-model-picker-option-lock {
   border-color: #d4dbe3;
-  background: #f7f9fb;
+  background: #dde4ea;
   color: #6a7582;
 }
 
 .app.incognito-chat-theme:not(.home-mode) button.stop-mode {
   border-color: #c4ccd5;
-  background: linear-gradient(135deg, #f7fafc 0%, #dbe3eb 100%);
+  background: linear-gradient(135deg, #e8edf2 0%, #ccd5de 100%);
   color: #273039;
 }
 
