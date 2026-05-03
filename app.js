@@ -10341,7 +10341,7 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
   }
 }
 syncLayoutForViewport();
-showHomeScreen();
+beginHomeEntry("chat");
 
 // --- Chat search ---
 var chatSearchMatches = [];
