@@ -149,7 +149,7 @@
           <nav class="rok-home-top" aria-label="Home navigation">
             <button class="rok-home-brand" type="button" aria-label="ROK Home">
               <img src="roklogo.png" alt="ROK" class="rok-home-logo" />
-              <span class="rok-home-brand-badge">Hermes 1.3</span>
+              <span class="rok-home-brand-badge">User Controlled</span>
             </button>
             <div class="rok-home-top-links">
               <a class="rok-home-top-link" href="docs.html">Docs</a>
@@ -159,50 +159,67 @@
 
           <main class="rok-home-main">
             <section class="rok-home-copy">
-              <div class="rok-home-kicker">Private AI for chat, code, math, and images</div>
-              <h1 class="rok-home-title">One place to ask, build, and figure things out.</h1>
+              <div class="rok-home-kicker">Local-first AI workspace</div>
+              <h1 class="rok-home-title">Keep the work yours.</h1>
               <p class="rok-home-subtitle">
-                ROK keeps the app simple: talk to Hermes, drop in an image, or switch into ROK CODE when you want to build.
+                ROK is the AI workspace for unfinished, personal, and real work. Sessions stay on this device by default,
+                you can switch between ROK's hosted models and your own local Ollama runtime, and the app should make that
+                choice clear while you work.
               </p>
               <div class="rok-home-actions">
                 <button id="homeStartBtnAlt" class="hs-cta rok-home-cta" type="button">
-                  Start chatting
+                  Open ROK
                   <span class="hs-cta-arrow">-&gt;</span>
                 </button>
+                <button id="homePrivacyBtn" class="rok-home-secondary-btn" type="button">See How Privacy Works</button>
+              </div>
+              <div class="rok-home-trust-grid" aria-label="ROK trust notes">
+                <article class="rok-home-trust-card">
+                  <span class="rok-home-trust-title">Chats stored locally by default</span>
+                  <p>Sessions and saved chats live in this browser unless you choose a hosted path or build a different setup around ROK.</p>
+                </article>
+                <article class="rok-home-trust-card">
+                  <span class="rok-home-trust-title">Switch runtimes on purpose</span>
+                  <p>Use ROK's hosted models or your own local Ollama runtime depending on how much speed, privacy, and control you want.</p>
+                </article>
+                <article class="rok-home-trust-card">
+                  <span class="rok-home-trust-title">Built for user control</span>
+                  <p>ROK is aiming to feel more like the Linux side of AI: configurable, transparent, and eventually more community-shaped than a generic corporate chat tab.</p>
+                </article>
               </div>
               <div class="rok-home-pills" aria-hidden="true">
-                <span class="home-prompt-pill">Summarize this error log</span>
-                <span class="home-prompt-pill">Explain this code snippet</span>
-                <span class="home-prompt-pill">Turn this into flashcards</span>
-                <span class="home-prompt-pill">Describe this image</span>
+                <span class="home-prompt-pill">Draft this without changing my tone</span>
+                <span class="home-prompt-pill">Check this unreleased diff</span>
+                <span class="home-prompt-pill">Explain this local log file</span>
+                <span class="home-prompt-pill">Summarize these private notes</span>
               </div>
             </section>
 
             <aside class="rok-home-side" aria-label="ROK features">
               <section class="rok-home-panel">
-                <div class="rok-home-panel-label">What ROK handles well</div>
+                <div class="rok-home-panel-label">Why People Choose ROK</div>
                 <div class="rok-home-feature-list">
                   <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">Fast chat</span>
-                    <p>Quick answers for questions, school help, and everyday tasks.</p>
+                    <span class="rok-home-feature-title">Work you are not ready to paste anywhere</span>
+                    <p>Use ROK when the draft, code, screenshot, or notes still feel too personal, messy, or unfinished for a generic cloud chat.</p>
                   </article>
                   <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">ROK CODE</span>
-                    <p>Edit files, review requested changes, and watch progress while it builds.</p>
+                    <span class="rok-home-feature-title">Local or hosted, but visible</span>
+                    <p>ROK should tell you when work stays on-device and when it goes to a hosted model instead of hiding that choice behind branding.</p>
                   </article>
                   <article class="rok-home-feature">
-                    <span class="rok-home-feature-title">Vision</span>
-                    <p>Attach screenshots or photos and ask ROK to explain what it sees.</p>
+                    <span class="rok-home-feature-title">Community-minded direction</span>
+                    <p>The long-term goal is a more user-controlled AI tool that people can shape, self-host, and trust beyond one company's defaults.</p>
                   </article>
                 </div>
               </section>
 
               <section class="rok-home-panel rok-home-panel-muted">
-                <div class="rok-home-panel-label">Try asking</div>
+                <div class="rok-home-panel-label">Use ROK Instead Of ChatGPT When</div>
                 <div class="rok-home-example-list">
-                  <div class="rok-home-example">Find the root cause in this stack trace.</div>
-                  <div class="rok-home-example">Explain this algebra problem step by step.</div>
-                  <div class="rok-home-example">Refactor this function and keep the same behavior.</div>
+                  <div class="rok-home-example">the work is personal, unfinished, or sensitive</div>
+                  <div class="rok-home-example">you want chats stored on this device by default</div>
+                  <div class="rok-home-example">you want to switch between ROK's models and your own Ollama runtime</div>
                 </div>
               </section>
             </aside>
@@ -344,7 +361,7 @@
               <textarea
                 id="sandboxChatInput"
                 class="sandbox-chat-input"
-                placeholder="Ask ROK to build, refactor, debug, or explain this project..."
+                placeholder="Describe one bug, refactor, or starter scaffold. ROK CODE will plan first and wait for your apply."
                 spellcheck="true"
               ></textarea>
               <div class="sandbox-chat-compose-actions">
@@ -693,7 +710,7 @@ Change Scope: Short</p>
       aria-describedby="onboardingDesc"
     >
       <div class="onboarding-head">
-        <span class="onboarding-badge">Get to know you</span>
+        <span class="onboarding-badge">Quick tour</span>
         <button id="onboardingCloseBtn" type="button" class="onboarding-close" aria-label="Skip tour and close">✕</button>
       </div>
       <div id="onboardingProgress" class="onboarding-progress" aria-hidden="true">
@@ -706,22 +723,22 @@ Change Scope: Short</p>
         <div id="onboardingSlide0" class="onboarding-slide" data-onb-slide="0">
           <h2 id="onboardingHeading" class="onboarding-title">Welcome to ROK</h2>
           <p id="onboardingDesc" class="onboarding-text">
-            ROK is your private AI app for chat, code work in ROK CODE, model switching, and a built-in math graph.
-            This short tour shows where everything lives, then we'll ask what to call you so ROK can respond naturally.
+            ROK works best as a workspace, not just a chatbot. Use it when you want to ask, revise, compare, and keep the
+            work in front of you. This short tour shows the main surfaces, then we'll ask what to call you.
           </p>
         </div>
         <div id="onboardingSlide1" class="onboarding-slide" hidden data-onb-slide="1">
           <h2 class="onboarding-title">Sidebar &amp; chats</h2>
           <p class="onboarding-text">
-            Use <strong>New chat</strong> to start fresh. Your recent conversations appear under <strong>Saved Chats</strong> — they stay in this browser only.
-            Tap the edge button to collapse the sidebar when you need more room.
+            Use <strong>New chat</strong> to start fresh. Your recent conversations appear under <strong>Saved Chats</strong> and stay in this browser only.
+            That keeps sessions easy to reopen on this device, but it also means ROK is not doing cloud sync here.
           </p>
         </div>
         <div id="onboardingSlide2" class="onboarding-slide" hidden data-onb-slide="2">
           <h2 class="onboarding-title">Tabs &amp; tools</h2>
           <p class="onboarding-text">
-            Switch between <strong>Chat</strong>, <strong>ROK CODE</strong> for file-based coding, and <strong>ROK MATH</strong> for the graphing calculator.
-            ROK now runs on <strong>Hermes 1.3</strong> across chat, code, and math.
+            Start in <strong>Chat</strong> for quick questions. Move to <strong>ROK CODE</strong> when you want file-based edits,
+            requested changes, and an apply step before code lands. Use <strong>ROK MATH</strong> when you need a graphing surface.
           </p>
         </div>
         <div id="onboardingSlide3" class="onboarding-slide" hidden data-onb-slide="3">

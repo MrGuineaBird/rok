@@ -81,6 +81,7 @@ const brandHomeBtn = document.getElementById("brandHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
 const homeStartBtn = document.getElementById("homeStartBtn");
 const homeStartBtnAlt = document.getElementById("homeStartBtnAlt");
+const homePrivacyBtn = document.getElementById("homePrivacyBtn");
 const clearBtn = document.getElementById("clearBtn");
 const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
 const chatSearchBar = document.getElementById("chatSearchBar");
@@ -199,7 +200,7 @@ const LOCAL_KNOWLEDGE_PROMPT_LIMIT = 8;
 const LOCAL_KNOWLEDGE_MAX_FACT_CHARS = 280;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
-const ONBOARDING_TOUR_VERSION = 2;
+const ONBOARDING_TOUR_VERSION = 3;
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_USER_SETTINGS = {
@@ -277,6 +278,24 @@ const SANDBOX_MAX_FILES = 48;
 const SANDBOX_MAX_FILE_CHARS = 24_000;
 const SANDBOX_CHANGE_PREVIEW_CONTEXT_LINES = 2;
 const SANDBOX_CHANGE_PREVIEW_MAX_LINES = 24;
+const SANDBOX_STARTER_PROMPTS = {
+  review: {
+    label: "Review workspace",
+    prompt: "Review this workspace and suggest the safest high-impact change. Keep the plan small, explain why it matters, and show the file-by-file edits before I apply anything."
+  },
+  refactor: {
+    label: "Safe refactor",
+    prompt: "Refactor this code carefully. Keep the same behavior, explain the plan in plain English, and show the requested file changes before I apply anything."
+  },
+  debug: {
+    label: "Find the bug",
+    prompt: "Look through these files, find the most likely bug or risky spot, explain it clearly, and propose the smallest safe fix."
+  },
+  scaffold: {
+    label: "Starter scaffold",
+    prompt: "Create a small starter project for: [describe the app here]. Keep the structure simple, explain each file, and show the requested changes before I apply them."
+  }
+};
 let titanLockWindowMs = DEFAULT_TITAN_LOCK_WINDOW_MS;
 let daedalusLockWindowMs = DEFAULT_DAEDALUS_LOCK_WINDOW_MS;
 const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 980px)";
@@ -459,6 +478,15 @@ const SERVER_DOWN_MESSAGES = [
   "ROK is currently redirecting traffic. Hold on.",
 
 ];
+const SERVER_DOWN_MESSAGES_PRIMARY = [
+  "ROK is temporarily unavailable.",
+  "We could not reach ROK right now.",
+  "ROK is taking a short pause. Please try again soon.",
+  "Connection to ROK is unavailable at the moment.",
+  "ROK is not responding right now.",
+  "ROK should be back shortly.",
+  "ROK is at capacity right now."
+];
 
 const history = [];
 const attachments = [];
@@ -475,6 +503,7 @@ let hasShownReadyMessage = false;
 let homeDemoTimer = null;
 let homeDemoLastIndex = -1;
 let homePreviewRunToken = 0;
+let pendingHomeEnterTab = "";
 let workspaceSaveTimer = null;
 let workspaceApplyResolver = null;
 let workspaceApplyLastFocusedElement = null;
@@ -1272,6 +1301,20 @@ function enterAppFromHome() {
   hideHomeScreen();
   checkServerOnBoot();
   renderWorkspaceUI({ focus: true });
+  const preferredTab = pendingHomeEnterTab;
+  pendingHomeEnterTab = "";
+  if (WORKSPACE_TAB_KEYS.includes(preferredTab)) {
+    setActiveWorkspaceTab(preferredTab, { focus: true });
+  }
+}
+
+function beginHomeEntry(preferredTab = "") {
+  pendingHomeEnterTab = WORKSPACE_TAB_KEYS.includes(preferredTab) ? preferredTab : "";
+  if (!isOnboardingCompleted()) {
+    openOnboardingModal();
+    return;
+  }
+  enterAppWithTosCheck();
 }
 
 // --- Terms of Service gate ---
@@ -1604,7 +1647,7 @@ function applyDaedalusQuota(quota) {
     showDaedalusLimitModal();
   }
   if (justNearing && !isHomeScreenVisible()) {
-    showThinkingQuotaToast("You're nearing your Daedalus 1.0 limit.");
+    showThinkingQuotaToast("Shared Daedalus capacity is getting tight.");
   }
   refreshSendState();
   forceHermesIfDaedalusLocked(justExhausted);
@@ -1645,7 +1688,7 @@ function forceHermesIfTitanLocked(notify = false) {
   if (notify && !isHomeScreenVisible()) {
     const remainingMs = getTitanLockRemainingMs();
     const resetMsg = remainingMs > 0 ? ` Unlocks in ${formatThinkingResetTime(remainingMs)}.` : "";
-    addMessage("system", `${HERMES_LABEL} is temporarily busy after reaching its message limit.${resetMsg}`);
+    addMessage("system", `${HERMES_LABEL} is temporarily at capacity.${resetMsg}`);
   }
 }
 
@@ -1725,7 +1768,7 @@ function showThinkingBurnoutModal() {
   if (burnoutResetLabel) {
     burnoutResetLabel.textContent = remainingMs > 0
       ? `${HERMES_LABEL} unlocks in ${formatThinkingResetTime(remainingMs)}.`
-      : `${HERMES_LABEL} is temporarily busy.`;
+      : `${HERMES_LABEL} is temporarily at capacity.`;
   }
   thinkingBurnoutModal.hidden = false;
   thinkingBurnoutModal.setAttribute("aria-hidden", "false");
@@ -1791,11 +1834,11 @@ function showDaedalusLimitModal() {
   const title = document.createElement("div");
   title.id = "daedalusLimitTitle";
   title.className = "correction-modal-title";
-  title.textContent = "Daedalus 1.0 limit reached";
+  title.textContent = "Daedalus 1.0 is at capacity";
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "You've reached your Daedalus 1.0 limit. Try again later or use your own Ollama API key for unlimited usage.";
+  hint.textContent = "The shared Daedalus workspace is used up for now. Try again later or use your own Ollama API key on this device.";
 
   const usage = document.createElement("div");
   usage.className = "correction-modal-hint";
@@ -2206,11 +2249,11 @@ function showServerDownScreen() {
   stopHomeWorkspacePreview();
   if (serverDownMessage) {
     const randomMessage =
-      SERVER_DOWN_MESSAGES[Math.floor(Math.random() * SERVER_DOWN_MESSAGES.length)];
+      SERVER_DOWN_MESSAGES_PRIMARY[Math.floor(Math.random() * SERVER_DOWN_MESSAGES_PRIMARY.length)];
     serverDownMessage.textContent = randomMessage;
   }
   if (serverDownMeta) {
-    serverDownMeta.textContent = "We couldn't reach the server, wait a few minutes then try again.";
+    serverDownMeta.textContent = "We couldn't reach ROK right now. Give it a minute, then try again.";
   }
   if (serverDownRetryBtn) {
     serverDownRetryBtn.disabled = false;
@@ -3497,6 +3540,76 @@ function renderSandboxActivityUI(activitySnapshot) {
     .join("");
 }
 
+function getSandboxStarterPrompt(starterId = "") {
+  const key = String(starterId || "").trim().toLowerCase();
+  return key && SANDBOX_STARTER_PROMPTS[key] ? SANDBOX_STARTER_PROMPTS[key] : null;
+}
+
+function buildSandboxEmptyStateMarkup({ title = "", body = "", actions = [], note = "" } = {}) {
+  const buttonsHtml = Array.isArray(actions) && actions.length
+    ? `
+      <div class="sandbox-empty-actions">
+        ${actions.map((action) => {
+          const label = escapeHtml(action.label || "Continue");
+          const toneAttr = action.tone ? ` data-tone="${escapeHtml(action.tone)}"` : "";
+          if (action.kind === "starter") {
+            return `<button type="button" class="sandbox-empty-btn"${toneAttr} data-sandbox-starter-id="${escapeHtml(action.id || "")}">${label}</button>`;
+          }
+          return `<button type="button" class="sandbox-empty-btn"${toneAttr} data-sandbox-empty-action="${escapeHtml(action.id || "")}">${label}</button>`;
+        }).join("")}
+      </div>
+    `
+    : "";
+  const noteHtml = note ? `<div class="sandbox-empty-note">${escapeHtml(note)}</div>` : "";
+  return `
+    <div class="sandbox-empty-state sandbox-empty-state-rich">
+      <div class="sandbox-empty-title">${escapeHtml(title)}</div>
+      <p class="sandbox-empty-copy">${escapeHtml(body)}</p>
+      ${buttonsHtml}
+      ${noteHtml}
+    </div>
+  `;
+}
+
+function focusSandboxPromptWithStarter(starterId, options = {}) {
+  const { submit = false } = options;
+  const starter = getSandboxStarterPrompt(starterId);
+  if (!starter || !sandboxChatInput) return false;
+  sandboxChatDraft = starter.prompt;
+  sandboxChatInput.value = starter.prompt;
+  autoResizeSandboxChatInput();
+  setSandboxStatus(`${starter.label} prompt ready`, "idle", { save: false });
+  sandboxChatInput.focus();
+  try {
+    sandboxChatInput.setSelectionRange(sandboxChatInput.value.length, sandboxChatInput.value.length);
+  } catch {}
+  if (submit) {
+    submitSandboxChatRequest();
+  }
+  return true;
+}
+
+function handleSandboxEmptyStateAction(target) {
+  if (!(target instanceof Element)) return false;
+  const starterBtn = target.closest("[data-sandbox-starter-id]");
+  if (starterBtn instanceof HTMLElement) {
+    return focusSandboxPromptWithStarter(starterBtn.getAttribute("data-sandbox-starter-id"));
+  }
+  const actionBtn = target.closest("[data-sandbox-empty-action]");
+  if (!(actionBtn instanceof HTMLElement)) return false;
+  const actionId = String(actionBtn.getAttribute("data-sandbox-empty-action") || "").trim().toLowerCase();
+  if (!actionId) return false;
+  if (actionId === "upload") {
+    if (sandboxFileInput) sandboxFileInput.click();
+    return true;
+  }
+  if (actionId === "new-file") {
+    createSandboxFileFromEditor();
+    return true;
+  }
+  return false;
+}
+
 function getLastAssistantMessageText() {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const item = history[i];
@@ -4054,7 +4167,11 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
   if (!sandboxChangesSummary || !sandboxChangesList || !sandboxChangesMeta) return;
   if (activitySnapshot && activitySnapshot.state === "running") {
     sandboxChangesSummary.textContent = "ROK is preparing the requested file changes...";
-    sandboxChangesList.innerHTML = '<div class="sandbox-empty-state">The file change summary will show up here as soon as the plan is ready.</div>';
+    sandboxChangesList.innerHTML = buildSandboxEmptyStateMarkup({
+      title: "ROK CODE is building the plan",
+      body: "The file-by-file change summary will appear here as soon as the current pass is ready to review.",
+      note: "Nothing is written into the workspace until you click Apply AI Changes."
+    });
     sandboxChangesMeta.hidden = true;
     sandboxChangesMeta.textContent = "";
     return;
@@ -4064,7 +4181,16 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
   const fileCount = changeSet.rows.length;
   if (!fileCount) {
     sandboxChangesSummary.textContent = "No AI file changes yet.";
-    sandboxChangesList.innerHTML = '<div class="sandbox-empty-state">No file changes yet. Ask ROK to build or edit something in ROK CODE.</div>';
+    sandboxChangesList.innerHTML = buildSandboxEmptyStateMarkup({
+      title: "No requested changes yet",
+      body: "Ask for one concrete edit and the review cards will show up here before anything gets applied.",
+      actions: [
+        { kind: "starter", id: "review", label: "Review workspace", tone: "primary" },
+        { kind: "starter", id: "refactor", label: "Safe refactor" },
+        { kind: "starter", id: "debug", label: "Find the bug" }
+      ],
+      note: "Best results come from one safe request at a time."
+    });
     sandboxChangesMeta.hidden = true;
     sandboxChangesMeta.textContent = "";
     return;
@@ -4174,7 +4300,17 @@ function renderSandboxConversationUI(sandbox, activitySnapshot = null) {
   sandboxChatList.textContent = "";
 
   if (!messages.length && !(isSending && isSandboxSessionActive())) {
-    sandboxChatList.innerHTML = '<div class="sandbox-empty-state">No ROK CODE requests yet. Ask ROK to build or edit something here.</div>';
+    sandboxChatList.innerHTML = buildSandboxEmptyStateMarkup({
+      title: "Start with one concrete ROK CODE request",
+      body: "Describe one bug, refactor, or scaffold. ROK will plan first, show the requested changes, and wait for your apply.",
+      actions: [
+        { kind: "starter", id: "review", label: "Review workspace", tone: "primary" },
+        { kind: "starter", id: "refactor", label: "Safe refactor" },
+        { kind: "starter", id: "debug", label: "Find the bug" },
+        { kind: "starter", id: "scaffold", label: "Starter scaffold" }
+      ],
+      note: "Nothing is written into your files until you click Apply AI Changes."
+    });
   } else {
     messages.forEach((item) => {
       sandboxChatList.appendChild(createSandboxChatMessageRow(item.role, item.content));
@@ -4231,7 +4367,16 @@ function renderSandboxUI() {
         return `<button type="button" class="sandbox-file-btn${isActive}" data-sandbox-file-id="${escapeHtml(file.id)}"${disabledAttr}><span class="sandbox-file-row"><span class="sandbox-file-path">${escapeHtml(file.path)}</span>${badgeHtml}</span><span class="sandbox-file-meta">${escapeHtml(lineLabel)}</span></button>`;
       })
       .join("");
-    sandboxFilesList.innerHTML = filesHtml || '<div class="sandbox-empty-state">No files yet. Upload files or create a new one to start coding.</div>';
+    sandboxFilesList.innerHTML = filesHtml || buildSandboxEmptyStateMarkup({
+      title: "No files in this workspace yet",
+      body: "Upload a project or start with one file, then ask ROK CODE for a safe first pass.",
+      actions: [
+        { kind: "action", id: "upload", label: "Upload files", tone: "primary" },
+        { kind: "action", id: "new-file", label: "New file" },
+        { kind: "starter", id: "scaffold", label: "Starter scaffold prompt" }
+      ],
+      note: "ROK CODE is strongest when it can inspect real files and show the review cards before apply."
+    });
   }
 
   if (sandboxCurrentFileLabel) {
@@ -4556,7 +4701,7 @@ function setCurrentSessionModel(rawModel) {
   if (isTitanQuotaLocked() && requestedModel === TITAN_MODEL_ID) {
     nextModel = HERMES_MODEL_ID;
     showThinkingBurnoutModal();
-    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the reset window.`);
+    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily at capacity. Please wait for the reset window.`);
   } else if (isDaedalusQuotaLocked() && requestedModel === DAEDALUS_MODEL_ID) {
     showDaedalusLimitModal();
     syncModelSelectorWithCurrentSession();
@@ -5813,7 +5958,7 @@ function buildSandboxChatSummary(analysis, modelId = "") {
   const setupLines = analysis.setupSteps.length
     ? `\n\nSetup:\n${analysis.setupSteps.map((item) => `- ${item}`).join("\n")}`
     : "";
-  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in ROK CODE.")}\n\nFiles:\n${fileLines}${setupLines}\n\nUse **Apply AI Changes** when the plan looks right.`;
+  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in ROK CODE.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the previews first, then use **Apply AI Changes** when the plan looks right.`;
 }
 
 async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
@@ -8091,7 +8236,7 @@ async function send() {
   if (sessionModel === TITAN_MODEL_ID && isTitanQuotaLocked()) {
     forceHermesIfTitanLocked(false);
     showThinkingBurnoutModal();
-    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the cooldown.`);
+    showThinkingQuotaToast(`${HERMES_LABEL} is temporarily at capacity. Please wait a moment and try again.`);
     refreshComposerModelPicker();
     return;
   }
@@ -9607,6 +9752,7 @@ if (sandboxFilesList) {
   sandboxFilesList.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+    if (handleSandboxEmptyStateAction(target)) return;
     const button = target.closest("[data-sandbox-file-id]");
     if (!(button instanceof HTMLElement)) return;
     const fileId = button.getAttribute("data-sandbox-file-id");
@@ -9619,6 +9765,7 @@ if (sandboxChangesList) {
   sandboxChangesList.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+    if (handleSandboxEmptyStateAction(target)) return;
 
     const previewButton = target.closest("[data-sandbox-preview-path]");
     if (previewButton instanceof HTMLElement) {
@@ -9635,6 +9782,14 @@ if (sandboxChangesList) {
       if (!path) return;
       selectSandboxFileByPath(path);
     }
+  });
+}
+
+if (sandboxChatList) {
+  sandboxChatList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    handleSandboxEmptyStateAction(target);
   });
 }
 
@@ -9982,7 +10137,7 @@ if (modelPickerBtn && modelPickerMenu) {
     if (isLocked && modelId === TITAN_MODEL_ID) {
       setModelPickerOpen(false);
       showThinkingBurnoutModal();
-      showThinkingQuotaToast(`${HERMES_LABEL} is temporarily busy. Please wait for the reset window.`);
+      showThinkingQuotaToast(`${HERMES_LABEL} is temporarily at capacity. Please wait for the reset window.`);
       return;
     }
     setCurrentSessionModel(modelId);
@@ -10094,21 +10249,19 @@ if (brandHomeBtn) {
 
 if (homeStartBtn) {
   homeStartBtn.addEventListener("click", () => {
-    if (!isOnboardingCompleted()) {
-      openOnboardingModal();
-      return;
-    }
-    enterAppWithTosCheck();
+    beginHomeEntry("chat");
   });
 }
 
 if (homeStartBtnAlt) {
   homeStartBtnAlt.addEventListener("click", () => {
-    if (!isOnboardingCompleted()) {
-      openOnboardingModal();
-      return;
-    }
-    enterAppWithTosCheck();
+    beginHomeEntry("chat");
+  });
+}
+
+if (homePrivacyBtn) {
+  homePrivacyBtn.addEventListener("click", () => {
+    window.location.href = "docs.html#privacy";
   });
 }
 
@@ -10733,7 +10886,6 @@ function hideElixirPartnershipModal() {
   } catch (e) {
     // Ignore storage errors
   }
-  showRokImageModal();
 }
 
 function showRokImageModal() {
@@ -10779,10 +10931,7 @@ if (rokImageOkBtn) {
   rokImageOkBtn.addEventListener("click", hideRokImageModal);
 }
 
-// Show first-visit announcement modals in sequence
-if (!showElixirPartnershipModal()) {
-  showRokImageModal();
-}
+// Keep announcements manual so first-run lands on the product itself.
 
 // â”€â”€ ROK Pixel Painter - VLM-guided image generation â”€â”€
 
