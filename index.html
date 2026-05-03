@@ -68,7 +68,17 @@
             <img src="roklogo.png" alt="ROK" class="rok-logo-img" />
           </div>
         </div>
-        <button id="clearBtn" class="ghost" type="button">Clear</button>
+        <div class="topbar-actions">
+          <button
+            id="incognitoToggleBtn"
+            class="ghost topbar-mode-btn"
+            type="button"
+            aria-pressed="false"
+          >
+            Incognito Off
+          </button>
+          <button id="clearBtn" class="ghost" type="button">Clear</button>
+        </div>
       </header>
 
       <section id="homeScreen" class="home-screen" hidden>
@@ -510,7 +520,6 @@ Change Scope: Short</p>
                   <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
                   <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
                   <button id="memoryToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="true">Memory On</button>
-                  <button id="incognitoToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Incognito Off</button>
                 </div>
               </div>
               <div class="composer-model-inline">
