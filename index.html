@@ -7,7 +7,7 @@
   <title>ROK</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css?v=96" />
+  <link rel="stylesheet" href="style.css?v=97" />
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=4b4e3e114a73411a98d528ecceb059e1"></script>
   <meta name="google-site-verification" content="9AHzloNzCGXCnzi8LGMdIUoTnvdxaqkAsa_Ua7Qyka0" />
 </head>
@@ -707,18 +707,27 @@ Change Scope: Short</p>
     </div>
   </section>
 
-  <!-- First-run: get to know you + quick tour (local storage only) -->
+  <!-- First-run: guided tour (local storage only) -->
   <section id="onboardingModal" class="onboarding-modal" hidden aria-hidden="true">
     <div class="onboarding-backdrop"></div>
+    <div id="onboardingSpotlight" class="onboarding-spotlight" aria-hidden="true"></div>
     <div
-      class="onboarding-card"
+      id="onboardingGuide"
+      class="onboarding-guide"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="onboardingHeading"
-      aria-describedby="onboardingDesc"
+      aria-labelledby="onboardingGuideHeading"
+      aria-describedby="onboardingGuideText"
     >
-      <div class="onboarding-head">
-        <span class="onboarding-badge">Quick tour</span>
+      <div class="onboarding-guide-orb-shell" aria-hidden="true">
+        <img id="onboardingGuideOrb" class="onboarding-guide-orb" src="rokgenerating.gif" alt="" />
+      </div>
+      <div class="onboarding-card">
+        <div class="onboarding-head">
+          <div class="onboarding-head-copy">
+            <span class="onboarding-badge">ROK tour</span>
+            <span id="onboardingGuideStep" class="onboarding-step-inline">Step 1 of 5</span>
+          </div>
         <button id="onboardingCloseBtn" type="button" class="onboarding-close" aria-label="Skip tour and close">✕</button>
       </div>
       <div id="onboardingProgress" class="onboarding-progress" aria-hidden="true">
@@ -726,8 +735,28 @@ Change Scope: Short</p>
         <span class="onboarding-dot" data-onb-dot="1"></span>
         <span class="onboarding-dot" data-onb-dot="2"></span>
         <span class="onboarding-dot" data-onb-dot="3"></span>
+        <span class="onboarding-dot" data-onb-dot="4"></span>
       </div>
-      <div class="onboarding-body">
+      <div class="onboarding-body onboarding-guide-body">
+        <h2 id="onboardingGuideHeading" class="onboarding-title">Start with the chat</h2>
+        <div class="onboarding-message-shell">
+          <p class="onboarding-text onboarding-guide-text">
+            <span id="onboardingGuideText">ROK opens straight into the chat so you can start working right away.</span>
+            <span class="onboarding-guide-caret" aria-hidden="true"></span>
+          </p>
+        </div>
+        <div id="onboardingNameField" class="onboarding-name-field" hidden>
+          <label class="onboarding-name-label" for="onboardingGuideNameInput">What should ROK call you? (optional)</label>
+          <input
+            id="onboardingGuideNameInput"
+            class="onboarding-name-input"
+            type="text"
+            maxlength="64"
+            autocomplete="nickname"
+            placeholder="e.g. Alex"
+          />
+          <p class="onboarding-name-note">Stored only on this device. You can clear it later with the rest of your local ROK data.</p>
+        </div>
         <div id="onboardingSlide0" class="onboarding-slide" data-onb-slide="0">
           <div class="onboarding-step-kicker">Focused first</div>
           <h2 id="onboardingHeading" class="onboarding-title">Welcome to ROK</h2>
@@ -845,8 +874,9 @@ Change Scope: Short</p>
         <button id="onboardingBackBtn" type="button" class="onboarding-btn ghost" hidden>Back</button>
         <div class="onboarding-actions-spacer"></div>
         <button id="onboardingSkipBtn" type="button" class="onboarding-btn ghost">Skip tour</button>
-        <button id="onboardingNextBtn" type="button" class="onboarding-btn primary">Next</button>
+        <button id="onboardingNextBtn" type="button" class="onboarding-btn primary">Show models</button>
       </div>
+    </div>
     </div>
   </section>
 
@@ -923,6 +953,6 @@ Change Scope: Short</p>
       window.ROK_API_BASE = isLocalHost ? "" : "https://rokbackendreal.kyklos.online";
     })();
   </script>
-<script type="module" src="app.js?v=allgames23"></script>
+<script type="module" src="app.js?v=allgames24"></script>
 </body>
 </html>

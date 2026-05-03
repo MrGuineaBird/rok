@@ -8394,6 +8394,208 @@ button.stop-mode:hover {
   }
 }
 
+/* Guided onboarding tour overrides */
+.onboarding-modal {
+  padding: 0;
+  place-items: stretch;
+}
+
+.onboarding-backdrop {
+  background: rgba(5, 9, 14, 0.38);
+  backdrop-filter: blur(4px);
+}
+
+.onboarding-spotlight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  border-radius: 20px;
+  border: 1px solid rgba(234, 118, 118, 0.48);
+  box-shadow:
+    0 0 0 9999px rgba(5, 9, 14, 0.44),
+    0 0 0 1px rgba(255, 219, 219, 0.08) inset,
+    0 18px 40px rgba(0, 0, 0, 0.32);
+  transition:
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms ease;
+  pointer-events: none;
+}
+
+.onboarding-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: min(448px, calc(100vw - 32px));
+  pointer-events: none;
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.onboarding-guide.is-centered {
+  align-items: center;
+}
+
+.onboarding-guide-orb-shell {
+  flex: 0 0 auto;
+  width: 74px;
+  height: 74px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  border: 1px solid rgba(208, 82, 82, 0.28);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(214, 86, 86, 0.28) 0%, rgba(214, 86, 86, 0.08) 40%, rgba(8, 12, 19, 0.9) 100%);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 223, 223, 0.08);
+}
+
+.onboarding-guide-orb {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(209, 75, 75, 0.24));
+}
+
+.onboarding-card {
+  width: min(360px, 100%);
+  max-height: none;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  pointer-events: auto;
+}
+
+.onboarding-head {
+  align-items: flex-start;
+}
+
+.onboarding-head-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-step-inline {
+  color: #cba7a7;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.onboarding-progress {
+  justify-content: flex-start;
+}
+
+.onboarding-body.onboarding-guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.onboarding-modal .onboarding-slide {
+  display: none !important;
+}
+
+.onboarding-message-shell {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(93, 49, 49, 0.72);
+  background:
+    linear-gradient(180deg, rgba(18, 11, 11, 0.96) 0%, rgba(12, 16, 24, 0.96) 100%);
+}
+
+.onboarding-guide-text {
+  max-width: none;
+  min-height: 4.8em;
+}
+
+.onboarding-guide-caret {
+  display: inline-block;
+  width: 0.62ch;
+  height: 1.05em;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: rgba(246, 214, 214, 0.92);
+  vertical-align: text-bottom;
+  animation: onboarding-caret-blink 0.92s steps(1) infinite;
+}
+
+@keyframes onboarding-caret-blink {
+  0%, 48% {
+    opacity: 1;
+  }
+  49%, 100% {
+    opacity: 0.14;
+  }
+}
+
+.onboarding-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-name-field[hidden] {
+  display: none !important;
+}
+
+.onboarding-name-label {
+  margin: 0;
+}
+
+.onboarding-name-note {
+  margin: 0;
+}
+
+.onboarding-actions {
+  padding-top: 6px;
+}
+
+@media (max-width: 720px) {
+  .onboarding-guide {
+    gap: 10px;
+    width: min(100vw - 24px, 360px);
+  }
+
+  .onboarding-guide,
+  .onboarding-guide.is-centered {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .onboarding-guide-orb-shell {
+    width: 62px;
+    height: 62px;
+    border-radius: 20px;
+  }
+
+  .onboarding-guide-orb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .onboarding-card {
+    width: 100%;
+  }
+
+  .onboarding-guide-text {
+    min-height: 5.4em;
+  }
+}
+
 /* ROK Pictionary — home entry (homescreen button only) */
 #homeScreen .hs-pictionary-cta {
   align-self: center;

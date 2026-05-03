@@ -144,6 +144,7 @@ const legalPrivacyPanel = document.getElementById("legalPrivacyPanel");
 const legalCreditsPanel = document.getElementById("legalCreditsPanel");
 const legalLinkButtons = document.querySelectorAll("[data-legal]");
 const composerWrap = document.querySelector(".composer-wrap");
+const composerShell = document.querySelector(".composer");
 const sidebar = document.querySelector(".sidebar");
 const homeDemoChat = document.querySelector(".home-bg-chat");
 const homeDemoPrompt = document.getElementById("homeDemoPrompt");
@@ -153,11 +154,19 @@ const homeWorkspacePreview = document.getElementById("homeWorkspacePreview");
 const homePreviewLineElements = Array.from(document.querySelectorAll("[data-preview-line]"));
 const homeSloganText = document.getElementById("homeSloganText");
 const onboardingModal = document.getElementById("onboardingModal");
+const onboardingGuide = document.getElementById("onboardingGuide");
+const onboardingSpotlight = document.getElementById("onboardingSpotlight");
+const onboardingGuideStep = document.getElementById("onboardingGuideStep");
+const onboardingGuideHeading = document.getElementById("onboardingGuideHeading");
+const onboardingGuideText = document.getElementById("onboardingGuideText");
+const onboardingNameField = document.getElementById("onboardingNameField");
 const onboardingCloseBtn = document.getElementById("onboardingCloseBtn");
 const onboardingBackBtn = document.getElementById("onboardingBackBtn");
 const onboardingNextBtn = document.getElementById("onboardingNextBtn");
 const onboardingSkipBtn = document.getElementById("onboardingSkipBtn");
-const onboardingNameInput = document.getElementById("onboardingNameInput");
+const onboardingNameInput =
+  document.getElementById("onboardingGuideNameInput") ||
+  document.getElementById("onboardingNameInput");
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
 const runtimeApiBase =
@@ -203,7 +212,7 @@ const LOCAL_KNOWLEDGE_PROMPT_LIMIT = 8;
 const LOCAL_KNOWLEDGE_MAX_FACT_CHARS = 280;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
-const ONBOARDING_TOUR_VERSION = 4;
+const ONBOARDING_TOUR_VERSION = 5;
 const MAX_LOCAL_SESSIONS = 30;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_USER_SETTINGS = {
@@ -334,6 +343,47 @@ const HOME_SLOGANS = [
 const HOME_SLOGAN_TYPING_SPEED_MS = 34;
 const HOME_SLOGAN_HOLD_MS = 1600;
 const HOME_SLOGAN_ERASE_SPEED_MS = 18;
+const ONBOARDING_TOUR_TEXT_SPEED_MS = 22;
+const ONBOARDING_TOUR_STEPS = [
+  {
+    title: "Start with the chat",
+    text: "Type what you are working on here. Use the plus button for files or quick tools, but the prompt stays the main thing.",
+    target: () => composerShell,
+    placement: "top",
+    nextLabel: "Show models"
+  },
+  {
+    title: "Model choice stays visible",
+    text: "Pick a ROK model, your own local Ollama runtime, or your own Ollama Cloud model here instead of digging through hidden settings.",
+    target: () => modelPickerBtn,
+    placement: "top",
+    nextLabel: "Show sidebar"
+  },
+  {
+    title: "The sidebar stays tucked away",
+    text: "This toggle keeps ROK calm. The sidebar starts closed so you are not hit with a bunch of tabs before you even type.",
+    target: () => sidebarToggleBtn,
+    placement: "right",
+    beforeEnter: () => setOnboardingSidebarPreview(false),
+    nextLabel: "Open it"
+  },
+  {
+    title: "Open it only when you need more",
+    text: "New chats, saved sessions, and jumps into ROK CODE or ROK MATH live here. Open it, grab what you need, then get back to work.",
+    target: () => sidebar,
+    placement: "right",
+    beforeEnter: () => setOnboardingSidebarPreview(true),
+    nextLabel: "One last thing"
+  },
+  {
+    title: "One last thing",
+    text: "If you want, tell ROK your name. It stays on this device and only gets used when it actually fits the reply.",
+    placement: "center",
+    showNameField: true,
+    beforeEnter: () => setOnboardingSidebarPreview(false),
+    nextLabel: "Start chatting"
+  }
+];
 const STORY_MIN_CANVAS_CHARS = 260;
 const INTENT_HISTORY_CONTEXT_LIMIT = 6;
 const STORY_PROMPT_PATTERN =
@@ -1278,51 +1328,213 @@ function isOnboardingCompleted() {
 }
 
 let onboardingStepIndex = 0;
-const ONBOARDING_SLIDE_COUNT = 4;
-const ONBOARDING_NAME_SLIDE = 3;
-const ONBOARDING_NEXT_LABELS = [
-  "Show me around",
-  "See the work modes",
-  "One last thing",
-  "Start chatting"
-];
+let onboardingTourRunToken = 0;
+let onboardingRenderSequence = 0;
+let pendingOnboardingTourStart = false;
+const ONBOARDING_SLIDE_COUNT = ONBOARDING_TOUR_STEPS.length;
+const ONBOARDING_NAME_SLIDE = ONBOARDING_SLIDE_COUNT - 1;
 
-function renderOnboardingStep() {
-  for (let i = 0; i < ONBOARDING_SLIDE_COUNT; i += 1) {
-    const slide = document.getElementById(`onboardingSlide${i}`);
-    if (slide) slide.hidden = i !== onboardingStepIndex;
+function isOnboardingModalVisible() {
+  return Boolean(onboardingModal && !onboardingModal.hidden);
+}
+
+function setOnboardingSidebarPreview(expanded) {
+  if (isMobileLayout) {
+    applyMobileSidebarState(Boolean(expanded));
+    return;
   }
-  document.querySelectorAll("[data-onb-dot]").forEach((dot, i) => {
-    dot.classList.toggle("is-active", i === onboardingStepIndex);
+  applySidebarCollapsedState(!expanded, { persist: false });
+}
+
+function stopOnboardingTyping() {
+  onboardingTourRunToken += 1;
+  if (onboardingGuideText) {
+    onboardingGuideText.textContent = "";
+  }
+}
+
+function waitForOnboardingTour(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForNextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+async function typeOnboardingText(text) {
+  if (!onboardingGuideText) return;
+  const nextText = String(text || "");
+  const runToken = ++onboardingTourRunToken;
+  onboardingGuideText.textContent = "";
+
+  if (prefersReducedMotion()) {
+    onboardingGuideText.textContent = nextText;
+    return;
+  }
+
+  for (let index = 1; index <= nextText.length; index += 1) {
+    if (runToken !== onboardingTourRunToken || !isOnboardingModalVisible()) return;
+    onboardingGuideText.textContent = nextText.slice(0, index);
+    await waitForOnboardingTour(ONBOARDING_TOUR_TEXT_SPEED_MS);
+  }
+}
+
+function getOnboardingStepConfig() {
+  return ONBOARDING_TOUR_STEPS[onboardingStepIndex] || ONBOARDING_TOUR_STEPS[0];
+}
+
+function getOnboardingTargetRect(step) {
+  const target = typeof step.target === "function" ? step.target() : step.target;
+  if (!(target instanceof Element)) return null;
+  if (target instanceof HTMLElement && target.hidden) return null;
+  const rect = target.getBoundingClientRect();
+  if (!rect.width && !rect.height) return null;
+  return rect;
+}
+
+function clampOnboardingPosition(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function positionOnboardingGuide(step) {
+  if (!onboardingGuide) return;
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const guideRect = onboardingGuide.getBoundingClientRect();
+  const margin = 18;
+  const gap = 20;
+  const placement = step.placement || "top";
+  const targetRect = getOnboardingTargetRect(step);
+
+  onboardingGuide.classList.toggle("is-centered", placement === "center" || !targetRect);
+
+  if (onboardingSpotlight) {
+    if (!targetRect || placement === "center") {
+      onboardingSpotlight.hidden = true;
+    } else {
+      const spotlightPadding = step.spotlightPadding ?? 12;
+      onboardingSpotlight.hidden = false;
+      onboardingSpotlight.style.width = `${Math.round(targetRect.width + spotlightPadding * 2)}px`;
+      onboardingSpotlight.style.height = `${Math.round(targetRect.height + spotlightPadding * 2)}px`;
+      onboardingSpotlight.style.transform = `translate3d(${Math.round(targetRect.left - spotlightPadding)}px, ${Math.round(targetRect.top - spotlightPadding)}px, 0)`;
+    }
+  }
+
+  let left = (viewportWidth - guideRect.width) / 2;
+  let top = viewportHeight * 0.58 - guideRect.height / 2;
+
+  if (targetRect && placement !== "center") {
+    if (placement === "right") {
+      left = targetRect.right + gap;
+      top = targetRect.top + targetRect.height / 2 - guideRect.height / 2;
+      if (left + guideRect.width > viewportWidth - margin) {
+        left = targetRect.left - guideRect.width - gap;
+      }
+    } else if (placement === "left") {
+      left = targetRect.left - guideRect.width - gap;
+      top = targetRect.top + targetRect.height / 2 - guideRect.height / 2;
+      if (left < margin) {
+        left = targetRect.right + gap;
+      }
+    } else if (placement === "bottom") {
+      left = targetRect.left + targetRect.width / 2 - guideRect.width / 2;
+      top = targetRect.bottom + gap;
+      if (top + guideRect.height > viewportHeight - margin) {
+        top = targetRect.top - guideRect.height - gap;
+      }
+    } else {
+      left = targetRect.left + targetRect.width / 2 - guideRect.width / 2;
+      top = targetRect.top - guideRect.height - gap;
+      if (top < margin) {
+        top = targetRect.bottom + gap;
+      }
+    }
+  }
+
+  left = clampOnboardingPosition(left, margin, Math.max(margin, viewportWidth - guideRect.width - margin));
+  top = clampOnboardingPosition(top, margin, Math.max(margin, viewportHeight - guideRect.height - margin));
+  onboardingGuide.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+}
+
+async function renderOnboardingStep() {
+  const renderSequence = ++onboardingRenderSequence;
+  const step = getOnboardingStepConfig();
+
+  document.querySelectorAll("[data-onb-dot]").forEach((dot, index) => {
+    dot.classList.toggle("is-active", index === onboardingStepIndex);
   });
+
+  document.querySelectorAll(".onboarding-slide").forEach((slide) => {
+    slide.hidden = true;
+  });
+
+  if (onboardingGuideStep) {
+    onboardingGuideStep.textContent = `Step ${onboardingStepIndex + 1} of ${ONBOARDING_SLIDE_COUNT}`;
+  }
+  if (onboardingGuideHeading) {
+    onboardingGuideHeading.textContent = step.title;
+  }
   if (onboardingBackBtn) {
     onboardingBackBtn.hidden = onboardingStepIndex === 0;
   }
   if (onboardingNextBtn) {
-    onboardingNextBtn.textContent = ONBOARDING_NEXT_LABELS[onboardingStepIndex] || "Next";
+    onboardingNextBtn.textContent = step.nextLabel || (onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Start chatting" : "Next");
   }
   if (onboardingSkipBtn) {
     onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip tour";
+  }
+  if (onboardingNameField) {
+    onboardingNameField.hidden = !step.showNameField;
+  }
+
+  if (typeof step.beforeEnter === "function") {
+    step.beforeEnter();
+  }
+
+  await waitForNextFrame();
+  await waitForNextFrame();
+  if (renderSequence !== onboardingRenderSequence || !isOnboardingModalVisible()) return;
+  positionOnboardingGuide(step);
+  await typeOnboardingText(step.text);
+  if (renderSequence !== onboardingRenderSequence || !isOnboardingModalVisible()) return;
+
+  if (step.showNameField && onboardingNameInput) {
+    setTimeout(() => onboardingNameInput.focus(), 40);
   }
 }
 
 function openOnboardingModal() {
   if (!onboardingModal) return;
-  if (!hasSavedSidebarCollapsedPreference()) {
-    applySidebarCollapsedState(true, { persist: false });
+  if (onboardingCloseBtn) {
+    onboardingCloseBtn.textContent = "\u00d7";
+  }
+  if (onboardingNameInput) {
+    onboardingNameInput.value = String(loadUserSettingsFromStorage().preferredName || "");
+  }
+  if (mainPanel) {
+    mainPanel.scrollTop = 0;
   }
   onboardingStepIndex = 0;
-  renderOnboardingStep();
+  onboardingRenderSequence += 1;
+  stopOnboardingTyping();
+  setOnboardingSidebarPreview(false);
   onboardingModal.hidden = false;
   onboardingModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+  renderOnboardingStep();
 }
 
 function closeOnboardingModal() {
   if (!onboardingModal) return;
+  onboardingRenderSequence += 1;
+  stopOnboardingTyping();
   onboardingModal.hidden = true;
   onboardingModal.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
+  if (onboardingSpotlight) {
+    onboardingSpotlight.hidden = true;
+  }
 }
 
 function enterAppFromHome() {
@@ -1334,14 +1546,24 @@ function enterAppFromHome() {
   if (WORKSPACE_TAB_KEYS.includes(preferredTab)) {
     setActiveWorkspaceTab(preferredTab, { focus: true });
   }
+  if (pendingOnboardingTourStart) {
+    pendingOnboardingTourStart = false;
+    setTimeout(() => {
+      if (!isOnboardingCompleted() && !isHomeScreenVisible()) {
+        openOnboardingModal();
+      }
+    }, 120);
+  }
 }
 
 function beginHomeEntry(preferredTab = "") {
   pendingHomeEnterTab = WORKSPACE_TAB_KEYS.includes(preferredTab) ? preferredTab : "";
   if (!isOnboardingCompleted()) {
-    openOnboardingModal();
+    pendingOnboardingTourStart = true;
+    enterAppWithTosCheck();
     return;
   }
+  pendingOnboardingTourStart = false;
   enterAppWithTosCheck();
 }
 
@@ -1433,7 +1655,9 @@ function finishOnboardingAndEnter() {
   }
   saveOnboardingCompletedRecord();
   closeOnboardingModal();
-  enterAppWithTosCheck();
+  if (input) {
+    setTimeout(() => input.focus(), 40);
+  }
 }
 
 function loadLastModelFromStorage() {
@@ -2726,6 +2950,9 @@ function applySidebarCollapsedState(collapsed, options = {}) {
 }
 
 function showHomeScreen() {
+  if (isOnboardingModalVisible()) {
+    closeOnboardingModal();
+  }
   storeWorkspaceDraftsFromWindows();
   flushPendingWorkspaceSave();
   closeMobileSidebarIfNeeded();
@@ -10771,6 +10998,12 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
   } else if (typeof mobileLayoutMediaQueryList.addListener === "function") {
     mobileLayoutMediaQueryList.addListener(syncLayoutForViewport);
   }
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", () => {
+    if (!isOnboardingModalVisible()) return;
+    positionOnboardingGuide(getOnboardingStepConfig());
+  });
 }
 syncLayoutForViewport();
 beginHomeEntry("chat");
