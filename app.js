@@ -7941,93 +7941,152 @@ function buildIntentAttachmentsPayload(attachedFiles = []) {
   });
 }
 
-function handleMemoryCommand(rawText = "") {
+function parseLegacyMemoryCommand(rawText = "") {
   const text = String(rawText || "").trim();
-  if (!text) return false;
+  if (!text) return null;
 
   const rememberMatch = text.match(/^\/remember\s+(.+)/i);
   if (rememberMatch) {
-    const incognitoEnabled = isIncognitoModeEnabled();
-    const saved = upsertRememberedFact(rememberMatch[1], {
-      scope: "global",
-      kind: "fact",
-      source: "command"
-    });
-    renderLocalKnowledgeList();
-    addMessage(
-      "system",
-      incognitoEnabled
-        ? "Incognito is on, so ROK did not save that memory."
-        : saved
-          ? "Saved to browser memory. ROK can reuse it in future replies here."
-        : "ROK couldn't save that memory."
-    );
-    input.value = "";
-    autoResizeInput();
-    return true;
+    return {
+      normalizedText: rememberMatch[1].trim(),
+      memoryOptions: {
+        scope: "global",
+        kind: "fact",
+        source: "legacy-command"
+      }
+    };
   }
 
   const projectMatch = text.match(/^\/project\s+(.+)/i);
   if (projectMatch) {
-    const incognitoEnabled = isIncognitoModeEnabled();
-    const saved = upsertRememberedFact(projectMatch[1], {
-      scope: "project",
-      kind: "project",
-      source: "command"
-    });
-    renderLocalKnowledgeList();
-    addMessage(
-      "system",
-      incognitoEnabled
-        ? "Incognito is on, so ROK did not save that project memory."
-        : saved
-          ? "Saved to project memory for this chat and workspace."
-        : "ROK couldn't save that project memory."
-    );
-    input.value = "";
-    autoResizeInput();
-    return true;
+    return {
+      normalizedText: projectMatch[1].trim(),
+      memoryOptions: {
+        scope: "project",
+        kind: "project",
+        source: "legacy-command"
+      }
+    };
   }
 
-  return false;
+  return null;
 }
 
-function maybeCaptureMemoryFromUserTurn(rawText = "") {
-  if (!isAutoLearnEnabled()) return null;
-  const text = String(rawText || "").trim();
-  if (!text) return null;
+function pushAutoMemoryCandidate(candidates, fact, options = {}) {
+  if (!Array.isArray(candidates)) return;
+  const normalizedFact = sanitizeMemoryText(fact, LOCAL_MEMORY_MAX_FACT_CHARS);
+  if (!normalizedFact || normalizedFact.length < 10) return;
+  const key = normalizedFact.toLowerCase();
+  if (candidates.some((entry) => entry && entry.key === key)) return;
+  candidates.push({
+    key,
+    fact: normalizedFact,
+    scope: options.scope === "project" ? "project" : "global",
+    kind: normalizeMemoryKind(options.kind || "fact"),
+    source: sanitizeMemoryText(options.source, 80) || "auto"
+  });
+}
 
-  let fact = "";
-  let scope = "global";
-  let kind = "fact";
-  let source = "auto";
+function textLooksProjectScoped(text = "", options = {}) {
+  if (options.forceProject) return true;
+  return /\b(?:project|repo|repository|codebase|app|site|homepage|home ?screen|docs|about|chat|ui|theme|frontend|backend|workspace|sandbox|feature|composer|sidebar|rok)\b/i.test(text);
+}
+
+function maybeCaptureMemoryFromUserTurn(rawText = "", options = {}) {
+  if (!isAutoLearnEnabled()) return [];
+  const text = sanitizeMemoryText(rawText, 600);
+  if (!text) return [];
+
+  const candidates = [];
+  const forcedMemory = options.forcedMemory && typeof options.forcedMemory === "object" ? options.forcedMemory : null;
+  const session = options.session || getWorkspaceCurrentSession();
+  const projectScoped = textLooksProjectScoped(text, {
+    forceProject:
+      Boolean(forcedMemory && forcedMemory.scope === "project")
+      || Boolean(session && (isWorkspaceSessionActive() || isSandboxSessionActive()))
+  });
+
+  if (forcedMemory) {
+    pushAutoMemoryCandidate(candidates, text, forcedMemory);
+  }
 
   const explicitRemember = text.match(/^(?:remember(?: that)?|note(?: this)?|save this|keep in mind)[:\s,-]+(.+)/i);
   if (explicitRemember) {
-    fact = explicitRemember[1];
-    source = "explicit-remember";
-  } else if (/^(?:for this project|in this project|for this repo|in this repo)[:\s,-]+/i.test(text)) {
-    fact = text.replace(/^(?:for this project|in this project|for this repo|in this repo)[:\s,-]+/i, "");
-    scope = "project";
-    kind = "project";
-    source = "project-directive";
-  } else if (/^(?:this project uses|the project uses|this repo uses|the repo uses)\b/i.test(text)) {
-    fact = text;
-    scope = "project";
-    kind = "project";
-    source = "project-convention";
-  } else if (/^(?:i prefer|please keep|please use|use a|write in|be more|be less|keep answers|don't|do not|always|never)\b/i.test(text)) {
-    fact = text;
-    kind = inferMemoryKindFromText(text, "preference");
-    source = "style-preference";
+    pushAutoMemoryCandidate(candidates, explicitRemember[1], {
+      scope: projectScoped ? "project" : "global",
+      kind: projectScoped ? "project" : "fact",
+      source: "natural-memory"
+    });
   }
 
-  if (!fact) return null;
-  const saved = upsertRememberedFact(fact, { scope, kind, source });
-  if (saved) {
+  const identityMatch = text.match(/\b(?:call me|my name is|i go by)\s+([^.,!?\n]+)/i);
+  if (identityMatch) {
+    const preferredName = sanitizeMemoryText(identityMatch[1], 64);
+    if (preferredName) {
+      pushAutoMemoryCandidate(candidates, `Call the user ${preferredName}.`, {
+        scope: "global",
+        kind: "preference",
+        source: "identity"
+      });
+    }
+  }
+
+  if (/^(?:i prefer|please use|please keep|keep answers|write in|be more|be less|always|never|don't|do not|avoid)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: projectScoped ? "project" : "global",
+      kind: inferMemoryKindFromText(text, projectScoped ? "rule" : "preference"),
+      source: "preference"
+    });
+  }
+
+  if (/^(?:for this project|in this project|for this repo|in this repo|this project uses|the project uses|this repo uses|the repo uses)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: "project",
+      kind: "project",
+      source: "project-context"
+    });
+  }
+
+  if (projectScoped && /^(?:rok should|this app should|the app should|this site should|the site should|we should|we need to|rok needs to|i want rok to|i want this app to|can we|could we|make it so)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: "project",
+      kind: inferMemoryKindFromText(text, "rule"),
+      source: "project-directive"
+    });
+  }
+
+  if (projectScoped && /\b(?:don't touch|do not touch|leave .* alone|only change|only in)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: "project",
+      kind: "rule",
+      source: "project-boundary"
+    });
+  }
+
+  if (projectScoped && /^(?:the goal is|the issue is|the problem is|the bug is|the blocker is)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: "project",
+      kind: "project",
+      source: "project-summary"
+    });
+  }
+
+  if (/\b(?:we decided|we're using|we are using|let's use|locked in|ship this|final decision)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, text, {
+      scope: projectScoped ? "project" : "global",
+      kind: "decision",
+      source: "decision"
+    });
+  }
+
+  if (!candidates.length) return [];
+  const savedEntries = candidates
+    .map((candidate) => upsertRememberedFact(candidate.fact, candidate))
+    .filter(Boolean);
+  if (savedEntries.length) {
     renderLocalKnowledgeList();
   }
-  return saved;
+  return savedEntries;
 }
 
 function estimateBase64ByteSize(base64Text = "") {
@@ -9088,8 +9147,11 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 async function send() {
   if (isBanOverlayActive) return;
   hideHomeScreen();
-  const text = input.value?.trim() || "";
-  if (handleMemoryCommand(text)) return;
+  let text = input.value?.trim() || "";
+  const legacyMemoryCommand = parseLegacyMemoryCommand(text);
+  if (legacyMemoryCommand && legacyMemoryCommand.normalizedText) {
+    text = legacyMemoryCommand.normalizedText;
+  }
   
   // Handle /imagine command for pixel painting
   if (text && text.startsWith("/imagine")) {
@@ -9153,7 +9215,9 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
-  maybeCaptureMemoryFromUserTurn(text);
+  maybeCaptureMemoryFromUserTurn(text, {
+    forcedMemory: legacyMemoryCommand ? legacyMemoryCommand.memoryOptions : null
+  });
   const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
     text: text || displayText,
     workspaceContext: sessionWorkspaceContext,
