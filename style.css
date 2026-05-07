@@ -5347,6 +5347,250 @@ body.settings-compact .attachment-list {
   background: #e05555;
 }
 
+.customize-rok-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
+  max-height: min(88vh, 860px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.customize-rok-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.customize-rok-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #bf8c8c;
+  margin-bottom: 6px;
+}
+
+.customize-rok-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.customize-rok-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #331d1d;
+  background: linear-gradient(180deg, rgba(28, 15, 15, 0.96) 0%, rgba(20, 10, 10, 0.94) 100%);
+}
+
+.customize-rok-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.customize-rok-section-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a27373;
+}
+
+.customize-rok-section-title {
+  margin: 0;
+  font-size: 15px;
+  color: #edd9d9;
+}
+
+.customize-rok-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customize-rok-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customize-rok-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e9cccc;
+}
+
+.customize-rok-help {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #986e6e;
+}
+
+.customize-rok-field-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customize-rok-textarea {
+  min-height: 120px;
+}
+
+.customize-rok-accent-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.customize-rok-color-input {
+  width: 56px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid #361f1f;
+  border-radius: 10px;
+  background: #120a0a;
+  cursor: pointer;
+}
+
+.customize-rok-color-input::-webkit-color-swatch-wrapper {
+  padding: 6px;
+}
+
+.customize-rok-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 8px;
+}
+
+.customize-rok-accent-text {
+  text-transform: lowercase;
+}
+
+.customize-rok-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customize-rok-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--swatch-color);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.customize-rok-swatch:hover {
+  transform: translateY(-1px);
+}
+
+.customize-rok-swatch.is-active {
+  border-color: #f4d2d2;
+  box-shadow:
+    0 0 0 2px rgba(20, 10, 10, 0.95),
+    0 0 0 4px var(--swatch-color);
+}
+
+.customize-rok-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.customize-rok-toggle-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customize-rok-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #331d1d;
+  background: rgba(18, 10, 10, 0.9);
+}
+
+.customize-rok-toggle input {
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.customize-rok-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.customize-rok-toggle input:disabled + .customize-rok-toggle-copy {
+  opacity: 0.55;
+}
+
+.customize-rok-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.customize-rok-toggle-copy strong {
+  font-size: 12px;
+  color: #f0dfdf;
+}
+
+.customize-rok-toggle-copy span {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #936b6b;
+}
+
+.customize-rok-select {
+  appearance: none;
+}
+
+.customize-rok-btns {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .customize-rok-modal {
+    width: min(100vw - 20px, 760px);
+    max-height: min(92vh, 860px);
+    padding: 16px;
+  }
+
+  .customize-rok-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customize-rok-field-footer {
+    flex-direction: column;
+  }
+
+  .customize-rok-btns {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .customize-rok-btns > * {
+    flex: 1 1 160px;
+  }
+}
+
 .pixel-painting-settings-label {
   margin: 12px 0 8px;
   font-size: 12px;
