@@ -881,6 +881,32 @@
       msgs.scrollTop = msgs.scrollHeight;
     }
 
+    function waitForMathReveal(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function animateMathReply(el, finalText) {
+      const text = String(finalText || "");
+      if (!text) return;
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReducedMotion || text.length < 24) {
+        renderRokMessage(el, text, true);
+        scrollMsgsToBottom();
+        return;
+      }
+
+      const chunkSize = text.length > 800 ? 18 : text.length > 300 ? 12 : 8;
+      for (let index = chunkSize; index < text.length; index += chunkSize) {
+        renderRokMessage(el, text.slice(0, index), false);
+        scrollMsgsToBottom();
+        await waitForMathReveal(18);
+      }
+      renderRokMessage(el, text, true);
+      scrollMsgsToBottom();
+    }
+
     secretBtn.addEventListener("click", () => toggleDrawer(!open));
     closeBtn.addEventListener("click", () => toggleDrawer(false));
 
@@ -935,8 +961,10 @@ Rules:
             enable_thinking: false
           })
         });
+        let streamUpdateCount = 0;
         const reply = await readChatReply(res, {
           onToken(answer) {
+            streamUpdateCount += 1;
             const liveReply = stripMathGraphDirective(answer).trim();
             renderRokMessage(botEl, liveReply || "Thinking...", false);
             scrollMsgsToBottom();
@@ -953,8 +981,13 @@ Rules:
           msgs.appendChild(note);
         }
 
-        renderRokMessage(botEl, stripMathGraphDirective(reply) || (graphMatch ? "Graphed it." : "Done."), true);
-        scrollMsgsToBottom();
+        const finalReply = stripMathGraphDirective(reply) || (graphMatch ? "Graphed it." : "Done.");
+        if (streamUpdateCount <= 1 && finalReply) {
+          await animateMathReply(botEl, finalReply);
+        } else {
+          renderRokMessage(botEl, finalReply, true);
+          scrollMsgsToBottom();
+        }
       } catch (err) {
         renderRokMessage(botEl, "Error: " + err.message, false);
         scrollMsgsToBottom();

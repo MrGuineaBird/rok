@@ -370,6 +370,7 @@ const HOME_SLOGANS = [
 const HOME_SLOGAN_TYPING_SPEED_MS = 34;
 const HOME_SLOGAN_HOLD_MS = 1600;
 const HOME_SLOGAN_ERASE_SPEED_MS = 18;
+const MATH_STANDALONE_VERSION = "2";
 const ONBOARDING_TOUR_TEXT_SPEED_MS = 22;
 const ONBOARDING_TOUR_STEPS = [
   {
@@ -6902,7 +6903,7 @@ function setMathChatDrawerOpen(open) {
 }
 
 function openMathStandaloneInCloakedTab() {
-  const mathUrl = new URL("math.html", window.location.href).href;
+  const mathUrl = new URL(`math.html?v=${MATH_STANDALONE_VERSION}`, window.location.href).href;
   const cloakedTab = window.open("about:blank", "_blank");
   const cloakTitle = "Desmos | Graphing Calculator";
   const cloakFavicon = "https://www.desmos.com/favicon.ico";
