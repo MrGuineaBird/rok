@@ -6904,6 +6904,8 @@ function setMathChatDrawerOpen(open) {
 function openMathStandaloneInCloakedTab() {
   const mathUrl = new URL("math.html", window.location.href).href;
   const cloakedTab = window.open("about:blank", "_blank");
+  const cloakTitle = "Desmos | Graphing Calculator";
+  const cloakFavicon = "https://www.desmos.com/favicon.ico";
   if (!cloakedTab) {
     window.open(mathUrl, "_blank", "noopener");
     return;
@@ -6920,7 +6922,8 @@ function openMathStandaloneInCloakedTab() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>about:blank</title>
+  <title>${cloakTitle}</title>
+  <link rel="icon" href="${cloakFavicon}" />
   <style>
     html, body, iframe {
       margin: 0;
@@ -6936,7 +6939,7 @@ function openMathStandaloneInCloakedTab() {
   </style>
 </head>
 <body>
-  <iframe src="${mathUrl}" referrerpolicy="no-referrer" allowfullscreen></iframe>
+  <iframe src="${mathUrl}" title="${cloakTitle}" referrerpolicy="no-referrer" allowfullscreen></iframe>
 </body>
 </html>`);
     cloakedTab.document.close();
@@ -11662,7 +11665,13 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Alt" && isMathChatDrawerOpen) {
+  const isAltPress =
+    event.key === "Alt" ||
+    event.key === "AltGraph" ||
+    event.code === "AltLeft" ||
+    event.code === "AltRight" ||
+    (typeof event.getModifierState === "function" && event.getModifierState("Alt") && event.key !== "Tab");
+  if (isAltPress && isMathChatDrawerOpen) {
     event.preventDefault();
     setMathChatDrawerOpen(false);
     return;
