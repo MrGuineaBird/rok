@@ -6,6 +6,11 @@
   <title>Desmos | Graphing Calculator</title>
   <link rel="icon" href="https://www.desmos.com/favicon.ico" />
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -284,6 +289,90 @@
       color: #decccc;
     }
 
+    .rok-msg.markdown {
+      padding: 10px 12px;
+    }
+
+    .rok-msg.markdown h1,
+    .rok-msg.markdown h2,
+    .rok-msg.markdown h3,
+    .rok-msg.markdown h4 {
+      margin: 0 0 0.55em;
+      color: #f5e7e7;
+      font-size: 1em;
+    }
+
+    .rok-msg.markdown p {
+      margin: 0 0 0.75em;
+    }
+
+    .rok-msg.markdown p:last-child {
+      margin-bottom: 0;
+    }
+
+    .rok-msg.markdown ul,
+    .rok-msg.markdown ol {
+      margin: 0 0 0.75em;
+      padding-left: 1.2em;
+    }
+
+    .rok-msg.markdown li {
+      margin-bottom: 0.25em;
+    }
+
+    .rok-msg.markdown a {
+      color: #ffb5b5;
+    }
+
+    .rok-msg.markdown code {
+      padding: 0.14em 0.34em;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      color: #ffe4e4;
+      font-family: "Consolas", "IBM Plex Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    .rok-msg.markdown pre {
+      margin: 0 0 0.75em;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #090c12;
+      color: #f7f0f0;
+      overflow-x: auto;
+    }
+
+    .rok-msg.markdown pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .rok-msg.markdown blockquote {
+      margin: 0 0 0.75em;
+      padding-left: 10px;
+      border-left: 3px solid rgba(209, 75, 75, 0.5);
+      color: #d5b8b8;
+    }
+
+    .rok-msg.markdown table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 0.75em;
+      font-size: 0.95em;
+    }
+
+    .rok-msg.markdown th,
+    .rok-msg.markdown td {
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .rok-msg.markdown th {
+      background: rgba(255,255,255,0.08);
+    }
+
     .rok-input-row {
       display: flex;
       gap: 8px;
@@ -407,7 +496,14 @@
     const API_URL = ROK_API_BASE + "/api/chat";
     const AUTH_SESSION_URL = ROK_API_BASE + "/api/auth/session";
     const MATH_CHAT_MODEL = "gpt-oss:120b-cloud";
+    const hasMarked = typeof marked !== "undefined";
+    const hasKaTeX = typeof katex !== "undefined";
+    const hasDOMPurify = typeof DOMPurify !== "undefined";
     let serverSessionReady = null;
+
+    if (hasMarked) {
+      marked.setOptions({ breaks: true, gfm: true });
+    }
 
     function ensureServerSession() {
       if (serverSessionReady) {
@@ -477,7 +573,7 @@
       }
     }
 
-    async function readChatReply(response) {
+    async function readChatReply(response, options = {}) {
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (!response.ok) {
         const bodyText = await safeReadText(response);
@@ -500,6 +596,7 @@
       const decoder = new TextDecoder("utf-8");
       const isEventStream = contentType.includes("text/event-stream");
       const isJsonLines = !isEventStream && (contentType.includes("json") || contentType.includes("ndjson"));
+      const onToken = options && typeof options.onToken === "function" ? options.onToken : null;
       let buffer = "";
       let plainBuffer = "";
       let reply = "";
@@ -512,6 +609,9 @@
         }
         if (parsed.token) {
           reply += parsed.token;
+          if (onToken) {
+            onToken(reply, parsed.token);
+          }
         }
         if (parsed.done) {
           done = true;
@@ -581,6 +681,84 @@
       }
 
       return reply.trim();
+    }
+
+    function renderKatexInElement(el) {
+      if (!hasKaTeX || !el || typeof window.renderMathInElement !== "function") return;
+      try {
+        window.renderMathInElement(el, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\[", right: "\\]", display: true },
+            { left: "$", right: "$", display: false },
+            { left: "\\(", right: "\\)", display: false }
+          ],
+          throwOnError: false
+        });
+      } catch {}
+    }
+
+    function protectMathForMarked(text) {
+      var mathBlocks = [];
+      var codeProtected = String(text || "").replace(/```[\s\S]*?```|`[^`]+`/g, function (m) {
+        var idx = mathBlocks.length;
+        mathBlocks.push(m);
+        return "%%MATH_PLACEHOLDER_" + idx + "%%";
+      });
+      codeProtected = codeProtected.replace(/\$\$([\s\S]+?)\$\$/g, function (m) {
+        var idx = mathBlocks.length;
+        mathBlocks.push(m);
+        return "%%MATH_PLACEHOLDER_" + idx + "%%";
+      });
+      codeProtected = codeProtected.replace(/\\\[([\s\S]+?)\\\]/g, function (m) {
+        var idx = mathBlocks.length;
+        mathBlocks.push(m);
+        return "%%MATH_PLACEHOLDER_" + idx + "%%";
+      });
+      codeProtected = codeProtected.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, function (m) {
+        var idx = mathBlocks.length;
+        mathBlocks.push(m);
+        return "%%MATH_PLACEHOLDER_" + idx + "%%";
+      });
+      codeProtected = codeProtected.replace(/\\\(([\s\S]+?)\\\)/g, function (m) {
+        var idx = mathBlocks.length;
+        mathBlocks.push(m);
+        return "%%MATH_PLACEHOLDER_" + idx + "%%";
+      });
+      return { text: codeProtected, mathBlocks: mathBlocks };
+    }
+
+    function restoreMathAfterMarked(html, mathBlocks) {
+      if (!mathBlocks.length) return html;
+      return html.replace(/%%MATH_PLACEHOLDER_(\d+)%%/g, function (m, idxStr) {
+        var idx = parseInt(idxStr, 10);
+        if (idx >= 0 && idx < mathBlocks.length) {
+          return mathBlocks[idx].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        return m;
+      });
+    }
+
+    function renderRokMessage(el, text, markdown) {
+      if (!el) return;
+      if (markdown && hasMarked) {
+        var mathProtected = hasKaTeX ? protectMathForMarked(text) : null;
+        var rawHtml = marked.parse(mathProtected ? mathProtected.text : String(text || ""));
+        if (mathProtected) {
+          rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
+        }
+        var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
+        el.classList.add("markdown");
+        el.innerHTML = cleanHtml;
+        renderKatexInElement(el);
+        el.querySelectorAll("a[href]").forEach(function (link) {
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noopener noreferrer");
+        });
+      } else {
+        el.classList.remove("markdown");
+        el.textContent = String(text || "");
+      }
     }
 
     function resizeDesmos() {
@@ -699,6 +877,10 @@
       if (open) input.focus();
     }
 
+    function scrollMsgsToBottom() {
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
     secretBtn.addEventListener("click", () => toggleDrawer(!open));
     closeBtn.addEventListener("click", () => toggleDrawer(false));
 
@@ -716,13 +898,13 @@
 
       const botEl = document.createElement("div");
       botEl.className = "rok-msg rok-msg-bot";
-      botEl.textContent = "Thinking...";
+      renderRokMessage(botEl, "Thinking...", false);
       msgs.appendChild(botEl);
-      msgs.scrollTop = msgs.scrollHeight;
+      scrollMsgsToBottom();
 
       if (localMathAnswer) {
-        botEl.textContent = localMathAnswer;
-        msgs.scrollTop = msgs.scrollHeight;
+        renderRokMessage(botEl, localMathAnswer, false);
+        scrollMsgsToBottom();
         return;
       }
 
@@ -753,7 +935,13 @@ Rules:
             enable_thinking: false
           })
         });
-        const reply = await readChatReply(res);
+        const reply = await readChatReply(res, {
+          onToken(answer) {
+            const liveReply = stripMathGraphDirective(answer).trim();
+            renderRokMessage(botEl, liveReply || "Thinking...", false);
+            scrollMsgsToBottom();
+          }
+        });
 
         const graphMatch = graphRequested ? reply.match(/GRAPH:\s*(.+)/i) : null;
         if (graphMatch && calculator) {
@@ -765,15 +953,27 @@ Rules:
           msgs.appendChild(note);
         }
 
-        botEl.textContent = stripMathGraphDirective(reply) || (graphMatch ? "Graphed it." : "Done.");
-        msgs.scrollTop = msgs.scrollHeight;
+        renderRokMessage(botEl, stripMathGraphDirective(reply) || (graphMatch ? "Graphed it." : "Done."), true);
+        scrollMsgsToBottom();
       } catch (err) {
-        botEl.textContent = "Error: " + err.message;
+        renderRokMessage(botEl, "Error: " + err.message, false);
+        scrollMsgsToBottom();
       }
     }
 
     sendBtn.addEventListener("click", sendMsg);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMsg(); });
+    window.addEventListener("keydown", (e) => {
+      const isAltPress =
+        e.key === "Alt" ||
+        e.key === "AltGraph" ||
+        e.code === "AltLeft" ||
+        e.code === "AltRight" ||
+        (typeof e.getModifierState === "function" && e.getModifierState("Alt") && e.key !== "Tab");
+      if (!isAltPress || !open) return;
+      e.preventDefault();
+      toggleDrawer(false);
+    }, true);
   </script>
 </body>
 </html>
