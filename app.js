@@ -10,6 +10,7 @@ const mathChatCloseBtn = document.getElementById("mathChatCloseBtn");
 const mathChatMessages = document.getElementById("mathChatMessages");
 const mathChatInput = document.getElementById("mathChatInput");
 const mathChatSendBtn = document.getElementById("mathChatSendBtn");
+const mathStandaloneLink = document.getElementById("mathStandaloneLink");
 const workspacePanelTitle = document.getElementById("workspacePanelTitle");
 const workspaceDocumentShell = document.getElementById("workspaceDocumentShell");
 const workspaceEditor = document.getElementById("workspaceEditor");
@@ -1082,7 +1083,7 @@ function normalizeThinkingTitle(rawValue = "") {
     .join(" ");
 }
 
-async function readChatTextResponse(response) {
+async function readChatTextResponse(response, options = {}) {
   if (!response) {
     return "";
   }
@@ -1103,6 +1104,7 @@ async function readChatTextResponse(response) {
   const decoder = new TextDecoder("utf-8");
   const isEventStream = contentType.includes("text/event-stream");
   const parseAsJsonLines = !isEventStream && (contentType.includes("json") || contentType.includes("ndjson"));
+  const onToken = options && typeof options.onToken === "function" ? options.onToken : null;
   let buffer = "";
   let plainBuffer = "";
   let answer = "";
@@ -1111,6 +1113,9 @@ async function readChatTextResponse(response) {
   const appendToken = (token) => {
     if (typeof token === "string" && token) {
       answer += token;
+      if (onToken) {
+        onToken(answer, token);
+      }
     }
   };
 
@@ -6896,6 +6901,67 @@ function setMathChatDrawerOpen(open) {
   }
 }
 
+function openMathStandaloneInCloakedTab() {
+  const mathUrl = new URL("math.html", window.location.href).href;
+  const cloakedTab = window.open("about:blank", "_blank");
+  if (!cloakedTab) {
+    window.open(mathUrl, "_blank", "noopener");
+    return;
+  }
+
+  try {
+    cloakedTab.opener = null;
+  } catch {}
+
+  try {
+    cloakedTab.document.open();
+    cloakedTab.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>about:blank</title>
+  <style>
+    html, body, iframe {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    iframe {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <iframe src="${mathUrl}" referrerpolicy="no-referrer" allowfullscreen></iframe>
+</body>
+</html>`);
+    cloakedTab.document.close();
+  } catch {
+    cloakedTab.location.replace(mathUrl);
+  }
+}
+
+function createMathChatMessage(role, text = "") {
+  const message = document.createElement("div");
+  message.className = `math-chat-msg ${role === "user" ? "math-chat-msg-user" : "math-chat-msg-bot"}`;
+  if (role === "assistant") {
+    setBubbleContent(message, text, false);
+  } else {
+    message.textContent = text;
+  }
+  return message;
+}
+
+function scrollMathChatToBottom() {
+  if (mathChatMessages) {
+    mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+  }
+}
+
 async function sendMathChatMessage() {
   if (!mathChatInput || !mathChatMessages) return;
   const text = mathChatInput.value.trim();
@@ -6905,23 +6971,17 @@ async function sendMathChatMessage() {
 
   mathChatInput.value = "";
 
-  // Add user message to drawer
-  const userMsg = document.createElement("div");
-  userMsg.className = "math-chat-msg math-chat-msg-user";
-  userMsg.textContent = text;
+  const userMsg = createMathChatMessage("user", text);
   mathChatMessages.appendChild(userMsg);
-  mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+  scrollMathChatToBottom();
 
-  // Add loading message
-  const botMsg = document.createElement("div");
-  botMsg.className = "math-chat-msg math-chat-msg-bot";
-  botMsg.textContent = "Thinking...";
+  const botMsg = createMathChatMessage("assistant", "Thinking...");
   mathChatMessages.appendChild(botMsg);
-  mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+  scrollMathChatToBottom();
 
   if (localMathAnswer) {
-    botMsg.textContent = localMathAnswer;
-    mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+    setBubbleContent(botMsg, localMathAnswer, false);
+    scrollMathChatToBottom();
     return;
   }
 
@@ -6951,7 +7011,13 @@ Rules:
       }))
     });
 
-    const reply = await readChatTextResponse(res);
+    const reply = await readChatTextResponse(res, {
+      onToken(answer) {
+        const liveReply = stripMathGraphDirective(answer).trim();
+        setBubbleContent(botMsg, liveReply || "Thinking...", false);
+        scrollMathChatToBottom();
+      }
+    });
 
     // Check for GRAPH: directive and plot it
     const graphMatch = graphRequested ? reply.match(/GRAPH:\s*(.+)/i) : null;
@@ -6962,10 +7028,11 @@ Rules:
 
     // Show reply without the GRAPH line
     const displayReply = stripMathGraphDirective(reply);
-    botMsg.textContent = displayReply || (graphMatch ? "Graphed it." : "Done.");
-    mathChatMessages.scrollTop = mathChatMessages.scrollHeight;
+    setBubbleContent(botMsg, displayReply || (graphMatch ? "Graphed it." : "Done."), true);
+    scrollMathChatToBottom();
   } catch (err) {
-    botMsg.textContent = "Error: " + err.message;
+    setBubbleContent(botMsg, "Error: " + err.message, false);
+    scrollMathChatToBottom();
   }
 }
 
@@ -11546,6 +11613,12 @@ if (mathChatToggleBtn) {
     setMathChatDrawerOpen(!isMathChatDrawerOpen);
   });
 }
+if (mathStandaloneLink) {
+  mathStandaloneLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    openMathStandaloneInCloakedTab();
+  });
+}
 if (mathChatCloseBtn) {
   mathChatCloseBtn.addEventListener("click", () => {
     setMathChatDrawerOpen(false);
@@ -11589,6 +11662,11 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Alt" && isMathChatDrawerOpen) {
+    event.preventDefault();
+    setMathChatDrawerOpen(false);
+    return;
+  }
   if (event.key !== "Escape") return;
   if (onboardingModal && !onboardingModal.hidden) {
     savePreferredNameToStorage("");
