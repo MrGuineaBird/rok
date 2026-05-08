@@ -258,8 +258,9 @@ const DEFAULT_USER_SETTINGS = {
 const SUPPORTED_MODEL_IDS = new Set();
 const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
-const DAEDALUS_MODEL_ID = "deepseek-v3.2:cloud";
-const DAEDALUS_LEGACY_MODEL_ID = "glm-5.1:cloud";
+const DAEDALUS_MODEL_ID = "glm-4.7:cloud";
+const DAEDALUS_LEGACY_MODEL_ID = "deepseek-v3.2:cloud";
+const DAEDALUS_LEGACY_MODEL_ID_ALT = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
 const CHESS_MODEL_ID = "gpt-oss:20b-chess";
 const UNOFFICIAL_MODEL_IDS = new Set();
@@ -268,7 +269,7 @@ const CUSTOM_OLLAMA_CONFIG_ACTION = "configure_custom_ollama_cloud";
 const HERMES_LABEL = "Hermes 1.3";
 const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.0";
-const DAEDALUS_PROVIDER_NAME = "DeepSeek v3.2 Cloud";
+const DAEDALUS_PROVIDER_NAME = "GLM 4.7 Cloud";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
   { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL }
@@ -280,6 +281,7 @@ const KNOWN_MODEL_LABELS = {
   [CHESS_MODEL_ID]: HERMES_LABEL,
   [DAEDALUS_MODEL_ID]: DAEDALUS_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_LABEL,
+  [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_LABEL,
   "gemma4:31b-cloud": HERMES_LABEL,
   "qwen3.5:cloud": HERMES_LABEL,
   "qwen3.5:397b-cloud": HERMES_LABEL,
@@ -292,7 +294,8 @@ const MODEL_DESCRIPTIONS = {
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "gpt-oss:20b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
-  [DAEDALUS_LEGACY_MODEL_ID]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`
+  [DAEDALUS_LEGACY_MODEL_ID]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`,
+  [DAEDALUS_LEGACY_MODEL_ID_ALT]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`
 };
 const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
 /** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
@@ -645,7 +648,8 @@ function sanitizeModelId(rawModel) {
 }
 
 const MODEL_ID_ALIASES = {
-  [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_MODEL_ID
+  [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_MODEL_ID,
+  [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_MODEL_ID
 };
 
 function resolveModelAlias(rawModel) {
