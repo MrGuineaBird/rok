@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROK Status</title>
+  <link rel="icon" href="roklogo.png" />
+  <style>
+    :root {
+      --bg: #080b11;
+      --panel: rgba(15, 20, 28, 0.92);
+      --panel-2: rgba(11, 16, 23, 0.88);
+      --border: rgba(187, 74, 74, 0.28);
+      --text: #f4edef;
+      --text-2: #cbb4b8;
+      --accent: #d14b4b;
+      --accent-2: #ff7a59;
+      --ok: #55d18f;
+      --limited: #f0c25a;
+      --down: #f06b6b;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(110, 31, 31, 0.36), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, rgba(176, 74, 52, 0.14), transparent 48%),
+        linear-gradient(180deg, #0a0d13 0%, #07090e 100%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand img {
+      width: 62px;
+      height: auto;
+      display: block;
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #f8d0d0;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    .top-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .top-link,
+    .refresh-btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(16, 21, 29, 0.72);
+      color: var(--text);
+      padding: 10px 14px;
+      text-decoration: none;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .top-link:hover,
+    .refresh-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 122, 89, 0.42);
+      background: rgba(20, 27, 37, 0.92);
+    }
+
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(16, 21, 29, 0.94) 0%, rgba(10, 14, 20, 0.94) 100%);
+      box-shadow: var(--shadow);
+      padding: clamp(24px, 4vw, 40px);
+    }
+
+    .hero-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(209, 75, 75, 0.12);
+      border: 1px solid rgba(209, 75, 75, 0.3);
+      color: #f1b4b4;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .headline {
+      margin: 0;
+      font-size: clamp(34px, 7vw, 64px);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+
+    .subhead {
+      margin: 12px 0 0;
+      max-width: 64ch;
+      color: var(--text-2);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .overall-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      font-weight: 700;
+    }
+
+    .overall-dot,
+    .component-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      background: currentColor;
+      box-shadow: 0 0 18px currentColor;
+    }
+
+    .status-operational {
+      color: var(--ok);
+    }
+
+    .status-limited {
+      color: var(--limited);
+    }
+
+    .status-down,
+    .status-degraded {
+      color: var(--down);
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .meta-card {
+      flex: 1 1 220px;
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 16px 18px;
+    }
+
+    .meta-label {
+      display: block;
+      color: #e5a5a5;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .meta-value {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .meta-detail {
+      margin-top: 8px;
+      color: var(--text-2);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .section-title {
+      margin: 34px 0 14px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #e7abab;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .component-card {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(17, 23, 31, 0.9) 0%, rgba(10, 15, 21, 0.92) 100%);
+      padding: 18px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .component-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .component-title {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .component-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .component-detail {
+      margin: 0;
+      color: var(--text-2);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .component-meta {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .component-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: #edd5d5;
+      padding: 7px 10px;
+      font-size: 12px;
+    }
+
+    .error-note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(240, 107, 107, 0.32);
+      background: rgba(110, 28, 28, 0.16);
+      color: #f3cbcb;
+      line-height: 1.55;
+    }
+
+    .footer-note {
+      margin-top: 16px;
+      color: var(--text-2);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: min(100%, calc(100% - 20px));
+        padding-top: 18px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hero {
+        border-radius: 22px;
+        padding: 22px 18px;
+      }
+
+      .component-card {
+        min-height: 0;
+      }
+    }
+  </style>
+  <script>
+    (function () {
+      const host = String(window.location.hostname || "").toLowerCase();
+      const isLocalHost = host === "127.0.0.1" || host === "localhost" || host === "::1";
+      window.ROK_API_BASE = isLocalHost ? "" : "https://rokbackendreal.kyklos.online";
+    })();
+  </script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="Back to ROK">
+        <img src="roklogo.png" alt="ROK" />
+        <span class="brand-copy">
+          <span class="brand-title">ROK Status</span>
+          <span class="brand-sub">See what is up, degraded, or down.</span>
+        </span>
+      </a>
+      <div class="top-links">
+        <a class="top-link" href="index.html">Open ROK</a>
+        <a class="top-link" href="docs.html">Docs</a>
+        <a class="top-link" href="about.html">About</a>
+        <button id="refreshBtn" class="refresh-btn" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="eyebrow">ROK Status</div>
+          <h1 id="overallHeadline" class="headline">Checking ROK...</h1>
+          <p id="overallSubhead" class="subhead">
+            Pulling the latest status from the backend so you can see which parts of ROK are ready and which ones are having a rough time.
+          </p>
+        </div>
+        <div id="overallPill" class="overall-pill">
+          <span id="overallDot" class="overall-dot"></span>
+          <span id="overallLabel">Loading</span>
+        </div>
+      </div>
+
+      <div class="hero-meta">
+        <div class="meta-card">
+          <span class="meta-label">Mode</span>
+          <div id="modeValue" class="meta-value">Checking...</div>
+          <div id="modeDetail" class="meta-detail">Waiting for a response from the status API.</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Default model</span>
+          <div id="defaultModelValue" class="meta-value">Checking...</div>
+          <div class="meta-detail">This is the shared default lane ROK will reach for first.</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Last checked</span>
+          <div id="checkedAtValue" class="meta-value">Just now</div>
+          <div id="checkedAtDetail" class="meta-detail">The page refreshes when you click Refresh.</div>
+        </div>
+      </div>
+
+      <div class="section-title">Components</div>
+      <div id="componentGrid" class="grid"></div>
+      <div id="errorNote" class="error-note" hidden></div>
+      <p class="footer-note">
+        If this page itself cannot reach the backend, that usually means the core ROK API is fully down or unreachable from your browser.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    const runtimeApiBase =
+      (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
+    const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
+    const STATUS_URL = `${ROK_API_BASE}/api/status`;
+    const overallHeadline = document.getElementById("overallHeadline");
+    const overallSubhead = document.getElementById("overallSubhead");
+    const overallPill = document.getElementById("overallPill");
+    const overallDot = document.getElementById("overallDot");
+    const overallLabel = document.getElementById("overallLabel");
+    const modeValue = document.getElementById("modeValue");
+    const modeDetail = document.getElementById("modeDetail");
+    const defaultModelValue = document.getElementById("defaultModelValue");
+    const checkedAtValue = document.getElementById("checkedAtValue");
+    const checkedAtDetail = document.getElementById("checkedAtDetail");
+    const componentGrid = document.getElementById("componentGrid");
+    const errorNote = document.getElementById("errorNote");
+    const refreshBtn = document.getElementById("refreshBtn");
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function formatStatusLabel(status) {
+      const value = String(status || "").trim().toLowerCase();
+      if (!value) return "Unknown";
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function describeOverall(status, payload) {
+      if (status === "operational") {
+        return "ROK is operational.";
+      }
+      if (status === "degraded") {
+        return "ROK is up, but some parts are degraded.";
+      }
+      if (payload && payload.error) {
+        return "ROK is down right now.";
+      }
+      return "ROK is having trouble right now.";
+    }
+
+    function subheadForStatus(status, payload) {
+      if (status === "operational") {
+        return "Core chat is healthy and the shared lanes are responding normally.";
+      }
+      if (status === "degraded") {
+        return "Core chat is reachable, but one or more lanes are limited or down. Check the component cards below.";
+      }
+      if (payload && payload.error) {
+        return payload.error;
+      }
+      return "The backend did not return a healthy core status. Check the component cards below for detail.";
+    }
+
+    function formatCheckedAt(value) {
+      if (!value) return "Unknown";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    }
+
+    function renderComponents(components) {
+      const list = Array.isArray(components) ? components : [];
+      componentGrid.innerHTML = list.map((component) => {
+        const status = String(component && component.status || "down").trim().toLowerCase() || "down";
+        const modelChip = component && component.model
+          ? `<span class="component-chip">Model: ${escapeHtml(component.model)}</span>`
+          : "";
+        const keyChip = component && component.requires_user_api_key
+          ? `<span class="component-chip">User key required</span>`
+          : "";
+        const extraChip = component && component.required === true
+          ? `<span class="component-chip">Required</span>`
+          : "";
+        return `
+          <article class="component-card">
+            <div class="component-head">
+              <h2 class="component-title">${escapeHtml(component && component.label || "Component")}</h2>
+              <span class="component-status status-${status}">
+                <span class="component-dot"></span>
+                ${escapeHtml(formatStatusLabel(status))}
+              </span>
+            </div>
+            <p class="component-detail">${escapeHtml(component && component.detail || "No detail provided.")}</p>
+            <div class="component-meta">
+              ${modelChip}
+              ${keyChip}
+              ${extraChip}
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function applyOverallStatus(status) {
+      const normalized = String(status || "down").trim().toLowerCase() || "down";
+      overallPill.classList.remove("status-operational", "status-limited", "status-down", "status-degraded");
+      overallDot.classList.remove("status-operational", "status-limited", "status-down", "status-degraded");
+      overallPill.classList.add(`status-${normalized}`);
+      overallDot.classList.add(`status-${normalized}`);
+      overallLabel.textContent = formatStatusLabel(normalized);
+    }
+
+    function renderStatus(payload) {
+      const status = String(payload && payload.overall_status || (payload && payload.ok ? "operational" : "down")).trim().toLowerCase() || "down";
+      overallHeadline.textContent = describeOverall(status, payload);
+      overallSubhead.textContent = subheadForStatus(status, payload);
+      applyOverallStatus(status);
+      modeValue.textContent = payload && payload.mode ? payload.mode.replace(/_/g, " ") : "Unknown";
+      modeDetail.textContent = payload && payload.upstream && payload.upstream.detail
+        ? payload.upstream.detail
+        : "No upstream detail was returned.";
+      defaultModelValue.textContent = payload && payload.default_model ? payload.default_model : "Unknown";
+      checkedAtValue.textContent = formatCheckedAt(payload && payload.checked_at);
+      checkedAtDetail.textContent = payload && payload.summary
+        ? `${payload.summary.operational || 0} operational · ${payload.summary.limited || 0} limited · ${payload.summary.down || 0} down`
+        : "No component summary was returned.";
+      renderComponents(payload && payload.components);
+      if (payload && payload.error) {
+        errorNote.hidden = false;
+        errorNote.textContent = payload.error;
+      } else {
+        errorNote.hidden = true;
+        errorNote.textContent = "";
+      }
+    }
+
+    function renderFetchFailure(error) {
+      renderStatus({
+        ok: false,
+        overall_status: "down",
+        mode: "unreachable",
+        default_model: "Unknown",
+        checked_at: new Date().toISOString(),
+        summary: { operational: 0, limited: 0, down: 1 },
+        components: [
+          {
+            label: "Status API",
+            status: "down",
+            detail: "The status page could not reach the backend at all."
+          }
+        ],
+        error: error && error.message ? error.message : "Could not reach the backend."
+      });
+    }
+
+    async function loadStatus() {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "Checking...";
+      try {
+        const res = await fetch(STATUS_URL, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json"
+          }
+        });
+        const bodyText = await res.text();
+        let payload = null;
+        try {
+          payload = JSON.parse(bodyText || "{}");
+        } catch {
+          payload = {
+            ok: false,
+            overall_status: "down",
+            checked_at: new Date().toISOString(),
+            summary: { operational: 0, limited: 0, down: 1 },
+            components: [
+              {
+                label: "Status API",
+                status: "down",
+                detail: "The backend returned a response the status page could not read."
+              }
+            ],
+            error: bodyText || `Status request failed (${res.status})`
+          };
+        }
+        if (!res.ok && !payload.error) {
+          payload.error = `Status request failed (${res.status})`;
+        }
+        renderStatus(payload);
+      } catch (error) {
+        renderFetchFailure(error);
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Refresh";
+      }
+    }
+
+    refreshBtn.addEventListener("click", loadStatus);
+    loadStatus();
+    window.setInterval(loadStatus, 30000);
+  </script>
+</body>
+</html>

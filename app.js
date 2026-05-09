@@ -131,15 +131,13 @@ const workspaceRouteCloseBtn = document.getElementById("workspaceRouteCloseBtn")
 const legalModal = document.getElementById("legalModal");
 const legalCloseBtn = document.getElementById("legalCloseBtn");
 
-// Elixir Network Partnership Modal
-const elixirPartnershipModal = document.getElementById("elixirPartnershipModal");
-const elixirCloseBtn = document.getElementById("elixirCloseBtn");
-const elixirOkBtn = document.getElementById("elixirOkBtn");
-const ELIXIR_PARTNERSHIP_SEEN_KEY = "rok_elixir_partnership_seen";
-const rokImageModal = document.getElementById("rokImageModal");
-const rokImageCloseBtn = document.getElementById("rokImageCloseBtn");
-const rokImageOkBtn = document.getElementById("rokImageOkBtn");
-const ROK_IMAGE_MODAL_SEEN_KEY = "rok_image_intro_seen";
+// One-time forum survey modal
+const forumSurveyModal = document.getElementById("forumSurveyModal");
+const forumSurveyCloseBtn = document.getElementById("forumSurveyCloseBtn");
+const forumSurveyMaybeLaterBtn = document.getElementById("forumSurveyMaybeLaterBtn");
+const forumSurveyTakeBtn = document.getElementById("forumSurveyTakeBtn");
+const FORUM_SURVEY_SEEN_KEY = "rok_forum_survey_seen";
+const FORUM_SURVEY_URL = "https://forms.gle/1t49ibc594EguxHu5";
 const legalTermsTab = document.getElementById("legalTermsTab");
 const legalPrivacyTab = document.getElementById("legalPrivacyTab");
 const legalCreditsTab = document.getElementById("legalCreditsTab");
@@ -233,6 +231,7 @@ const CUSTOMIZATION_ACCENT_PRESETS = [
   "#7b66d9"
 ];
 const MAX_LOCAL_SESSIONS = 30;
+const CUSTOMIZATION_EXPORT_VERSION = 1;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
@@ -243,6 +242,13 @@ const DEFAULT_USER_SETTINGS = {
   typingSpeed: DEFAULT_CLIENT_LIMITS.typingSpeedMs,
   enterToSend: true,
   autoScroll: true,
+  sidebarStartsCollapsed: true,
+  sidebarWidth: 220,
+  chatWidth: 760,
+  bubbleRadius: 18,
+  bubbleTextSize: 14,
+  showStarterChips: true,
+  showTimestamps: true,
   accentColor: "#d14b4b",
   compactMode: false,
   reduceMotion: false,
@@ -370,7 +376,7 @@ const HOME_SLOGANS = [
 const HOME_SLOGAN_TYPING_SPEED_MS = 34;
 const HOME_SLOGAN_HOLD_MS = 1600;
 const HOME_SLOGAN_ERASE_SPEED_MS = 18;
-const MATH_STANDALONE_VERSION = "2";
+const MATH_STANDALONE_VERSION = "3";
 const ONBOARDING_TOUR_TEXT_SPEED_MS = 22;
 const ONBOARDING_TOUR_STEPS = [
   {
@@ -917,6 +923,91 @@ async function fetchWithBanGuard(url, options) {
   return response;
 }
 
+const AUTO_MESSAGE_RETRY_LIMIT = 1;
+const AUTO_MESSAGE_RETRY_BASE_DELAY_MS = 1100;
+const AUTO_MESSAGE_RETRY_MAX_DELAY_MS = 12000;
+
+function sleepMs(ms = 0) {
+  const safeMs = Math.max(0, Number(ms) || 0);
+  return new Promise((resolve) => setTimeout(resolve, safeMs));
+}
+
+function buildRetryableRequestError(response, fallbackMessage = "Request failed.") {
+  const status = Number(response && response.status) || 0;
+  const retryAfterRaw = response && response.headers ? response.headers.get("Retry-After") : "";
+  const retryAfterSec = Number.parseInt(String(retryAfterRaw || "").trim(), 10);
+  const error = new Error(fallbackMessage || (status ? `Request failed (${status})` : "Request failed."));
+  error.retryStatus = status;
+  error.retryAfterSec = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 0;
+  return error;
+}
+
+function shouldAutoRetryMessageError(error) {
+  if (!error || isBanOverlayActive) return false;
+  if (stopRequested) return false;
+  if (error.name === "AbortError") return false;
+  if (error.disableAutoRetry) return false;
+  if (error.code === "daedalus_limit_reached") return false;
+  return true;
+}
+
+function getAutoRetryDelayMs(error, attemptNumber = 1) {
+  const retryAfterSec = Number.parseInt(String(error && error.retryAfterSec ? error.retryAfterSec : "").trim(), 10);
+  if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+    return Math.min(AUTO_MESSAGE_RETRY_MAX_DELAY_MS, Math.max(1200, retryAfterSec * 1000));
+  }
+  return Math.min(
+    AUTO_MESSAGE_RETRY_MAX_DELAY_MS,
+    AUTO_MESSAGE_RETRY_BASE_DELAY_MS * Math.max(1, Number(attemptNumber) || 1)
+  );
+}
+
+function formatAutoRetryStatusText(error, attemptNumber = 1, totalAttempts = AUTO_MESSAGE_RETRY_LIMIT + 1, label = "ROK") {
+  const safeLabel = String(label || "ROK").trim() || "ROK";
+  const safeTotal = Math.max(1, Number(totalAttempts) || (AUTO_MESSAGE_RETRY_LIMIT + 1));
+  const attemptIndex = Math.min(safeTotal, Math.max(1, Number(attemptNumber) || 1) + 1);
+  const attemptSuffix = safeTotal > 1 ? ` (${attemptIndex}/${safeTotal})` : "";
+  const retryStatus = Number(error && error.retryStatus) || 0;
+  if (retryStatus === 429) {
+    const retrySeconds = Math.max(1, Math.ceil(getAutoRetryDelayMs(error, attemptNumber) / 1000));
+    return `${safeLabel} is busy. Retrying in ${retrySeconds}s${attemptSuffix}...`;
+  }
+  if (retryStatus > 0) {
+    return `${safeLabel} hit ${retryStatus}. Retrying${attemptSuffix}...`;
+  }
+  return `${safeLabel} hit an error. Retrying${attemptSuffix}...`;
+}
+
+async function runWithAutoMessageRetry(task, options = {}) {
+  const runTask = typeof task === "function" ? task : null;
+  if (!runTask) {
+    throw new Error("Auto-retry task must be a function.");
+  }
+  const maxRetries = Math.max(0, Number(options.maxRetries) || AUTO_MESSAGE_RETRY_LIMIT);
+  const onRetry = typeof options.onRetry === "function" ? options.onRetry : null;
+  let attempt = 0;
+  while (true) {
+    try {
+      return await runTask(attempt);
+    } catch (error) {
+      if (attempt >= maxRetries || !shouldAutoRetryMessageError(error)) {
+        throw error;
+      }
+      attempt += 1;
+      const delayMs = getAutoRetryDelayMs(error, attempt);
+      if (onRetry) {
+        await onRetry({
+          attempt,
+          delayMs,
+          error,
+          totalAttempts: maxRetries + 1
+        });
+      }
+      await sleepMs(delayMs);
+    }
+  }
+}
+
 async function safeReadResponseText(response) {
   if (!response || response.bodyUsed) {
     return "";
@@ -1327,6 +1418,169 @@ function loadUserSettingsFromStorage() {
   }
 }
 
+function buildExportableUserSettings() {
+  const source = { ...DEFAULT_USER_SETTINGS, ...loadUserSettingsFromStorage(), ...userSettings };
+  return {
+    preferredName: sanitizeShortUserSettingText(source.preferredName),
+    customIdentityName: sanitizeShortUserSettingText(source.customIdentityName),
+    customSystemPrompt: sanitizeLongUserSettingText(source.customSystemPrompt),
+    accentColor: normalizeHexColor(source.accentColor, DEFAULT_USER_SETTINGS.accentColor),
+    compactMode: Boolean(source.compactMode),
+    reduceMotion: Boolean(source.reduceMotion),
+    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, source.defaultModel || DEFAULT_USER_SETTINGS.defaultModel),
+    rememberModel: source.rememberModel !== false,
+    enterToSend: Boolean(source.enterToSend),
+    autoScroll: Boolean(source.autoScroll),
+    sidebarStartsCollapsed: Boolean(source.sidebarStartsCollapsed),
+    sidebarWidth: normalizeClientLimit(source.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
+    chatWidth: normalizeClientLimit(source.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
+    bubbleRadius: normalizeClientLimit(source.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
+    bubbleTextSize: normalizeClientLimit(source.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
+    showStarterChips: Boolean(source.showStarterChips),
+    showTimestamps: Boolean(source.showTimestamps),
+    maxSessions: normalizeClientLimit(source.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
+    historyLimit: normalizeClientLimit(source.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
+    cooldownMs: normalizeClientLimit(source.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
+    typingSpeed: normalizeClientLimit(source.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
+    memoryEnabled: Boolean(source.memoryEnabled),
+    projectMemoryEnabled: Boolean(source.projectMemoryEnabled),
+    autoLearn: Boolean(source.autoLearn),
+    incognitoMode: Boolean(source.incognitoMode)
+  };
+}
+
+function sanitizeImportedUserSettings(rawSettings = {}) {
+  const source = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
+  return {
+    preferredName: sanitizeShortUserSettingText(source.preferredName),
+    customIdentityName: sanitizeShortUserSettingText(source.customIdentityName),
+    customSystemPrompt: sanitizeLongUserSettingText(source.customSystemPrompt),
+    accentColor: normalizeHexColor(source.accentColor, DEFAULT_USER_SETTINGS.accentColor),
+    compactMode: Boolean(source.compactMode),
+    reduceMotion: Boolean(source.reduceMotion),
+    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, source.defaultModel || DEFAULT_USER_SETTINGS.defaultModel),
+    rememberModel: source.rememberModel !== false,
+    enterToSend: source.enterToSend !== false,
+    autoScroll: source.autoScroll !== false,
+    sidebarStartsCollapsed: source.sidebarStartsCollapsed !== false,
+    sidebarWidth: normalizeClientLimit(source.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
+    chatWidth: normalizeClientLimit(source.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
+    bubbleRadius: normalizeClientLimit(source.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
+    bubbleTextSize: normalizeClientLimit(source.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
+    showStarterChips: source.showStarterChips !== false,
+    showTimestamps: source.showTimestamps !== false,
+    maxSessions: normalizeClientLimit(source.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
+    historyLimit: normalizeClientLimit(source.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
+    cooldownMs: normalizeClientLimit(source.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
+    typingSpeed: normalizeClientLimit(source.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
+    memoryEnabled: source.memoryEnabled !== false,
+    projectMemoryEnabled: source.projectMemoryEnabled !== false,
+    autoLearn: source.autoLearn !== false
+  };
+}
+
+function downloadJsonFile(filename, payload) {
+  if (typeof Blob === "undefined" || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    throw new Error("Downloads are not supported in this browser.");
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(blobUrl);
+    if (link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+  }, 0);
+}
+
+function exportRokControlSetup() {
+  const payload = {
+    kind: "rok-control-setup",
+    version: CUSTOMIZATION_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    settings: buildExportableUserSettings()
+  };
+  downloadJsonFile(`rok-control-setup-${new Date().toISOString().slice(0, 10)}.json`, payload);
+  return payload;
+}
+
+function trimSessionsToSettingLimit() {
+  if (!Array.isArray(sessions) || !sessions.length) return;
+  sortSessionsByRecent();
+  const maxSessions = getMaxLocalSessionsValue();
+  if (sessions.length <= maxSessions) return;
+
+  const current = getSessionById(currentSessionId);
+  if (current) {
+    const others = sessions.filter((session) => session.id !== current.id);
+    sessions = [current, ...others.slice(0, Math.max(0, maxSessions - 1))];
+    sortSessionsByRecent();
+  } else {
+    sessions = sessions.slice(0, maxSessions);
+  }
+
+  if (!sessions.length) {
+    sessions = [createSession([])];
+  }
+  if (!getSessionById(currentSessionId)) {
+    currentSessionId = sessions[0].id;
+  }
+
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+}
+
+async function importRokControlSetupFromFile(file) {
+  if (!file) return null;
+  const rawText = await file.text();
+  const parsed = JSON.parse(rawText);
+  const source = parsed && typeof parsed === "object" && parsed.settings && typeof parsed.settings === "object"
+    ? parsed.settings
+    : parsed;
+  const nextSettings = sanitizeImportedUserSettings(source);
+  persistUserSettingsPatch(nextSettings, { syncModelDefaults: true });
+  applySidebarCollapsedState(Boolean(nextSettings.sidebarStartsCollapsed), { persist: true });
+  trimSessionsToSettingLimit();
+  refreshMemoryToggleButtons();
+  renderLocalKnowledgeList();
+  return nextSettings;
+}
+
+function clearRememberedBrowserData() {
+  saveLocalMemory([]);
+  saveLocalKnowledge([]);
+  renderLocalKnowledgeList();
+}
+
+function clearCurrentProjectMemoryData() {
+  saveCurrentProjectMemoryEntries([]);
+  renderLocalKnowledgeList();
+}
+
+function resetSavedChatsAndStartFresh() {
+  const freshSession = createSession([]);
+  sessions = [freshSession];
+  currentSessionId = freshSession.id;
+  hideHomeScreen();
+  wasWorkspaceTabActive = false;
+  closeMobileSidebarIfNeeded();
+  resetChatRuntimeState();
+  renderConversation([]);
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+  renderWorkspaceUI({ focus: true });
+}
+
 function savePreferredNameToStorage(rawName) {
   const name = sanitizeShortUserSettingText(rawName);
   if (isIncognitoModeEnabled()) {
@@ -1605,6 +1859,11 @@ function enterAppFromHome() {
       }
     }, 120);
   }
+  if (isOnboardingCompleted()) {
+    setTimeout(() => {
+      maybeShowForumSurveyModal();
+    }, 180);
+  }
 }
 
 function beginHomeEntry(preferredTab = "") {
@@ -1709,6 +1968,9 @@ function finishOnboardingAndEnter() {
   if (input) {
     setTimeout(() => input.focus(), 40);
   }
+  setTimeout(() => {
+    maybeShowForumSurveyModal();
+  }, 180);
 }
 
 function loadLastModelFromStorage() {
@@ -2687,7 +2949,10 @@ function openCustomizeRokModal() {
     resolveModal = resolve;
   });
 
-  const currentSettings = { ...loadUserSettingsFromStorage(), ...userSettings };
+  const currentSettings = {
+    ...buildExportableUserSettings(),
+    sidebarStartsCollapsed: loadSidebarCollapsedFromStorage()
+  };
   const selectedDefaultModel = resolveDefaultModelId(MODEL_OPTIONS, currentSettings.defaultModel);
   const modelChoices = buildCustomizationModelChoices(selectedDefaultModel);
 
@@ -2704,7 +2969,7 @@ function openCustomizeRokModal() {
       <div>
         <div class="customize-rok-kicker">Ultimate control</div>
         <h2 id="customizeRokTitle" class="correction-modal-title">Customize ROK</h2>
-        <p class="correction-modal-hint">Rename the assistant, shape future replies, and tune how chat behaves on this browser.</p>
+        <p class="correction-modal-hint">Tune the layout, reply style, session behavior, memory, and browser storage so ROK behaves the way you want on this device.</p>
       </div>
     </div>
     <div class="customize-rok-body">
@@ -2759,6 +3024,40 @@ function openCustomizeRokModal() {
             `).join("")}
           </div>
         </label>
+        <div class="customize-rok-range-grid">
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Chat width</span>
+              <span class="customize-rok-value" data-customize-value="chatWidth"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="chatWidth" type="range" min="620" max="1200" step="20" />
+            <span class="customize-rok-help">How wide the conversation column can grow.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Sidebar width</span>
+              <span class="customize-rok-value" data-customize-value="sidebarWidth"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="sidebarWidth" type="range" min="180" max="340" step="10" />
+            <span class="customize-rok-help">Slim it down or give your saved chats more room.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Bubble roundness</span>
+              <span class="customize-rok-value" data-customize-value="bubbleRadius"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="bubbleRadius" type="range" min="8" max="30" step="1" />
+            <span class="customize-rok-help">Sharper or softer chat bubbles.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Message text size</span>
+              <span class="customize-rok-value" data-customize-value="bubbleTextSize"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="bubbleTextSize" type="range" min="12" max="18" step="1" />
+            <span class="customize-rok-help">Increase legibility or fit more on-screen.</span>
+          </label>
+        </div>
         <div class="customize-rok-toggle-grid">
           <label class="customize-rok-toggle">
             <input data-customize-field="compactMode" type="checkbox" />
@@ -2772,6 +3071,20 @@ function openCustomizeRokModal() {
             <span class="customize-rok-toggle-copy">
               <strong>Reduce motion</strong>
               <span>Turn off most animations and transitions.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="showStarterChips" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show starter chips</strong>
+              <span>Keep the empty-chat prompt chips visible.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="showTimestamps" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show hover timestamps</strong>
+              <span>Keep quick time hints on each message.</span>
             </span>
           </label>
         </div>
@@ -2809,7 +3122,55 @@ function openCustomizeRokModal() {
             </label>
           </div>
         </div>
+        <div class="customize-rok-range-grid">
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Typing speed</span>
+              <span class="customize-rok-value" data-customize-value="typingSpeed"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="typingSpeed" type="range" min="0" max="80" step="1" />
+            <span class="customize-rok-help">Lower feels snappier. Zero makes reply reveal instant.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Cooldown</span>
+              <span class="customize-rok-value" data-customize-value="cooldownMs"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="cooldownMs" type="range" min="0" max="5000" step="100" />
+            <span class="customize-rok-help">How long the composer waits before another send is allowed.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">History window</span>
+              <span class="customize-rok-value" data-customize-value="historyLimit"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="historyLimit" type="range" min="5" max="120" step="1" />
+            <span class="customize-rok-help">How many previous messages ROK keeps sending back as context.</span>
+          </label>
+          <label class="customize-rok-field">
+            <div class="customize-rok-label-row">
+              <span class="customize-rok-label">Saved chat limit</span>
+              <span class="customize-rok-value" data-customize-value="maxSessions"></span>
+            </div>
+            <input class="customize-rok-range" data-customize-field="maxSessions" type="range" min="5" max="100" step="1" />
+            <span class="customize-rok-help">How many local chats this browser keeps around.</span>
+          </label>
+        </div>
         <div class="customize-rok-toggle-grid">
+          <label class="customize-rok-toggle">
+            <input data-customize-field="autoScroll" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Auto-scroll to new replies</strong>
+              <span>Keep the newest streamed text pinned into view.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="sidebarStartsCollapsed" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Keep the sidebar tucked away</strong>
+              <span>Start chat with the left panel collapsed on desktop.</span>
+            </span>
+          </label>
           <label class="customize-rok-toggle">
             <input data-customize-field="memoryEnabled" type="checkbox" />
             <span class="customize-rok-toggle-copy">
@@ -2833,16 +3194,49 @@ function openCustomizeRokModal() {
           </label>
         </div>
       </section>
+      <section class="customize-rok-section">
+        <div class="customize-rok-section-head">
+          <span class="customize-rok-section-kicker">Control actions</span>
+          <h3 class="customize-rok-section-title">Move, reset, or wipe local state</h3>
+        </div>
+        <div class="customize-rok-action-grid">
+          <button class="customize-rok-action-btn" type="button" data-customize-action="export">
+            <strong>Export setup</strong>
+            <span>Download your control settings as JSON.</span>
+          </button>
+          <button class="customize-rok-action-btn" type="button" data-customize-action="import">
+            <strong>Import setup</strong>
+            <span>Load a saved ROK control profile onto this browser.</span>
+          </button>
+          <button class="customize-rok-action-btn danger" type="button" data-customize-action="clear-memory">
+            <strong>Clear browser memory</strong>
+            <span>Erase remembered facts and correction knowledge on this device.</span>
+          </button>
+          <button class="customize-rok-action-btn danger" type="button" data-customize-action="clear-project-memory">
+            <strong>Clear project memory</strong>
+            <span>Forget repo-specific decisions for the current workspace.</span>
+          </button>
+          <button class="customize-rok-action-btn danger" type="button" data-customize-action="clear-chats">
+            <strong>Clear saved chats</strong>
+            <span>Wipe local chat history and start fresh with a clean session.</span>
+          </button>
+        </div>
+      </section>
     </div>
     <div class="correction-modal-btns customize-rok-btns">
       <button class="correction-modal-cancel" type="button" data-customize-action="reset">Reset defaults</button>
       <button class="correction-modal-cancel" type="button" data-customize-action="cancel">Cancel</button>
-      <button class="correction-modal-submit" type="button" data-customize-action="save">Save setup</button>
+      <button class="correction-modal-submit" type="button" data-customize-action="save">Save control setup</button>
     </div>
   `;
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+  const importInput = document.createElement("input");
+  importInput.type = "file";
+  importInput.accept = ".json,application/json";
+  importInput.hidden = true;
+  modal.appendChild(importInput);
 
   const preferredNameInput = modal.querySelector('[data-customize-field="preferredName"]');
   const customIdentityInput = modal.querySelector('[data-customize-field="customIdentityName"]');
@@ -2851,17 +3245,54 @@ function openCustomizeRokModal() {
   const accentColorText = modal.querySelector('[data-customize-field="accentColorText"]');
   const compactModeInput = modal.querySelector('[data-customize-field="compactMode"]');
   const reduceMotionInput = modal.querySelector('[data-customize-field="reduceMotion"]');
+  const showStarterChipsInput = modal.querySelector('[data-customize-field="showStarterChips"]');
+  const showTimestampsInput = modal.querySelector('[data-customize-field="showTimestamps"]');
   const defaultModelInput = modal.querySelector('[data-customize-field="defaultModel"]');
   const rememberModelInput = modal.querySelector('[data-customize-field="rememberModel"]');
   const enterToSendInput = modal.querySelector('[data-customize-field="enterToSend"]');
+  const autoScrollInput = modal.querySelector('[data-customize-field="autoScroll"]');
+  const sidebarStartsCollapsedInput = modal.querySelector('[data-customize-field="sidebarStartsCollapsed"]');
   const memoryEnabledInput = modal.querySelector('[data-customize-field="memoryEnabled"]');
   const projectMemoryEnabledInput = modal.querySelector('[data-customize-field="projectMemoryEnabled"]');
   const autoLearnInput = modal.querySelector('[data-customize-field="autoLearn"]');
+  const chatWidthInput = modal.querySelector('[data-customize-field="chatWidth"]');
+  const sidebarWidthInput = modal.querySelector('[data-customize-field="sidebarWidth"]');
+  const bubbleRadiusInput = modal.querySelector('[data-customize-field="bubbleRadius"]');
+  const bubbleTextSizeInput = modal.querySelector('[data-customize-field="bubbleTextSize"]');
+  const typingSpeedInput = modal.querySelector('[data-customize-field="typingSpeed"]');
+  const cooldownMsInput = modal.querySelector('[data-customize-field="cooldownMs"]');
+  const historyLimitInput = modal.querySelector('[data-customize-field="historyLimit"]');
+  const maxSessionsInput = modal.querySelector('[data-customize-field="maxSessions"]');
   const promptCount = modal.querySelector("[data-customize-prompt-count]");
   const saveBtn = modal.querySelector('[data-customize-action="save"]');
   const cancelBtn = modal.querySelector('[data-customize-action="cancel"]');
   const resetBtn = modal.querySelector('[data-customize-action="reset"]');
+  const exportBtn = modal.querySelector('[data-customize-action="export"]');
+  const importBtn = modal.querySelector('[data-customize-action="import"]');
+  const clearMemoryBtn = modal.querySelector('[data-customize-action="clear-memory"]');
+  const clearProjectMemoryBtn = modal.querySelector('[data-customize-action="clear-project-memory"]');
+  const clearChatsBtn = modal.querySelector('[data-customize-action="clear-chats"]');
   const accentSwatches = Array.from(modal.querySelectorAll("[data-accent-swatch]"));
+  const rangeValueEls = {
+    chatWidth: modal.querySelector('[data-customize-value="chatWidth"]'),
+    sidebarWidth: modal.querySelector('[data-customize-value="sidebarWidth"]'),
+    bubbleRadius: modal.querySelector('[data-customize-value="bubbleRadius"]'),
+    bubbleTextSize: modal.querySelector('[data-customize-value="bubbleTextSize"]'),
+    typingSpeed: modal.querySelector('[data-customize-value="typingSpeed"]'),
+    cooldownMs: modal.querySelector('[data-customize-value="cooldownMs"]'),
+    historyLimit: modal.querySelector('[data-customize-value="historyLimit"]'),
+    maxSessions: modal.querySelector('[data-customize-value="maxSessions"]')
+  };
+  const rangeInputs = {
+    chatWidth: chatWidthInput,
+    sidebarWidth: sidebarWidthInput,
+    bubbleRadius: bubbleRadiusInput,
+    bubbleTextSize: bubbleTextSizeInput,
+    typingSpeed: typingSpeedInput,
+    cooldownMs: cooldownMsInput,
+    historyLimit: historyLimitInput,
+    maxSessions: maxSessionsInput
+  };
 
   const syncPromptCount = () => {
     if (!customPromptInput || !promptCount) return;
@@ -2875,6 +3306,36 @@ function openCustomizeRokModal() {
     accentSwatches.forEach((btn) => {
       btn.classList.toggle("is-active", btn.getAttribute("data-accent-swatch") === normalized);
     });
+  };
+
+  const formatRangeValue = (field, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) return "";
+    switch (field) {
+      case "chatWidth":
+      case "sidebarWidth":
+      case "bubbleRadius":
+      case "bubbleTextSize":
+        return `${Math.round(numeric)}px`;
+      case "typingSpeed":
+        return numeric <= 0 ? "Instant" : `${Math.round(numeric)} ms`;
+      case "cooldownMs":
+        if (numeric <= 0) return "Off";
+        return numeric >= 1000 ? `${(numeric / 1000).toFixed(numeric % 1000 === 0 ? 0 : 1)} s` : `${Math.round(numeric)} ms`;
+      case "historyLimit":
+        return `${Math.round(numeric)} msgs`;
+      case "maxSessions":
+        return `${Math.round(numeric)} chats`;
+      default:
+        return String(Math.round(numeric));
+    }
+  };
+
+  const syncRangeValue = (field) => {
+    const inputEl = rangeInputs[field];
+    const valueEl = rangeValueEls[field];
+    if (!inputEl || !valueEl) return;
+    valueEl.textContent = formatRangeValue(field, inputEl.value);
   };
 
   const syncMemoryDependents = () => {
@@ -2893,15 +3354,28 @@ function openCustomizeRokModal() {
     if (customPromptInput) customPromptInput.value = sanitizeLongUserSettingText(sourceSettings.customSystemPrompt);
     if (compactModeInput) compactModeInput.checked = Boolean(sourceSettings.compactMode);
     if (reduceMotionInput) reduceMotionInput.checked = Boolean(sourceSettings.reduceMotion);
+    if (showStarterChipsInput) showStarterChipsInput.checked = Boolean(sourceSettings.showStarterChips);
+    if (showTimestampsInput) showTimestampsInput.checked = Boolean(sourceSettings.showTimestamps);
     if (rememberModelInput) rememberModelInput.checked = Boolean(sourceSettings.rememberModel);
     if (enterToSendInput) enterToSendInput.checked = Boolean(sourceSettings.enterToSend);
+    if (autoScrollInput) autoScrollInput.checked = Boolean(sourceSettings.autoScroll);
+    if (sidebarStartsCollapsedInput) sidebarStartsCollapsedInput.checked = Boolean(sourceSettings.sidebarStartsCollapsed);
     if (memoryEnabledInput) memoryEnabledInput.checked = Boolean(sourceSettings.memoryEnabled);
     if (projectMemoryEnabledInput) projectMemoryEnabledInput.checked = Boolean(sourceSettings.projectMemoryEnabled);
     if (autoLearnInput) autoLearnInput.checked = Boolean(sourceSettings.autoLearn);
     if (defaultModelInput) {
       defaultModelInput.value = resolveDefaultModelId(MODEL_OPTIONS, sourceSettings.defaultModel);
     }
+    if (chatWidthInput) chatWidthInput.value = String(normalizeClientLimit(sourceSettings.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200));
+    if (sidebarWidthInput) sidebarWidthInput.value = String(normalizeClientLimit(sourceSettings.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340));
+    if (bubbleRadiusInput) bubbleRadiusInput.value = String(normalizeClientLimit(sourceSettings.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30));
+    if (bubbleTextSizeInput) bubbleTextSizeInput.value = String(normalizeClientLimit(sourceSettings.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18));
+    if (typingSpeedInput) typingSpeedInput.value = String(normalizeClientLimit(sourceSettings.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500));
+    if (cooldownMsInput) cooldownMsInput.value = String(normalizeClientLimit(sourceSettings.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000));
+    if (historyLimitInput) historyLimitInput.value = String(normalizeClientLimit(sourceSettings.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000));
+    if (maxSessionsInput) maxSessionsInput.value = String(normalizeClientLimit(sourceSettings.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100));
     syncAccentInputs(sourceSettings.accentColor);
+    Object.keys(rangeInputs).forEach(syncRangeValue);
     syncPromptCount();
     syncMemoryDependents();
   };
@@ -2937,6 +3411,12 @@ function openCustomizeRokModal() {
       syncAccentInputs(btn.getAttribute("data-accent-swatch") || DEFAULT_USER_SETTINGS.accentColor);
     });
   });
+  Object.entries(rangeInputs).forEach(([field, inputEl]) => {
+    if (!inputEl) return;
+    inputEl.addEventListener("input", () => {
+      syncRangeValue(field);
+    });
+  });
   if (memoryEnabledInput) {
     memoryEnabledInput.addEventListener("change", syncMemoryDependents);
   }
@@ -2959,6 +3439,61 @@ function openCustomizeRokModal() {
       applySettingsToFields(DEFAULT_USER_SETTINGS);
     });
   }
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      try {
+        exportRokControlSetup();
+        showThinkingQuotaToast("Exported your ROK control setup.");
+      } catch (error) {
+        showThinkingQuotaToast(error && error.message ? error.message : "Could not export your setup.");
+      }
+    });
+  }
+  if (importBtn) {
+    importBtn.addEventListener("click", () => {
+      importInput.value = "";
+      importInput.click();
+    });
+  }
+  importInput.addEventListener("change", async () => {
+    const file = importInput.files && importInput.files[0];
+    if (!file) return;
+    try {
+      const importedSettings = await importRokControlSetupFromFile(file);
+      if (!importedSettings) return;
+      applySettingsToFields({ ...DEFAULT_USER_SETTINGS, ...importedSettings });
+      showThinkingQuotaToast("Imported your ROK control setup.");
+    } catch (error) {
+      showThinkingQuotaToast(error && error.message ? error.message : "Could not import that setup file.");
+    }
+  });
+  if (clearMemoryBtn) {
+    clearMemoryBtn.addEventListener("click", () => {
+      if (!window.confirm("Clear remembered browser memory and correction knowledge on this device?")) {
+        return;
+      }
+      clearRememberedBrowserData();
+      showThinkingQuotaToast("Cleared browser memory.");
+    });
+  }
+  if (clearProjectMemoryBtn) {
+    clearProjectMemoryBtn.addEventListener("click", () => {
+      if (!window.confirm("Clear project memory for the current workspace?")) {
+        return;
+      }
+      clearCurrentProjectMemoryData();
+      showThinkingQuotaToast("Cleared project memory for this workspace.");
+    });
+  }
+  if (clearChatsBtn) {
+    clearChatsBtn.addEventListener("click", () => {
+      if (!window.confirm("Clear all saved chats on this browser and start fresh?")) {
+        return;
+      }
+      resetSavedChatsAndStartFresh();
+      showThinkingQuotaToast("Cleared saved chats and started a fresh session.");
+    });
+  }
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => closeCustomizeRokModal(null));
   }
@@ -2971,14 +3506,28 @@ function openCustomizeRokModal() {
         accentColor: normalizeHexColor(accentColorText ? accentColorText.value : "", DEFAULT_USER_SETTINGS.accentColor),
         compactMode: Boolean(compactModeInput && compactModeInput.checked),
         reduceMotion: Boolean(reduceMotionInput && reduceMotionInput.checked),
+        showStarterChips: Boolean(showStarterChipsInput && showStarterChipsInput.checked),
+        showTimestamps: Boolean(showTimestampsInput && showTimestampsInput.checked),
         defaultModel: resolveDefaultModelId(MODEL_OPTIONS, defaultModelInput ? defaultModelInput.value : DEFAULT_USER_SETTINGS.defaultModel),
         rememberModel: Boolean(rememberModelInput && rememberModelInput.checked),
         enterToSend: Boolean(enterToSendInput && enterToSendInput.checked),
+        autoScroll: Boolean(autoScrollInput && autoScrollInput.checked),
+        sidebarStartsCollapsed: Boolean(sidebarStartsCollapsedInput && sidebarStartsCollapsedInput.checked),
+        sidebarWidth: normalizeClientLimit(sidebarWidthInput ? sidebarWidthInput.value : DEFAULT_USER_SETTINGS.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
+        chatWidth: normalizeClientLimit(chatWidthInput ? chatWidthInput.value : DEFAULT_USER_SETTINGS.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
+        bubbleRadius: normalizeClientLimit(bubbleRadiusInput ? bubbleRadiusInput.value : DEFAULT_USER_SETTINGS.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
+        bubbleTextSize: normalizeClientLimit(bubbleTextSizeInput ? bubbleTextSizeInput.value : DEFAULT_USER_SETTINGS.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
+        typingSpeed: normalizeClientLimit(typingSpeedInput ? typingSpeedInput.value : DEFAULT_USER_SETTINGS.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
+        cooldownMs: normalizeClientLimit(cooldownMsInput ? cooldownMsInput.value : DEFAULT_USER_SETTINGS.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
+        historyLimit: normalizeClientLimit(historyLimitInput ? historyLimitInput.value : DEFAULT_USER_SETTINGS.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
+        maxSessions: normalizeClientLimit(maxSessionsInput ? maxSessionsInput.value : DEFAULT_USER_SETTINGS.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
         memoryEnabled: Boolean(memoryEnabledInput && memoryEnabledInput.checked),
         projectMemoryEnabled: Boolean(projectMemoryEnabledInput && projectMemoryEnabledInput.checked),
         autoLearn: Boolean(autoLearnInput && autoLearnInput.checked)
       };
       persistUserSettingsPatch(patch, { syncModelDefaults: true });
+      applySidebarCollapsedState(Boolean(patch.sidebarStartsCollapsed), { persist: true });
+      trimSessionsToSettingLimit();
       if (onboardingNameInput) {
         onboardingNameInput.value = patch.preferredName;
       }
@@ -3020,16 +3569,22 @@ function applyUserSettingsToRuntime(options = {}) {
 
   userSettings.accentColor = normalizeHexColor(userSettings.accentColor, DEFAULT_USER_SETTINGS.accentColor);
   document.documentElement.style.setProperty("--accent", userSettings.accentColor);
+  document.documentElement.style.setProperty("--chat-width", `${normalizeClientLimit(userSettings.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200)}px`);
+  document.documentElement.style.setProperty("--sidebar-width", `${normalizeClientLimit(userSettings.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340)}px`);
+  document.documentElement.style.setProperty("--bubble-radius", `${normalizeClientLimit(userSettings.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30)}px`);
+  document.documentElement.style.setProperty("--bubble-font-size", `${normalizeClientLimit(userSettings.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18)}px`);
   if (document.body) {
     document.body.classList.toggle("settings-compact", Boolean(userSettings.compactMode));
     document.body.classList.toggle("settings-reduce-motion", Boolean(userSettings.reduceMotion));
+    document.body.classList.toggle("settings-hide-welcome-chips", !Boolean(userSettings.showStarterChips));
+    document.body.classList.toggle("settings-hide-timestamps", !Boolean(userSettings.showTimestamps));
   }
   refreshIncognitoChatTheme();
 
   clientLimits.typingSpeedMs = normalizeClientLimit(
     userSettings.typingSpeed,
     clientLimits.typingSpeedMs,
-    1,
+    0,
     500
   );
   clientLimits.cooldownMs = normalizeClientLimit(
@@ -3047,6 +3602,7 @@ function applyUserSettingsToRuntime(options = {}) {
   );
   clientLimits.maxHistoryMessages = clientLimits.historyLimit;
   trimHistoryToLimit();
+  trimSessionsToSettingLimit();
 
   if (syncModelDefaults) {
     DEFAULT_MODEL_ID = resolveDefaultModelId(MODEL_OPTIONS, getPreferredDefaultModelId() || DEFAULT_MODEL_ID);
@@ -3392,6 +3948,13 @@ function applySidebarCollapsedState(collapsed, options = {}) {
   setSidebarToggleButtonState();
   if (persist) {
     saveSidebarCollapsedToStorage(isSidebarCollapsed);
+    const nextSettings = { ...loadUserSettingsFromStorage(), sidebarStartsCollapsed: isSidebarCollapsed };
+    userSettings = { ...userSettings, sidebarStartsCollapsed: isSidebarCollapsed };
+    try {
+      localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(nextSettings));
+    } catch {
+      // Ignore storage write failures.
+    }
   }
 }
 
@@ -3605,6 +4168,7 @@ var autoScrollPaused = false;
 
 function scrollToBottom() {
   if (!chat) return;
+  if (!Boolean(userSettings.autoScroll)) return;
   if (autoScrollPaused) return;
   chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
 }
@@ -7003,22 +7567,31 @@ Rules:
 - If a graph might help but the user did not ask for one, mention that briefly but do not include a GRAPH line.
 - If you include GRAPH, provide exactly one valid Desmos expression and nothing else on that line.`;
 
-    const res = await fetchWithBanGuard(API_URL, {
-      method: "POST",
-      headers: buildApiHeaders(true, { modelId: sessionModel }),
-      body: JSON.stringify(withLocalKnowledge({
-        message: prompt,
-        history: [],
-        model: sessionModel,
-        max_tokens: 400,
-        enable_thinking: false
-      }))
-    });
-
-    const reply = await readChatTextResponse(res, {
-      onToken(answer) {
-        const liveReply = stripMathGraphDirective(answer).trim();
-        setBubbleContent(botMsg, liveReply || "Thinking...", false);
+    const reply = await runWithAutoMessageRetry(async (attempt) => {
+      const res = await fetchWithBanGuard(API_URL, {
+        method: "POST",
+        headers: buildApiHeaders(true, { modelId: sessionModel }),
+        body: JSON.stringify(withLocalKnowledge({
+          message: prompt,
+          history: [],
+          model: sessionModel,
+          max_tokens: 400,
+          enable_thinking: false
+        }))
+      });
+      if (attempt < AUTO_MESSAGE_RETRY_LIMIT && !res.ok) {
+        throw buildRetryableRequestError(res, `ROK Math request failed (${res.status || "unknown"})`);
+      }
+      return readChatTextResponse(res, {
+        onToken(answer) {
+          const liveReply = stripMathGraphDirective(answer).trim();
+          setBubbleContent(botMsg, liveReply || "Thinking...", false);
+          scrollMathChatToBottom();
+        }
+      });
+    }, {
+      onRetry({ attempt, delayMs, error, totalAttempts }) {
+        setBubbleContent(botMsg, formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK Math"), false);
         scrollMathChatToBottom();
       }
     });
@@ -7149,23 +7722,33 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
   renderSandboxUI();
 
   try {
-    const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, requestShouldThink, sandbox);
-    const analysisModel = requestBody.model;
-    activeRequestController = new AbortController();
-    const res = await fetchWithBanGuard(SANDBOX_URL, {
-      method: "POST",
-      headers: buildApiHeaders(true, { modelId: sessionModel }),
-      signal: activeRequestController.signal,
-      body: JSON.stringify(requestBody)
+    const analysis = await runWithAutoMessageRetry(async (attempt) => {
+      const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, requestShouldThink, sandbox);
+      const analysisModel = requestBody.model;
+      activeRequestController = new AbortController();
+      const res = await fetchWithBanGuard(SANDBOX_URL, {
+        method: "POST",
+        headers: buildApiHeaders(true, { modelId: sessionModel }),
+        signal: activeRequestController.signal,
+        body: JSON.stringify(requestBody)
+      });
+      applyThinkingQuotaFromHeaders(res);
+      applyDaedalusQuotaFromHeaders(res);
+      if (attempt < AUTO_MESSAGE_RETRY_LIMIT && !res.ok) {
+        throw buildRetryableRequestError(res, `ROK CODE request failed (${res.status || "unknown"})`);
+      }
+      if (!res.ok) {
+        const errorText = await safeReadResponseText(res);
+        throw new Error(errorText || `ROK CODE request failed (${res.status})`);
+      }
+      const payload = await res.json().catch(() => null);
+      return setActiveSandboxAnalysis(parseSandboxAnalysisResponse(payload, promptText, analysisModel));
+    }, {
+      onRetry({ attempt, error, totalAttempts }) {
+        sandbox.statusText = formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK CODE");
+        renderSandboxUI();
+      }
     });
-    applyThinkingQuotaFromHeaders(res);
-    applyDaedalusQuotaFromHeaders(res);
-    if (!res.ok) {
-      const errorText = await safeReadResponseText(res);
-      throw new Error(errorText || `ROK CODE request failed (${res.status})`);
-    }
-    const payload = await res.json().catch(() => null);
-    const analysis = setActiveSandboxAnalysis(parseSandboxAnalysisResponse(payload, promptText, analysisModel));
     completeSandboxActivity(analysis, sandbox);
     sandbox.statusText = analysis.files.length
       ? `Plan ready to review (${analysis.files.length} file change${analysis.files.length === 1 ? "" : "s"})`
@@ -10166,7 +10749,6 @@ async function send() {
 
     requestAttemptLoop: while (true) {
       console.log("sending chat request...");
-      activeRequestController = new AbortController();
       if (!writeBackToWorkspace) {
         if (imageAttachmentCount > 0) {
           handleStatusUpdate(`Analyzing image${imageAttachmentCount === 1 ? "" : "s"}...`);
@@ -10189,11 +10771,39 @@ async function send() {
       if (toolsEnabled) {
         requestBody.tools = BUILTIN_TOOLS;
       }
-      const res = await fetchWithBanGuard(API_URL, {
-        method: "POST",
-        headers: buildApiHeaders(true, { modelId: sessionModel }),
-        signal: activeRequestController.signal,
-        body: JSON.stringify(requestBody)
+      const res = await runWithAutoMessageRetry(async (attempt) => {
+        activeRequestController = new AbortController();
+        const response = await fetchWithBanGuard(API_URL, {
+          method: "POST",
+          headers: buildApiHeaders(true, { modelId: sessionModel }),
+          signal: activeRequestController.signal,
+          body: JSON.stringify(requestBody)
+        });
+        const responseContentType = (response.headers.get("content-type") || "").toLowerCase();
+        if (attempt < AUTO_MESSAGE_RETRY_LIMIT && (!response.ok || responseContentType.includes("text/html"))) {
+          throw buildRetryableRequestError(response, `ROK request failed (${response.status || "unknown"})`);
+        }
+        return response;
+      }, {
+        onRetry({ attempt, delayMs, error, totalAttempts }) {
+          if (Number(error && error.retryAfterSec) > 0) {
+            nextAllowedAt = Date.now() + delayMs;
+            startCooldownTimer();
+            refreshSendState();
+          }
+          const retryStatusText = formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK");
+          if (writeBackToWorkspace) {
+            setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.drafting, {
+              intentText: hasWorkspaceContext
+                ? "Retrying the workspace-aware draft after a request error."
+                : "Retrying the draft after a request error.",
+              outputTypeText: requestedOutputType,
+              summaryText: retryStatusText
+            });
+            return;
+          }
+          handleStatusUpdate(retryStatusText);
+        }
       });
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -10352,11 +10962,22 @@ async function send() {
               followupBody.enable_web_search = true;
             }
 
-            const followupRes = await fetchWithBanGuard(API_URL, {
-              method: "POST",
-              headers: buildApiHeaders(true, { modelId: sessionModel }),
-              signal: activeRequestController ? activeRequestController.signal : undefined,
-              body: JSON.stringify(followupBody)
+            const followupRes = await runWithAutoMessageRetry(async (attempt) => {
+              activeRequestController = new AbortController();
+              const response = await fetchWithBanGuard(API_URL, {
+                method: "POST",
+                headers: buildApiHeaders(true, { modelId: sessionModel }),
+                signal: activeRequestController.signal,
+                body: JSON.stringify(followupBody)
+              });
+              if (attempt < AUTO_MESSAGE_RETRY_LIMIT && !response.ok) {
+                throw buildRetryableRequestError(response, `Tool follow-up failed (${response.status || "unknown"})`);
+              }
+              return response;
+            }, {
+              onRetry({ attempt, error, totalAttempts }) {
+                handleStatusUpdate(formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK"));
+              }
             });
 
             if (!followupRes.ok) break;
@@ -10706,11 +11327,22 @@ async function send() {
           });
           if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
 
-          const followupRes = await fetchWithBanGuard(API_URL, {
-            method: "POST",
-            headers: buildApiHeaders(true, { modelId: sessionModel }),
-            signal: activeRequestController ? activeRequestController.signal : undefined,
-            body: JSON.stringify(followupBody)
+          const followupRes = await runWithAutoMessageRetry(async (attempt) => {
+            activeRequestController = new AbortController();
+            const response = await fetchWithBanGuard(API_URL, {
+              method: "POST",
+              headers: buildApiHeaders(true, { modelId: sessionModel }),
+              signal: activeRequestController.signal,
+              body: JSON.stringify(followupBody)
+            });
+            if (attempt < AUTO_MESSAGE_RETRY_LIMIT && !response.ok) {
+              throw buildRetryableRequestError(response, `Tool follow-up failed (${response.status || "unknown"})`);
+            }
+            return response;
+          }, {
+            onRetry({ attempt, error, totalAttempts }) {
+              handleStatusUpdate(formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK"));
+            }
           });
           if (!followupRes.ok) break;
 
@@ -11681,6 +12313,10 @@ document.addEventListener("keydown", (event) => {
   if (onboardingModal && !onboardingModal.hidden) {
     savePreferredNameToStorage("");
     finishOnboardingAndEnter();
+    return;
+  }
+  if (forumSurveyModal && !forumSurveyModal.hidden) {
+    hideForumSurveyModal({ markSeen: true });
     return;
   }
   if (composerTrayOpen) {
@@ -12684,78 +13320,75 @@ window.addEventListener("storage", function (event) {
   }
 });
 
-// Elixir Network Partnership Modal - One time popup
-function showElixirPartnershipModal() {
-  if (!elixirPartnershipModal) return false;
+function hasSeenForumSurveyModal() {
   try {
-    const hasSeen = localStorage.getItem(ELIXIR_PARTNERSHIP_SEEN_KEY);
-    if (hasSeen) return false; // Already shown
-    elixirPartnershipModal.hidden = false;
-    elixirPartnershipModal.setAttribute("aria-hidden", "false");
-    return true;
-  } catch (e) {
-    // Ignore storage errors, still show modal
-    elixirPartnershipModal.hidden = false;
-    elixirPartnershipModal.setAttribute("aria-hidden", "false");
-    return true;
+    return localStorage.getItem(FORUM_SURVEY_SEEN_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
-function hideElixirPartnershipModal() {
-  if (!elixirPartnershipModal) return;
-  elixirPartnershipModal.hidden = true;
-  elixirPartnershipModal.setAttribute("aria-hidden", "true");
+function markForumSurveyModalSeen() {
   try {
-    localStorage.setItem(ELIXIR_PARTNERSHIP_SEEN_KEY, "1");
-  } catch (e) {
-    // Ignore storage errors
+    localStorage.setItem(FORUM_SURVEY_SEEN_KEY, "1");
+  } catch {
+    // Ignore storage errors.
   }
 }
 
-function showRokImageModal() {
-  if (!rokImageModal) return false;
-  try {
-    const hasSeen = localStorage.getItem(ROK_IMAGE_MODAL_SEEN_KEY);
-    if (hasSeen) return false;
-    rokImageModal.hidden = false;
-    rokImageModal.setAttribute("aria-hidden", "false");
-    return true;
-  } catch (e) {
-    rokImageModal.hidden = false;
-    rokImageModal.setAttribute("aria-hidden", "false");
-    return true;
+function hideForumSurveyModal(options = {}) {
+  if (!forumSurveyModal) return;
+  const { markSeen = true } = options;
+  forumSurveyModal.hidden = true;
+  forumSurveyModal.setAttribute("aria-hidden", "true");
+  if (markSeen) {
+    markForumSurveyModalSeen();
   }
 }
 
-function hideRokImageModal() {
-  if (!rokImageModal) return;
-  rokImageModal.hidden = true;
-  rokImageModal.setAttribute("aria-hidden", "true");
+function showForumSurveyModal() {
+  if (!forumSurveyModal) return false;
+  if (hasSeenForumSurveyModal()) return false;
+  forumSurveyModal.hidden = false;
+  forumSurveyModal.setAttribute("aria-hidden", "false");
+  return true;
+}
+
+function maybeShowForumSurveyModal() {
+  if (!forumSurveyModal) return false;
+  if (isHomeScreenVisible()) return false;
+  if (isOnboardingModalVisible()) return false;
+  return showForumSurveyModal();
+}
+
+function openForumSurveyModalLink() {
+  hideForumSurveyModal({ markSeen: true });
   try {
-    localStorage.setItem(ROK_IMAGE_MODAL_SEEN_KEY, "1");
-  } catch (e) {
-    // Ignore storage errors
+    window.open(FORUM_SURVEY_URL, "_blank", "noopener,noreferrer");
+  } catch {
+    window.location.href = FORUM_SURVEY_URL;
   }
 }
 
-// Elixir modal event listeners
-if (elixirCloseBtn) {
-  elixirCloseBtn.addEventListener("click", hideElixirPartnershipModal);
+if (forumSurveyCloseBtn) {
+  forumSurveyCloseBtn.addEventListener("click", () => hideForumSurveyModal({ markSeen: true }));
 }
 
-if (elixirOkBtn) {
-  elixirOkBtn.addEventListener("click", hideElixirPartnershipModal);
+if (forumSurveyMaybeLaterBtn) {
+  forumSurveyMaybeLaterBtn.addEventListener("click", () => hideForumSurveyModal({ markSeen: true }));
 }
 
-if (rokImageCloseBtn) {
-  rokImageCloseBtn.addEventListener("click", hideRokImageModal);
+if (forumSurveyTakeBtn) {
+  forumSurveyTakeBtn.addEventListener("click", openForumSurveyModalLink);
 }
 
-if (rokImageOkBtn) {
-  rokImageOkBtn.addEventListener("click", hideRokImageModal);
+if (forumSurveyModal) {
+  forumSurveyModal.addEventListener("click", (e) => {
+    if (e.target === forumSurveyModal) {
+      hideForumSurveyModal({ markSeen: true });
+    }
+  });
 }
-
-// Keep announcements manual so first-run lands on the product itself.
 
 // â”€â”€ ROK Pixel Painter - VLM-guided image generation â”€â”€
 

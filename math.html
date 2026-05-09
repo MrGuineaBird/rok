@@ -527,6 +527,86 @@
       return fetch(url, requestOptions);
     }
 
+    const AUTO_MESSAGE_RETRY_LIMIT = 1;
+    const AUTO_MESSAGE_RETRY_BASE_DELAY_MS = 1100;
+    const AUTO_MESSAGE_RETRY_MAX_DELAY_MS = 12000;
+
+    function sleepMs(ms = 0) {
+      const safeMs = Math.max(0, Number(ms) || 0);
+      return new Promise((resolve) => setTimeout(resolve, safeMs));
+    }
+
+    function buildRetryableRequestError(response, fallbackMessage = "Request failed.") {
+      const status = Number(response && response.status) || 0;
+      const retryAfterRaw = response && response.headers ? response.headers.get("Retry-After") : "";
+      const retryAfterSec = Number.parseInt(String(retryAfterRaw || "").trim(), 10);
+      const error = new Error(fallbackMessage || (status ? `Request failed (${status})` : "Request failed."));
+      error.retryStatus = status;
+      error.retryAfterSec = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 0;
+      return error;
+    }
+
+    function shouldAutoRetryMessageError(error) {
+      return Boolean(error && error.name !== "AbortError" && !error.disableAutoRetry);
+    }
+
+    function getAutoRetryDelayMs(error, attemptNumber = 1) {
+      const retryAfterSec = Number.parseInt(String(error && error.retryAfterSec ? error.retryAfterSec : "").trim(), 10);
+      if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+        return Math.min(AUTO_MESSAGE_RETRY_MAX_DELAY_MS, Math.max(1200, retryAfterSec * 1000));
+      }
+      return Math.min(
+        AUTO_MESSAGE_RETRY_MAX_DELAY_MS,
+        AUTO_MESSAGE_RETRY_BASE_DELAY_MS * Math.max(1, Number(attemptNumber) || 1)
+      );
+    }
+
+    function formatAutoRetryStatusText(error, attemptNumber = 1, totalAttempts = AUTO_MESSAGE_RETRY_LIMIT + 1, label = "ROK Math") {
+      const safeLabel = String(label || "ROK Math").trim() || "ROK Math";
+      const safeTotal = Math.max(1, Number(totalAttempts) || (AUTO_MESSAGE_RETRY_LIMIT + 1));
+      const attemptIndex = Math.min(safeTotal, Math.max(1, Number(attemptNumber) || 1) + 1);
+      const attemptSuffix = safeTotal > 1 ? ` (${attemptIndex}/${safeTotal})` : "";
+      const retryStatus = Number(error && error.retryStatus) || 0;
+      if (retryStatus === 429) {
+        const retrySeconds = Math.max(1, Math.ceil(getAutoRetryDelayMs(error, attemptNumber) / 1000));
+        return `${safeLabel} is busy. Retrying in ${retrySeconds}s${attemptSuffix}...`;
+      }
+      if (retryStatus > 0) {
+        return `${safeLabel} hit ${retryStatus}. Retrying${attemptSuffix}...`;
+      }
+      return `${safeLabel} hit an error. Retrying${attemptSuffix}...`;
+    }
+
+    async function runWithAutoMessageRetry(task, options = {}) {
+      const runTask = typeof task === "function" ? task : null;
+      if (!runTask) {
+        throw new Error("Auto-retry task must be a function.");
+      }
+      const maxRetries = Math.max(0, Number(options.maxRetries) || AUTO_MESSAGE_RETRY_LIMIT);
+      const onRetry = typeof options.onRetry === "function" ? options.onRetry : null;
+      let attempt = 0;
+      while (true) {
+        try {
+          return await runTask(attempt);
+        } catch (error) {
+          if (attempt >= maxRetries || !shouldAutoRetryMessageError(error)) {
+            throw error;
+          }
+          attempt += 1;
+          const delayMs = getAutoRetryDelayMs(error, attempt);
+          if (onRetry) {
+            await onRetry({
+              attempt,
+              delayMs,
+              error,
+              totalAttempts: maxRetries + 1
+            });
+          }
+          await sleepMs(delayMs);
+        }
+      }
+    }
+
     async function safeReadText(response) {
       if (!response) return "";
       try {
@@ -948,25 +1028,35 @@ Rules:
 - If a graph might help but the user did not ask for one, mention that briefly but do not include a GRAPH line.
 - If you include GRAPH, provide exactly one valid Desmos expression and nothing else on that line.`;
 
-        const res = await fetchWithSession(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: prompt,
-            history: [],
-            model: MATH_CHAT_MODEL,
-            max_tokens: 400,
-            enable_thinking: false
-          })
-        });
         let streamUpdateCount = 0;
-        const reply = await readChatReply(res, {
-          onToken(answer) {
-            streamUpdateCount += 1;
-            const liveReply = stripMathGraphDirective(answer).trim();
-            renderRokMessage(botEl, liveReply || "Thinking...", false);
+        const reply = await runWithAutoMessageRetry(async (attempt) => {
+          const res = await fetchWithSession(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              message: prompt,
+              history: [],
+              model: MATH_CHAT_MODEL,
+              max_tokens: 400,
+              enable_thinking: false
+            })
+          });
+          if (attempt < AUTO_MESSAGE_RETRY_LIMIT && !res.ok) {
+            throw buildRetryableRequestError(res, `ROK Math request failed (${res.status || "unknown"})`);
+          }
+          return readChatReply(res, {
+            onToken(answer) {
+              streamUpdateCount += 1;
+              const liveReply = stripMathGraphDirective(answer).trim();
+              renderRokMessage(botEl, liveReply || "Thinking...", false);
+              scrollMsgsToBottom();
+            }
+          });
+        }, {
+          onRetry({ attempt, error, totalAttempts }) {
+            renderRokMessage(botEl, formatAutoRetryStatusText(error, attempt, totalAttempts, "ROK Math"), false);
             scrollMsgsToBottom();
           }
         });

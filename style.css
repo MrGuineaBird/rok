@@ -14,7 +14,10 @@
   --scrollbar-thumb: #7A2A2A;
   --scrollbar-thumb-2: #B53C3C;
   --scrollbar-thumb-hover: #D14B4B;
+  --sidebar-width: 220px;
   --chat-width: 760px;
+  --bubble-radius: 18px;
+  --bubble-font-size: 14px;
 }
 
 * {
@@ -90,12 +93,20 @@ body.settings-compact .attachment-list {
   padding-right: 12px;
 }
 
+body.settings-hide-welcome-chips .chat-welcome-chips {
+  display: none;
+}
+
+body.settings-hide-timestamps .msg-time {
+  display: none !important;
+}
+
 .app {
   height: 100vh;
   height: 100dvh;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
   overflow: hidden;
   transition: grid-template-columns 180ms ease;
 }
@@ -551,6 +562,13 @@ body.settings-compact .attachment-list {
   min-width: 132px;
   padding: 11px 15px;
   border-radius: 12px;
+}
+
+a.server-down-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .server-down-btn.ghost {
@@ -4620,9 +4638,9 @@ body.settings-compact .attachment-list {
 .bubble {
   max-width: min(680px, 88vw);
   padding: 10px 14px;
-  border-radius: 18px;
+  border-radius: var(--bubble-radius);
   line-height: 1.6;
-  font-size: 14px;
+  font-size: var(--bubble-font-size);
   /* bot: no bubble */
   background: transparent;
   border: none;
@@ -4633,7 +4651,7 @@ body.settings-compact .attachment-list {
 .msg.user .bubble {
   background: #1B0D0D;
   border: 1px solid #3A2222;
-  border-radius: 18px;
+  border-radius: var(--bubble-radius);
   padding: 10px 16px;
   color: var(--text);
 }
@@ -4641,7 +4659,7 @@ body.settings-compact .attachment-list {
 .msg.system .bubble {
   background: transparent;
   border: 1px dashed #402A2A;
-  border-radius: 10px;
+  border-radius: max(10px, calc(var(--bubble-radius) - 8px));
   color: var(--muted);
   font-size: 12px;
   text-align: center;
@@ -5348,8 +5366,8 @@ body.settings-compact .attachment-list {
 }
 
 .customize-rok-modal {
-  width: min(760px, calc(100vw - 32px));
-  max-width: 760px;
+  width: min(920px, calc(100vw - 32px));
+  max-width: 920px;
   max-height: min(88vh, 860px);
   display: flex;
   flex-direction: column;
@@ -5429,6 +5447,28 @@ body.settings-compact .attachment-list {
   color: #e9cccc;
 }
 
+.customize-rok-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customize-rok-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 75, 75, 0.2);
+  background: rgba(209, 75, 75, 0.12);
+  color: #f2cece;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .customize-rok-help {
   font-size: 11px;
   line-height: 1.45;
@@ -5480,6 +5520,17 @@ body.settings-compact .attachment-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.customize-rok-range-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customize-rok-range {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .customize-rok-swatch {
@@ -5562,18 +5613,68 @@ body.settings-compact .attachment-list {
   appearance: none;
 }
 
+.customize-rok-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.customize-rok-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 100px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #382121;
+  background: rgba(18, 10, 10, 0.9);
+  color: #ecd6d6;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.customize-rok-action-btn:hover {
+  transform: translateY(-1px);
+  border-color: #5a2d2d;
+  background: rgba(26, 14, 14, 0.94);
+}
+
+.customize-rok-action-btn strong {
+  font-size: 13px;
+}
+
+.customize-rok-action-btn span {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #9f7777;
+}
+
+.customize-rok-action-btn.danger {
+  border-color: #4a2222;
+}
+
+.customize-rok-action-btn.danger strong {
+  color: #f2caca;
+}
+
 .customize-rok-btns {
   margin-top: 0;
 }
 
 @media (max-width: 720px) {
   .customize-rok-modal {
-    width: min(100vw - 20px, 760px);
+    width: min(100vw - 20px, 920px);
     max-height: min(92vh, 860px);
     padding: 16px;
   }
 
   .customize-rok-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customize-rok-range-grid {
     grid-template-columns: 1fr;
   }
 
