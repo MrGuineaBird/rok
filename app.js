@@ -88,6 +88,8 @@ const homeStartBtnAlt = document.getElementById("homeStartBtnAlt");
 const homePrivacyBtn = document.getElementById("homePrivacyBtn");
 const clearBtn = document.getElementById("clearBtn");
 const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+const topbarActions = document.querySelector(".topbar-actions");
+const layoutEditToggleBtn = document.getElementById("layoutEditToggleBtn");
 const chatSearchBar = document.getElementById("chatSearchBar");
 const chatSearchInput = document.getElementById("chatSearchInput");
 const chatSearchCount = document.getElementById("chatSearchCount");
@@ -227,6 +229,9 @@ const TOS_VERSION = 1;
 const ONBOARDING_TOUR_VERSION = 5;
 const CUSTOMIZATION_NAME_MAX_CHARS = 64;
 const CUSTOMIZATION_PROMPT_MAX_CHARS = 2400;
+const WORKSPACE_TAB_LABEL_MAX_CHARS = 24;
+const CUSTOM_WORKSPACE_TAB_URL_MAX_CHARS = 320;
+const CUSTOM_WORKSPACE_TAB_LIMIT = 8;
 const CUSTOMIZATION_ACCENT_PRESETS = [
   "#d14b4b",
   "#e27a3f",
@@ -238,6 +243,30 @@ const CUSTOMIZATION_ACCENT_PRESETS = [
 const MAX_LOCAL_SESSIONS = 30;
 const CUSTOMIZATION_EXPORT_VERSION = 1;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
+const DEFAULT_WORKSPACE_TAB_LABELS = {
+  chat: "Chat",
+  sandbox: "ROK CODE",
+  math: "ROK MATH"
+};
+const DEFAULT_SIDEBAR_SECTION_ORDER = ["header", "tabs", "chats", "memory"];
+const DEFAULT_TOPBAR_ACTION_ORDER = ["customize", "incognito", "clear"];
+const DEFAULT_MAIN_SECTION_ORDER = ["tabs", "content", "composer"];
+const SIDEBAR_SECTION_LABELS = {
+  header: "Brand + new chat",
+  tabs: "Views",
+  chats: "Chats",
+  memory: "Memory"
+};
+const TOPBAR_ACTION_LABELS = {
+  customize: "Customize",
+  incognito: "Incognito",
+  clear: "Clear"
+};
+const MAIN_SECTION_LABELS = {
+  tabs: "Workspace tabs",
+  content: "Conversation / active tool",
+  composer: "Composer"
+};
 const DEFAULT_USER_SETTINGS = {
   defaultModel: DEFAULT_CHAT_MODEL,
   rememberModel: true,
@@ -265,7 +294,15 @@ const DEFAULT_USER_SETTINGS = {
   autoLearn: true,
   incognitoMode: false,
   askBeforeSensitiveSend: true,
-  showEvidenceButtons: true
+  showEvidenceButtons: true,
+  workspaceTabLabels: {},
+  customWorkspaceTabs: [],
+  workspaceTabOrder: ["chat", "sandbox", "math"],
+  sidebarSectionOrder: [...DEFAULT_SIDEBAR_SECTION_ORDER],
+  topbarActionOrder: [...DEFAULT_TOPBAR_ACTION_ORDER],
+  mainSectionOrder: [...DEFAULT_MAIN_SECTION_ORDER],
+  showTopWorkspaceTabs: true,
+  showSidebarWorkspaceTabs: true
 };
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
@@ -1413,82 +1450,167 @@ function sanitizeLongUserSettingText(rawValue, maxChars = CUSTOMIZATION_PROMPT_M
     .slice(0, maxChars);
 }
 
+function sanitizeWorkspaceTabLabel(rawValue, fallback = "") {
+  const sanitized = sanitizeShortUserSettingText(rawValue, WORKSPACE_TAB_LABEL_MAX_CHARS);
+  return sanitized || fallback;
+}
+
+function sanitizeCustomWorkspaceTabUrl(rawValue) {
+  const trimmed = String(rawValue || "").trim().slice(0, CUSTOM_WORKSPACE_TAB_URL_MAX_CHARS);
+  if (!trimmed) return "";
+  if (/^(https?:\/\/|mailto:|\/|\.\/|\.\.\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return "";
+}
+
+function normalizeWorkspaceTabLabels(rawLabels = {}) {
+  const source = rawLabels && typeof rawLabels === "object" ? rawLabels : {};
+  const next = {};
+  WORKSPACE_TAB_KEYS.forEach((tabId) => {
+    const label = sanitizeWorkspaceTabLabel(source[tabId], DEFAULT_WORKSPACE_TAB_LABELS[tabId]);
+    if (label && label !== DEFAULT_WORKSPACE_TAB_LABELS[tabId]) {
+      next[tabId] = label;
+    }
+  });
+  return next;
+}
+
+function sanitizeCustomWorkspaceTabs(rawTabs = []) {
+  if (!Array.isArray(rawTabs)) return [];
+  const seenIds = new Set();
+  const sanitized = [];
+  rawTabs.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object") return;
+    const label = sanitizeWorkspaceTabLabel(entry.label, "");
+    const url = sanitizeCustomWorkspaceTabUrl(entry.url);
+    if (!label || !url) return;
+    let id = sanitizeShortUserSettingText(entry.id || `custom-${index + 1}`, 40)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!id) {
+      id = `custom-${index + 1}`;
+    }
+    while (seenIds.has(id) || WORKSPACE_TAB_KEYS.includes(id)) {
+      id = `${id}-${sanitized.length + 1}`;
+    }
+    seenIds.add(id);
+    sanitized.push({
+      id,
+      label,
+      url,
+      kind: "external"
+    });
+  });
+  return sanitized.slice(0, CUSTOM_WORKSPACE_TAB_LIMIT);
+}
+
+function sanitizeOrderedSetting(rawOrder, fallbackOrder, validIds = []) {
+  const fallback = Array.isArray(fallbackOrder) ? fallbackOrder.slice() : [];
+  const allowed = new Set(validIds);
+  const next = [];
+  if (Array.isArray(rawOrder)) {
+    rawOrder.forEach((rawId) => {
+      const id = String(rawId || "").trim();
+      if (!id || !allowed.has(id) || next.includes(id)) return;
+      next.push(id);
+    });
+  }
+  fallback.forEach((id) => {
+    if (allowed.has(id) && !next.includes(id)) {
+      next.push(id);
+    }
+  });
+  validIds.forEach((id) => {
+    if (!next.includes(id)) {
+      next.push(id);
+    }
+  });
+  return next;
+}
+
+function sanitizeWorkspaceTabOrder(rawOrder, customTabs = []) {
+  const validIds = [...WORKSPACE_TAB_KEYS, ...customTabs.map((item) => item.id)];
+  return sanitizeOrderedSetting(rawOrder, WORKSPACE_TAB_KEYS, validIds);
+}
+
+function sanitizeSidebarSectionOrder(rawOrder) {
+  return sanitizeOrderedSetting(rawOrder, DEFAULT_SIDEBAR_SECTION_ORDER, DEFAULT_SIDEBAR_SECTION_ORDER);
+}
+
+function sanitizeTopbarActionOrder(rawOrder) {
+  return sanitizeOrderedSetting(rawOrder, DEFAULT_TOPBAR_ACTION_ORDER, DEFAULT_TOPBAR_ACTION_ORDER);
+}
+
+function sanitizeMainSectionOrder(rawOrder) {
+  return sanitizeOrderedSetting(rawOrder, DEFAULT_MAIN_SECTION_ORDER, DEFAULT_MAIN_SECTION_ORDER);
+}
+
+function buildSanitizedUserSettings(sourceSettings = {}) {
+  const source = sourceSettings && typeof sourceSettings === "object" ? sourceSettings : {};
+  const merged = { ...DEFAULT_USER_SETTINGS, ...source };
+  const customWorkspaceTabs = sanitizeCustomWorkspaceTabs(merged.customWorkspaceTabs);
+  return {
+    preferredName: sanitizeShortUserSettingText(merged.preferredName),
+    customIdentityName: sanitizeShortUserSettingText(merged.customIdentityName),
+    customSystemPrompt: sanitizeLongUserSettingText(merged.customSystemPrompt),
+    accentColor: normalizeHexColor(merged.accentColor, DEFAULT_USER_SETTINGS.accentColor),
+    compactMode: Boolean(merged.compactMode),
+    reduceMotion: Boolean(merged.reduceMotion),
+    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, merged.defaultModel || DEFAULT_USER_SETTINGS.defaultModel),
+    rememberModel: merged.rememberModel !== false,
+    enterToSend: merged.enterToSend !== false,
+    autoScroll: merged.autoScroll !== false,
+    sidebarStartsCollapsed: Boolean(merged.sidebarStartsCollapsed),
+    sidebarWidth: normalizeClientLimit(merged.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
+    chatWidth: normalizeClientLimit(merged.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
+    bubbleRadius: normalizeClientLimit(merged.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
+    bubbleTextSize: normalizeClientLimit(merged.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
+    showStarterChips: merged.showStarterChips !== false,
+    showTimestamps: merged.showTimestamps !== false,
+    maxSessions: normalizeClientLimit(merged.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
+    historyLimit: normalizeClientLimit(merged.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
+    cooldownMs: normalizeClientLimit(merged.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
+    typingSpeed: normalizeClientLimit(merged.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
+    memoryEnabled: merged.memoryEnabled !== false,
+    projectMemoryEnabled: merged.projectMemoryEnabled !== false,
+    autoLearn: merged.autoLearn !== false,
+    incognitoMode: Boolean(merged.incognitoMode),
+    askBeforeSensitiveSend: merged.askBeforeSensitiveSend !== false,
+    showEvidenceButtons: merged.showEvidenceButtons !== false,
+    workspaceTabLabels: normalizeWorkspaceTabLabels(merged.workspaceTabLabels),
+    customWorkspaceTabs,
+    workspaceTabOrder: sanitizeWorkspaceTabOrder(merged.workspaceTabOrder, customWorkspaceTabs),
+    sidebarSectionOrder: sanitizeSidebarSectionOrder(merged.sidebarSectionOrder),
+    topbarActionOrder: sanitizeTopbarActionOrder(merged.topbarActionOrder),
+    mainSectionOrder: sanitizeMainSectionOrder(merged.mainSectionOrder),
+    showTopWorkspaceTabs: merged.showTopWorkspaceTabs !== false,
+    showSidebarWorkspaceTabs: merged.showSidebarWorkspaceTabs !== false
+  };
+}
+
 function loadUserSettingsFromStorage() {
   try {
     const raw = localStorage.getItem(USER_SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_USER_SETTINGS };
+    if (!raw) return buildSanitizedUserSettings(DEFAULT_USER_SETTINGS);
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_USER_SETTINGS };
-    return { ...DEFAULT_USER_SETTINGS, ...parsed };
+    if (!parsed || typeof parsed !== "object") return buildSanitizedUserSettings(DEFAULT_USER_SETTINGS);
+    return buildSanitizedUserSettings(parsed);
   } catch {
-    return { ...DEFAULT_USER_SETTINGS };
+    return buildSanitizedUserSettings(DEFAULT_USER_SETTINGS);
   }
 }
 
 function buildExportableUserSettings() {
-  const source = { ...DEFAULT_USER_SETTINGS, ...loadUserSettingsFromStorage(), ...userSettings };
-  return {
-    preferredName: sanitizeShortUserSettingText(source.preferredName),
-    customIdentityName: sanitizeShortUserSettingText(source.customIdentityName),
-    customSystemPrompt: sanitizeLongUserSettingText(source.customSystemPrompt),
-    accentColor: normalizeHexColor(source.accentColor, DEFAULT_USER_SETTINGS.accentColor),
-    compactMode: Boolean(source.compactMode),
-    reduceMotion: Boolean(source.reduceMotion),
-    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, source.defaultModel || DEFAULT_USER_SETTINGS.defaultModel),
-    rememberModel: source.rememberModel !== false,
-    enterToSend: Boolean(source.enterToSend),
-    autoScroll: Boolean(source.autoScroll),
-    sidebarStartsCollapsed: Boolean(source.sidebarStartsCollapsed),
-    sidebarWidth: normalizeClientLimit(source.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
-    chatWidth: normalizeClientLimit(source.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
-    bubbleRadius: normalizeClientLimit(source.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
-    bubbleTextSize: normalizeClientLimit(source.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
-    showStarterChips: Boolean(source.showStarterChips),
-    showTimestamps: Boolean(source.showTimestamps),
-    maxSessions: normalizeClientLimit(source.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
-    historyLimit: normalizeClientLimit(source.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
-    cooldownMs: normalizeClientLimit(source.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
-    typingSpeed: normalizeClientLimit(source.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
-    memoryEnabled: Boolean(source.memoryEnabled),
-    projectMemoryEnabled: Boolean(source.projectMemoryEnabled),
-    autoLearn: Boolean(source.autoLearn),
-    incognitoMode: Boolean(source.incognitoMode),
-    askBeforeSensitiveSend: source.askBeforeSensitiveSend !== false,
-    showEvidenceButtons: source.showEvidenceButtons !== false
-  };
+  return buildSanitizedUserSettings({ ...DEFAULT_USER_SETTINGS, ...loadUserSettingsFromStorage(), ...userSettings });
 }
 
 function sanitizeImportedUserSettings(rawSettings = {}) {
-  const source = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
-  return {
-    preferredName: sanitizeShortUserSettingText(source.preferredName),
-    customIdentityName: sanitizeShortUserSettingText(source.customIdentityName),
-    customSystemPrompt: sanitizeLongUserSettingText(source.customSystemPrompt),
-    accentColor: normalizeHexColor(source.accentColor, DEFAULT_USER_SETTINGS.accentColor),
-    compactMode: Boolean(source.compactMode),
-    reduceMotion: Boolean(source.reduceMotion),
-    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, source.defaultModel || DEFAULT_USER_SETTINGS.defaultModel),
-    rememberModel: source.rememberModel !== false,
-    enterToSend: source.enterToSend !== false,
-    autoScroll: source.autoScroll !== false,
-    sidebarStartsCollapsed: source.sidebarStartsCollapsed !== false,
-    sidebarWidth: normalizeClientLimit(source.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
-    chatWidth: normalizeClientLimit(source.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
-    bubbleRadius: normalizeClientLimit(source.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
-    bubbleTextSize: normalizeClientLimit(source.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
-    showStarterChips: source.showStarterChips !== false,
-    showTimestamps: source.showTimestamps !== false,
-    maxSessions: normalizeClientLimit(source.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
-    historyLimit: normalizeClientLimit(source.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
-    cooldownMs: normalizeClientLimit(source.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
-    typingSpeed: normalizeClientLimit(source.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
-    memoryEnabled: source.memoryEnabled !== false,
-    projectMemoryEnabled: source.projectMemoryEnabled !== false,
-    autoLearn: source.autoLearn !== false,
-    incognitoMode: Boolean(source.incognitoMode),
-    askBeforeSensitiveSend: source.askBeforeSensitiveSend !== false,
-    showEvidenceButtons: source.showEvidenceButtons !== false
-  };
+  return buildSanitizedUserSettings(rawSettings);
 }
 
 function downloadJsonFile(filename, payload) {
@@ -2472,6 +2594,430 @@ let activeDaedalusLimitModal = null;
 let activeDaedalusKeyModal = null;
 let activeCustomOllamaSetupModal = null;
 let activeCustomizeRokModal = null;
+let activeLayoutStudioModal = null;
+let isLiveLayoutEditMode = false;
+let activeLiveLayoutDrag = null;
+
+function closeLayoutStudioModal(result) {
+  if (!activeLayoutStudioModal) return;
+  const { overlay, resolve, keydownHandler } = activeLayoutStudioModal;
+  activeLayoutStudioModal = null;
+  if (keydownHandler) {
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+  resolve(result || null);
+}
+
+function createLayoutStudioDndBoard(board, getOrder, renderItem, onReorder) {
+  if (!(board instanceof HTMLElement)) return;
+  let draggingId = "";
+
+  const render = () => {
+    const order = Array.isArray(getOrder()) ? getOrder() : [];
+    board.innerHTML = "";
+    order.forEach((itemId) => {
+      const item = renderItem(itemId);
+      if (!(item instanceof HTMLElement)) return;
+      item.setAttribute("draggable", "true");
+      item.setAttribute("data-layout-item-id", itemId);
+      board.appendChild(item);
+    });
+  };
+
+  const getDragAfterElement = (container, y) => {
+    const elements = [...container.querySelectorAll("[data-layout-item-id]:not(.is-dragging)")];
+    return elements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+  };
+
+  board.addEventListener("dragstart", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const item = target.closest("[data-layout-item-id]");
+    if (!(item instanceof HTMLElement)) return;
+    draggingId = item.getAttribute("data-layout-item-id") || "";
+    item.classList.add("is-dragging");
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggingId);
+    }
+  });
+
+  board.addEventListener("dragend", () => {
+    draggingId = "";
+    board.querySelectorAll(".is-dragging").forEach((node) => node.classList.remove("is-dragging"));
+  });
+
+  board.addEventListener("dragover", (event) => {
+    if (!draggingId) return;
+    event.preventDefault();
+    const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(draggingId)
+      : draggingId.replace(/["\\]/g, "\\$&");
+    const draggingEl = board.querySelector(`[data-layout-item-id="${escapedId}"]`);
+    if (!(draggingEl instanceof HTMLElement)) return;
+    const afterElement = getDragAfterElement(board, event.clientY);
+    if (!afterElement) {
+      board.appendChild(draggingEl);
+      return;
+    }
+    if (afterElement !== draggingEl) {
+      board.insertBefore(draggingEl, afterElement);
+    }
+  });
+
+  board.addEventListener("drop", (event) => {
+    if (!draggingId) return;
+    event.preventDefault();
+    const nextOrder = Array.from(board.querySelectorAll("[data-layout-item-id]"))
+      .map((node) => node.getAttribute("data-layout-item-id") || "")
+      .filter(Boolean);
+    onReorder(nextOrder);
+    render();
+  });
+
+  render();
+  return { render };
+}
+
+function openLayoutStudioModal() {
+  if (activeLayoutStudioModal) {
+    return activeLayoutStudioModal.promise;
+  }
+
+  let resolveModal = null;
+  const promise = new Promise((resolve) => {
+    resolveModal = resolve;
+  });
+
+  const sourceSettings = buildExportableUserSettings();
+  let draftTabLabels = {
+    ...DEFAULT_WORKSPACE_TAB_LABELS,
+    ...(sourceSettings.workspaceTabLabels || {})
+  };
+  let draftCustomTabs = sanitizeCustomWorkspaceTabs(sourceSettings.customWorkspaceTabs);
+  let draftTabOrder = sanitizeWorkspaceTabOrder(sourceSettings.workspaceTabOrder, draftCustomTabs);
+  let draftSidebarOrder = sanitizeSidebarSectionOrder(sourceSettings.sidebarSectionOrder);
+  let draftTopbarOrder = sanitizeTopbarActionOrder(sourceSettings.topbarActionOrder);
+  let draftMainOrder = sanitizeMainSectionOrder(sourceSettings.mainSectionOrder);
+  let draftShowTopTabs = sourceSettings.showTopWorkspaceTabs !== false;
+  let draftShowSidebarTabs = sourceSettings.showSidebarWorkspaceTabs !== false;
+
+  const overlay = document.createElement("div");
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal layout-studio-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "layoutStudioTitle");
+  modal.innerHTML = `
+    <div class="customize-rok-head">
+      <div>
+        <div class="customize-rok-kicker">Ultimate control</div>
+        <h2 id="layoutStudioTitle" class="correction-modal-title">Layout Studio</h2>
+        <p class="correction-modal-hint">Rename built-in tabs, add your own link tabs, and drag the shell pieces into the order you want.</p>
+      </div>
+    </div>
+    <div class="customize-rok-body layout-studio-body">
+      <section class="customize-rok-section">
+        <div class="customize-rok-section-head">
+          <span class="customize-rok-section-kicker">Workspace tabs</span>
+          <h3 class="customize-rok-section-title">Rename them and add your own</h3>
+        </div>
+        <div class="customize-rok-toggle-grid">
+          <label class="customize-rok-toggle">
+            <input data-layout-field="showTopTabs" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show top workspace tabs</strong>
+              <span>Keep the tabs row above the active view.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-layout-field="showSidebarTabs" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show sidebar workspace tabs</strong>
+              <span>Keep the Views section visible in the left rail.</span>
+            </span>
+          </label>
+        </div>
+        <div class="layout-studio-builder">
+          <input class="correction-modal-input" data-layout-field="newTabLabel" type="text" maxlength="${WORKSPACE_TAB_LABEL_MAX_CHARS}" placeholder="New tab name" />
+          <input class="correction-modal-input" data-layout-field="newTabUrl" type="text" maxlength="${CUSTOM_WORKSPACE_TAB_URL_MAX_CHARS}" placeholder="https://example.com or /status" />
+          <button class="customize-rok-action-btn" type="button" data-layout-action="add-tab">
+            <strong>Add link tab</strong>
+            <span>Custom tabs open in a new browser tab.</span>
+          </button>
+        </div>
+        <div class="layout-studio-board" data-layout-board="workspace-tabs"></div>
+        <div class="customize-rok-help">Drag to reorder. Built-ins switch the active ROK view. Custom tabs can point anywhere you want.</div>
+      </section>
+      <section class="customize-rok-section">
+        <div class="customize-rok-section-head">
+          <span class="customize-rok-section-kicker">Shell layout</span>
+          <h3 class="customize-rok-section-title">Drag the app chrome around</h3>
+        </div>
+        <div class="layout-studio-grid">
+          <div class="layout-studio-card">
+            <div class="layout-studio-card-title">Sidebar sections</div>
+            <div class="layout-studio-board" data-layout-board="sidebar"></div>
+          </div>
+          <div class="layout-studio-card">
+            <div class="layout-studio-card-title">Topbar actions</div>
+            <div class="layout-studio-board" data-layout-board="topbar"></div>
+          </div>
+          <div class="layout-studio-card">
+            <div class="layout-studio-card-title">Chat stack</div>
+            <div class="layout-studio-board" data-layout-board="main"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="correction-modal-btns customize-rok-btns">
+      <button class="correction-modal-cancel" type="button" data-layout-action="reset">Reset layout</button>
+      <button class="correction-modal-cancel" type="button" data-layout-action="cancel">Cancel</button>
+      <button class="correction-modal-submit" type="button" data-layout-action="save">Save layout control</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const workspaceTabsBoard = modal.querySelector('[data-layout-board="workspace-tabs"]');
+  const sidebarBoard = modal.querySelector('[data-layout-board="sidebar"]');
+  const topbarBoard = modal.querySelector('[data-layout-board="topbar"]');
+  const mainBoard = modal.querySelector('[data-layout-board="main"]');
+  const showTopTabsInput = modal.querySelector('[data-layout-field="showTopTabs"]');
+  const showSidebarTabsInput = modal.querySelector('[data-layout-field="showSidebarTabs"]');
+  const newTabLabelInput = modal.querySelector('[data-layout-field="newTabLabel"]');
+  const newTabUrlInput = modal.querySelector('[data-layout-field="newTabUrl"]');
+  const addTabBtn = modal.querySelector('[data-layout-action="add-tab"]');
+  const resetBtn = modal.querySelector('[data-layout-action="reset"]');
+  const cancelBtn = modal.querySelector('[data-layout-action="cancel"]');
+  const saveBtn = modal.querySelector('[data-layout-action="save"]');
+
+  const getWorkspaceBoardOrder = () => draftTabOrder;
+  const getWorkspaceItemById = (id) => {
+    if (WORKSPACE_TAB_KEYS.includes(id)) {
+      return {
+        id,
+        label: draftTabLabels[id] || DEFAULT_WORKSPACE_TAB_LABELS[id],
+        kind: "workspace"
+      };
+    }
+    return draftCustomTabs.find((item) => item.id === id) || null;
+  };
+
+  const renderWorkspaceTabItem = (id) => {
+    const item = getWorkspaceItemById(id);
+    if (!item) return null;
+    const row = document.createElement("div");
+    row.className = "layout-studio-item";
+    row.innerHTML = `
+      <div class="layout-studio-handle" aria-hidden="true">::</div>
+      <div class="layout-studio-item-body">
+        <input class="correction-modal-input layout-studio-label-input" type="text" maxlength="${WORKSPACE_TAB_LABEL_MAX_CHARS}" value="${escapeHtml(item.label || "")}" />
+        ${item.kind === "workspace"
+          ? `<div class="layout-studio-meta">Built-in ROK view</div>`
+          : `<input class="correction-modal-input layout-studio-url-input" type="text" maxlength="${CUSTOM_WORKSPACE_TAB_URL_MAX_CHARS}" value="${escapeHtml(item.url || "")}" placeholder="https://example.com" />
+             <div class="layout-studio-meta">Custom link tab</div>`}
+      </div>
+      ${item.kind === "workspace"
+        ? `<div class="layout-studio-chip">Built-in</div>`
+        : `<button class="correction-modal-cancel layout-studio-remove-btn" type="button" data-layout-remove-tab="${item.id}">Remove</button>`}
+    `;
+    const labelInput = row.querySelector(".layout-studio-label-input");
+    if (labelInput instanceof HTMLInputElement) {
+      labelInput.addEventListener("input", () => {
+        const nextLabel = sanitizeWorkspaceTabLabel(labelInput.value, item.kind === "workspace" ? DEFAULT_WORKSPACE_TAB_LABELS[id] : "");
+        if (item.kind === "workspace") {
+          draftTabLabels[id] = nextLabel || DEFAULT_WORKSPACE_TAB_LABELS[id];
+        } else {
+          draftCustomTabs = draftCustomTabs.map((entry) => entry.id === id ? { ...entry, label: nextLabel || entry.label } : entry);
+        }
+      });
+    }
+    const urlInput = row.querySelector(".layout-studio-url-input");
+    if (urlInput instanceof HTMLInputElement) {
+      urlInput.addEventListener("input", () => {
+        draftCustomTabs = draftCustomTabs.map((entry) => entry.id === id ? { ...entry, url: urlInput.value } : entry);
+      });
+    }
+    const removeBtn = row.querySelector(`[data-layout-remove-tab="${id}"]`);
+    if (removeBtn instanceof HTMLButtonElement) {
+      removeBtn.addEventListener("click", () => {
+        draftCustomTabs = draftCustomTabs.filter((entry) => entry.id !== id);
+        draftTabOrder = sanitizeWorkspaceTabOrder(draftTabOrder.filter((entryId) => entryId !== id), draftCustomTabs);
+        workspaceBoard.render();
+      });
+    }
+    return row;
+  };
+
+  const renderSimpleLayoutItem = (label) => {
+    const row = document.createElement("div");
+    row.className = "layout-studio-item layout-studio-item-simple";
+    row.innerHTML = `
+      <div class="layout-studio-handle" aria-hidden="true">::</div>
+      <div class="layout-studio-item-body">
+        <div class="layout-studio-item-title">${escapeHtml(label)}</div>
+      </div>
+    `;
+    return row;
+  };
+
+  const workspaceBoard = createLayoutStudioDndBoard(
+    workspaceTabsBoard,
+    () => draftTabOrder,
+    renderWorkspaceTabItem,
+    (nextOrder) => {
+      draftTabOrder = sanitizeWorkspaceTabOrder(nextOrder, draftCustomTabs);
+    }
+  );
+
+  const sidebarLayoutBoard = createLayoutStudioDndBoard(
+    sidebarBoard,
+    () => draftSidebarOrder,
+    (id) => renderSimpleLayoutItem(SIDEBAR_SECTION_LABELS[id] || id),
+    (nextOrder) => {
+      draftSidebarOrder = sanitizeSidebarSectionOrder(nextOrder);
+    }
+  );
+
+  const topbarLayoutBoard = createLayoutStudioDndBoard(
+    topbarBoard,
+    () => draftTopbarOrder,
+    (id) => renderSimpleLayoutItem(TOPBAR_ACTION_LABELS[id] || id),
+    (nextOrder) => {
+      draftTopbarOrder = sanitizeTopbarActionOrder(nextOrder);
+    }
+  );
+
+  const mainLayoutBoard = createLayoutStudioDndBoard(
+    mainBoard,
+    () => draftMainOrder,
+    (id) => renderSimpleLayoutItem(MAIN_SECTION_LABELS[id] || id),
+    (nextOrder) => {
+      draftMainOrder = sanitizeMainSectionOrder(nextOrder);
+    }
+  );
+
+  const applyDraftSettingsToFields = () => {
+    if (showTopTabsInput instanceof HTMLInputElement) {
+      showTopTabsInput.checked = draftShowTopTabs;
+    }
+    if (showSidebarTabsInput instanceof HTMLInputElement) {
+      showSidebarTabsInput.checked = draftShowSidebarTabs;
+    }
+    if (newTabLabelInput instanceof HTMLInputElement) {
+      newTabLabelInput.value = "";
+    }
+    if (newTabUrlInput instanceof HTMLInputElement) {
+      newTabUrlInput.value = "";
+    }
+    workspaceBoard.render();
+    sidebarLayoutBoard.render();
+    topbarLayoutBoard.render();
+    mainLayoutBoard.render();
+  };
+
+  applyDraftSettingsToFields();
+
+  if (showTopTabsInput instanceof HTMLInputElement) {
+    showTopTabsInput.addEventListener("change", () => {
+      draftShowTopTabs = showTopTabsInput.checked;
+    });
+  }
+  if (showSidebarTabsInput instanceof HTMLInputElement) {
+    showSidebarTabsInput.addEventListener("change", () => {
+      draftShowSidebarTabs = showSidebarTabsInput.checked;
+    });
+  }
+  if (addTabBtn instanceof HTMLButtonElement) {
+    addTabBtn.addEventListener("click", () => {
+      const nextLabel = sanitizeWorkspaceTabLabel(newTabLabelInput instanceof HTMLInputElement ? newTabLabelInput.value : "", "");
+      const nextUrl = sanitizeCustomWorkspaceTabUrl(newTabUrlInput instanceof HTMLInputElement ? newTabUrlInput.value : "");
+      if (!nextLabel || !nextUrl) {
+        showThinkingQuotaToast("Give the new tab a name and a URL first.");
+        return;
+      }
+      if (draftCustomTabs.length >= CUSTOM_WORKSPACE_TAB_LIMIT) {
+        showThinkingQuotaToast(`ROK currently caps custom tabs at ${CUSTOM_WORKSPACE_TAB_LIMIT}.`);
+        return;
+      }
+      const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      draftCustomTabs = sanitizeCustomWorkspaceTabs([
+        ...draftCustomTabs,
+        { id, label: nextLabel, url: nextUrl }
+      ]);
+      draftTabOrder = sanitizeWorkspaceTabOrder([...draftTabOrder, id], draftCustomTabs);
+      applyDraftSettingsToFields();
+    });
+  }
+
+  const keydownHandler = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeLayoutStudioModal(null);
+    }
+  };
+  document.addEventListener("keydown", keydownHandler);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      closeLayoutStudioModal(null);
+    }
+  });
+
+  if (resetBtn instanceof HTMLButtonElement) {
+    resetBtn.addEventListener("click", () => {
+      draftTabLabels = { ...DEFAULT_WORKSPACE_TAB_LABELS };
+      draftCustomTabs = [];
+      draftTabOrder = [...WORKSPACE_TAB_KEYS];
+      draftSidebarOrder = [...DEFAULT_SIDEBAR_SECTION_ORDER];
+      draftTopbarOrder = [...DEFAULT_TOPBAR_ACTION_ORDER];
+      draftMainOrder = [...DEFAULT_MAIN_SECTION_ORDER];
+      draftShowTopTabs = true;
+      draftShowSidebarTabs = true;
+      applyDraftSettingsToFields();
+    });
+  }
+  if (cancelBtn instanceof HTMLButtonElement) {
+    cancelBtn.addEventListener("click", () => closeLayoutStudioModal(null));
+  }
+  if (saveBtn instanceof HTMLButtonElement) {
+    saveBtn.addEventListener("click", () => {
+      const sanitizedCustomTabs = sanitizeCustomWorkspaceTabs(draftCustomTabs);
+      const patch = {
+        workspaceTabLabels: normalizeWorkspaceTabLabels(draftTabLabels),
+        customWorkspaceTabs: sanitizedCustomTabs,
+        workspaceTabOrder: sanitizeWorkspaceTabOrder(draftTabOrder, sanitizedCustomTabs),
+        sidebarSectionOrder: sanitizeSidebarSectionOrder(draftSidebarOrder),
+        topbarActionOrder: sanitizeTopbarActionOrder(draftTopbarOrder),
+        mainSectionOrder: sanitizeMainSectionOrder(draftMainOrder),
+        showTopWorkspaceTabs: Boolean(draftShowTopTabs),
+        showSidebarWorkspaceTabs: Boolean(draftShowSidebarTabs)
+      };
+      persistUserSettingsPatch(patch);
+      showThinkingQuotaToast("Saved your layout studio control.");
+      closeLayoutStudioModal({ saved: true, settings: patch });
+    });
+  }
+
+  activeLayoutStudioModal = { overlay, resolve: resolveModal, keydownHandler, promise };
+  if (newTabLabelInput instanceof HTMLInputElement) {
+    newTabLabelInput.focus();
+  }
+  return promise;
+}
 
 function hideDaedalusLimitModal() {
   if (!activeDaedalusLimitModal) return;
@@ -3226,6 +3772,10 @@ function openCustomizeRokModal() {
           <h3 class="customize-rok-section-title">Move, reset, or wipe local state</h3>
         </div>
         <div class="customize-rok-action-grid">
+          <button class="customize-rok-action-btn" type="button" data-customize-action="layout-studio">
+            <strong>Open layout studio</strong>
+            <span>Rename tabs, add custom ones, and drag the shell into your own order.</span>
+          </button>
           <button class="customize-rok-action-btn" type="button" data-customize-action="export">
             <strong>Export setup</strong>
             <span>Download your control settings as JSON.</span>
@@ -3293,6 +3843,7 @@ function openCustomizeRokModal() {
   const saveBtn = modal.querySelector('[data-customize-action="save"]');
   const cancelBtn = modal.querySelector('[data-customize-action="cancel"]');
   const resetBtn = modal.querySelector('[data-customize-action="reset"]');
+  const layoutStudioBtn = modal.querySelector('[data-customize-action="layout-studio"]');
   const exportBtn = modal.querySelector('[data-customize-action="export"]');
   const importBtn = modal.querySelector('[data-customize-action="import"]');
   const clearMemoryBtn = modal.querySelector('[data-customize-action="clear-memory"]');
@@ -3475,6 +4026,12 @@ function openCustomizeRokModal() {
       }
     });
   }
+  if (layoutStudioBtn) {
+    layoutStudioBtn.addEventListener("click", () => {
+      closeCustomizeRokModal(null);
+      void openLayoutStudioModal();
+    });
+  }
   if (importBtn) {
     importBtn.addEventListener("click", () => {
       importInput.value = "";
@@ -3609,6 +4166,15 @@ function applyUserSettingsToRuntime(options = {}) {
     });
   }
   refreshIncognitoChatTheme();
+  renderWorkspaceTabNavigation();
+  syncWorkspaceTabVisibility({ forceHide: Boolean(appRoot && appRoot.classList.contains("home-mode")) });
+  applySidebarSectionOrder();
+  applyTopbarActionOrder();
+  applyMainSectionOrder();
+  const currentWorkspaceSession = getWorkspaceCurrentSession();
+  if (currentWorkspaceSession && currentWorkspaceSession.workspace) {
+    updateWorkspaceTabButtons(currentWorkspaceSession.workspace.activeTab);
+  }
 
   clientLimits.typingSpeedMs = normalizeClientLimit(
     userSettings.typingSpeed,
@@ -3643,10 +4209,10 @@ function applyUserSettingsToRuntime(options = {}) {
 function persistUserSettingsPatch(patch = {}, options = {}) {
   const { syncModelDefaults = false } = options;
   try {
-    const nextSettings = { ...loadUserSettingsFromStorage(), ...patch };
+    const nextSettings = buildSanitizedUserSettings({ ...loadUserSettingsFromStorage(), ...patch });
     localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(nextSettings));
   } catch {
-    userSettings = { ...userSettings, ...patch };
+    userSettings = buildSanitizedUserSettings({ ...userSettings, ...patch });
   }
   applyUserSettingsToRuntime({ syncModelDefaults });
 }
@@ -4024,15 +4590,7 @@ function showHomeScreen() {
   if (chat) {
     chat.hidden = true;
   }
-  if (workspaceTabs) {
-    workspaceTabs.hidden = true;
-  }
-  if (workspaceSidebarTabs) {
-    workspaceSidebarTabs.hidden = true;
-  }
-  if (workspaceSidebarTabsSection) {
-    workspaceSidebarTabsSection.hidden = true;
-  }
+  syncWorkspaceTabVisibility({ forceHide: true });
   if (workspacePanel) {
     workspacePanel.hidden = true;
   }
@@ -4042,6 +4600,7 @@ function showHomeScreen() {
   if (composerWrap) {
     composerWrap.hidden = true;
   }
+  refreshLiveLayoutEditTargets();
 }
 
 function hideHomeScreen() {
@@ -4059,15 +4618,7 @@ function hideHomeScreen() {
   if (chat) {
     chat.hidden = false;
   }
-  if (workspaceTabs) {
-    workspaceTabs.hidden = false;
-  }
-  if (workspaceSidebarTabs) {
-    workspaceSidebarTabs.hidden = false;
-  }
-  if (workspaceSidebarTabsSection) {
-    workspaceSidebarTabsSection.hidden = false;
-  }
+  syncWorkspaceTabVisibility();
   if (composerWrap) {
     composerWrap.hidden = false;
   }
@@ -4076,6 +4627,7 @@ function hideHomeScreen() {
   }
   renderWorkspaceUI({ focus: false });
   ensureReadyMessage();
+  refreshLiveLayoutEditTargets();
 }
 
 function isLikelyServerDownResponse(status, contentType, bodyText) {
@@ -6108,18 +6660,295 @@ function getWorkspaceTabContainers() {
   return [workspaceTabs, workspaceSidebarTabs].filter((node) => node instanceof HTMLElement);
 }
 
+function getWorkspaceTabLabel(tabId) {
+  const customLabel = userSettings && userSettings.workspaceTabLabels && typeof userSettings.workspaceTabLabels === "object"
+    ? sanitizeWorkspaceTabLabel(userSettings.workspaceTabLabels[tabId], "")
+    : "";
+  return customLabel || DEFAULT_WORKSPACE_TAB_LABELS[tabId] || tabId;
+}
+
+function getWorkspaceCustomTabs() {
+  return sanitizeCustomWorkspaceTabs(userSettings && userSettings.customWorkspaceTabs);
+}
+
+function getWorkspaceTabConfigs() {
+  const builtIns = WORKSPACE_TAB_KEYS.map((tabId) => ({
+    id: tabId,
+    label: getWorkspaceTabLabel(tabId),
+    kind: "workspace",
+    target: tabId
+  }));
+  const customTabs = getWorkspaceCustomTabs();
+  const byId = new Map(
+    [...builtIns, ...customTabs].map((item) => [item.id, item])
+  );
+  const orderedIds = sanitizeWorkspaceTabOrder(userSettings && userSettings.workspaceTabOrder, customTabs);
+  const ordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+  byId.forEach((item, id) => {
+    if (!orderedIds.includes(id)) {
+      ordered.push(item);
+    }
+  });
+  return ordered;
+}
+
+function shouldShowTopWorkspaceTabs() {
+  return userSettings.showTopWorkspaceTabs !== false;
+}
+
+function shouldShowSidebarWorkspaceTabs() {
+  return userSettings.showSidebarWorkspaceTabs !== false;
+}
+
+function renderWorkspaceTabNavigation() {
+  const configs = getWorkspaceTabConfigs();
+  getWorkspaceTabContainers().forEach((container) => {
+    container.innerHTML = "";
+    configs.forEach((config) => {
+      const btn = document.createElement("button");
+      btn.className = "workspace-tab";
+      btn.type = "button";
+      btn.setAttribute("data-workspace-tab-id", config.id);
+      btn.setAttribute("data-workspace-tab-kind", config.kind || "workspace");
+      if (config.kind === "workspace") {
+        btn.setAttribute("data-workspace-tab", config.target);
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", "false");
+      } else {
+        btn.setAttribute("data-workspace-tab-url", config.url || "");
+        btn.title = config.url || "";
+      }
+      btn.textContent = config.label;
+      container.appendChild(btn);
+    });
+  });
+}
+
+function syncWorkspaceTabVisibility(options = {}) {
+  const { forceHide = false } = options;
+  const hasTabs = getWorkspaceTabConfigs().length > 0;
+  if (workspaceTabs) {
+    workspaceTabs.hidden = forceHide || !hasTabs || !shouldShowTopWorkspaceTabs();
+  }
+  if (workspaceSidebarTabs) {
+    workspaceSidebarTabs.hidden = forceHide || !hasTabs || !shouldShowSidebarWorkspaceTabs();
+  }
+  if (workspaceSidebarTabsSection) {
+    workspaceSidebarTabsSection.hidden = forceHide || !hasTabs || !shouldShowSidebarWorkspaceTabs();
+  }
+}
+
+function openCustomWorkspaceTab(url) {
+  const href = sanitizeCustomWorkspaceTabUrl(url);
+  if (!href) return;
+  window.open(href, "_blank", "noopener,noreferrer");
+}
+
 function updateWorkspaceTabButtons(activeTab) {
   const containers = getWorkspaceTabContainers();
   if (!containers.length) return;
   containers.forEach((container) => {
-    const tabButtons = container.querySelectorAll("[data-workspace-tab]");
+    const tabButtons = container.querySelectorAll("[data-workspace-tab-id]");
     tabButtons.forEach((btn) => {
-      const tab = btn.getAttribute("data-workspace-tab");
-      const isActive = tab === activeTab;
+      const tabId = btn.getAttribute("data-workspace-tab-id");
+      const kind = btn.getAttribute("data-workspace-tab-kind");
+      const isActive = kind === "workspace" && tabId === activeTab;
       btn.classList.toggle("active", isActive);
-      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+      if (kind === "workspace") {
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
+      } else {
+        btn.setAttribute("aria-selected", "false");
+      }
     });
   });
+}
+
+function getSidebarLayoutNodes() {
+  const chatsSection = savedChatsList instanceof HTMLElement ? savedChatsList.closest(".side-section") : null;
+  const memoryListEl = document.getElementById("knowledgeList");
+  const memorySection = memoryListEl instanceof HTMLElement ? memoryListEl.closest(".side-section") : null;
+  return {
+    header: sidebar ? sidebar.querySelector(".side-header") : null,
+    tabs: workspaceSidebarTabsSection,
+    chats: chatsSection,
+    memory: memorySection
+  };
+}
+
+function applySidebarSectionOrder() {
+  const order = sanitizeSidebarSectionOrder(userSettings.sidebarSectionOrder);
+  const nodes = getSidebarLayoutNodes();
+  order.forEach((key, index) => {
+    const node = nodes[key];
+    if (node instanceof HTMLElement) {
+      node.style.order = String(index + 1);
+    }
+  });
+}
+
+function applyTopbarActionOrder() {
+  if (!(topbarActions instanceof HTMLElement)) return;
+  const nodes = {
+    customize: customizeRokBtn,
+    incognito: incognitoToggleBtn,
+    clear: clearBtn
+  };
+  sanitizeTopbarActionOrder(userSettings.topbarActionOrder).forEach((key) => {
+    const node = nodes[key];
+    if (node instanceof HTMLElement) {
+      topbarActions.appendChild(node);
+    }
+  });
+}
+
+function applyMainSectionOrder() {
+  const order = sanitizeMainSectionOrder(userSettings.mainSectionOrder);
+  const nodes = {
+    tabs: [workspaceTabs],
+    content: [chat, workspacePanel, mathPanel],
+    composer: [composerWrap]
+  };
+  order.forEach((key, index) => {
+    (nodes[key] || []).forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.style.order = String(index + 1);
+      }
+    });
+  });
+}
+
+function getVisibleWorkspaceContentNode() {
+  if (chat instanceof HTMLElement && !chat.hidden) {
+    return chat;
+  }
+  if (workspacePanel instanceof HTMLElement && !workspacePanel.hidden) {
+    return workspacePanel;
+  }
+  if (mathPanel instanceof HTMLElement && !mathPanel.hidden) {
+    return mathPanel;
+  }
+  return chat instanceof HTMLElement ? chat : null;
+}
+
+function bindLiveLayoutDropTarget(node) {
+  if (!(node instanceof HTMLElement) || node.dataset.liveLayoutBound === "true") return;
+  node.dataset.liveLayoutBound = "true";
+  node.addEventListener("dragover", (event) => {
+    if (!isLiveLayoutEditMode || !activeLiveLayoutDrag) return;
+    const targetGroup = node.getAttribute("data-live-layout-group");
+    const targetId = node.getAttribute("data-live-layout-id");
+    if (!targetGroup || !targetId || targetGroup !== activeLiveLayoutDrag.group || targetId === activeLiveLayoutDrag.id) {
+      return;
+    }
+    event.preventDefault();
+    node.classList.add("is-live-layout-drop-target");
+  });
+  node.addEventListener("dragleave", () => {
+    node.classList.remove("is-live-layout-drop-target");
+  });
+  node.addEventListener("drop", (event) => {
+    if (!isLiveLayoutEditMode || !activeLiveLayoutDrag) return;
+    const targetGroup = node.getAttribute("data-live-layout-group");
+    const targetId = node.getAttribute("data-live-layout-id");
+    node.classList.remove("is-live-layout-drop-target");
+    if (!targetGroup || !targetId || targetGroup !== activeLiveLayoutDrag.group || targetId === activeLiveLayoutDrag.id) {
+      return;
+    }
+    event.preventDefault();
+    const draggedId = activeLiveLayoutDrag.id;
+    const rect = node.getBoundingClientRect();
+    const insertAfter = event.clientY > rect.top + rect.height / 2;
+    const applyReorder = (order, sanitizer) => {
+      const filtered = Array.isArray(order) ? order.filter((item) => item !== draggedId) : [];
+      const targetIndex = filtered.indexOf(targetId);
+      if (targetIndex === -1) return filtered;
+      filtered.splice(insertAfter ? targetIndex + 1 : targetIndex, 0, draggedId);
+      return sanitizer(filtered);
+    };
+    if (targetGroup === "main") {
+      const nextOrder = applyReorder(userSettings.mainSectionOrder, sanitizeMainSectionOrder);
+      persistUserSettingsPatch({ mainSectionOrder: nextOrder });
+    } else if (targetGroup === "sidebar") {
+      const nextOrder = applyReorder(userSettings.sidebarSectionOrder, sanitizeSidebarSectionOrder);
+      persistUserSettingsPatch({ sidebarSectionOrder: nextOrder });
+    }
+    refreshLiveLayoutEditTargets();
+  });
+}
+
+function createLiveLayoutHandle(group, id, label) {
+  const handle = document.createElement("div");
+  handle.className = "live-layout-handle";
+  handle.setAttribute("draggable", "true");
+  handle.setAttribute("data-live-layout-handle", "true");
+  handle.setAttribute("data-live-layout-group", group);
+  handle.setAttribute("data-live-layout-id", id);
+  handle.innerHTML = `<span class="live-layout-handle-grip" aria-hidden="true">::</span><span>${escapeHtml(label)}</span>`;
+  handle.addEventListener("dragstart", (event) => {
+    activeLiveLayoutDrag = { group, id };
+    handle.classList.add("is-dragging");
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", `${group}:${id}`);
+    }
+  });
+  handle.addEventListener("dragend", () => {
+    activeLiveLayoutDrag = null;
+    handle.classList.remove("is-dragging");
+    document.querySelectorAll(".is-live-layout-drop-target").forEach((item) => item.classList.remove("is-live-layout-drop-target"));
+  });
+  return handle;
+}
+
+function clearLiveLayoutEditTargets() {
+  document.querySelectorAll(".live-layout-handle").forEach((handle) => handle.remove());
+  document.querySelectorAll(".live-layout-target").forEach((node) => {
+    node.classList.remove("live-layout-target", "is-live-layout-drop-target");
+    node.removeAttribute("data-live-layout-group");
+    node.removeAttribute("data-live-layout-id");
+  });
+}
+
+function refreshLiveLayoutEditTargets() {
+  clearLiveLayoutEditTargets();
+  if (!isLiveLayoutEditMode || isHomeScreenVisible()) {
+    return;
+  }
+  const sidebarNodes = getSidebarLayoutNodes();
+  const activeContentNode = getVisibleWorkspaceContentNode();
+  const targets = [
+    { group: "main", id: "tabs", label: "Workspace tabs", node: workspaceTabs instanceof HTMLElement && !workspaceTabs.hidden ? workspaceTabs : null },
+    { group: "main", id: "content", label: "Main content", node: activeContentNode },
+    { group: "main", id: "composer", label: "Chat bar", node: composerWrap instanceof HTMLElement && !composerWrap.hidden ? composerWrap : null },
+    { group: "sidebar", id: "header", label: SIDEBAR_SECTION_LABELS.header, node: sidebarNodes.header },
+    { group: "sidebar", id: "tabs", label: SIDEBAR_SECTION_LABELS.tabs, node: sidebarNodes.tabs instanceof HTMLElement && !sidebarNodes.tabs.hidden ? sidebarNodes.tabs : null },
+    { group: "sidebar", id: "chats", label: SIDEBAR_SECTION_LABELS.chats, node: sidebarNodes.chats },
+    { group: "sidebar", id: "memory", label: SIDEBAR_SECTION_LABELS.memory, node: sidebarNodes.memory }
+  ];
+  targets.forEach(({ group, id, label, node }) => {
+    if (!(node instanceof HTMLElement) || node.hidden) return;
+    node.classList.add("live-layout-target");
+    node.setAttribute("data-live-layout-group", group);
+    node.setAttribute("data-live-layout-id", id);
+    node.appendChild(createLiveLayoutHandle(group, id, label));
+    bindLiveLayoutDropTarget(node);
+  });
+}
+
+function setLiveLayoutEditMode(enabled) {
+  isLiveLayoutEditMode = Boolean(enabled);
+  if (appRoot) {
+    appRoot.classList.toggle("layout-edit-mode", isLiveLayoutEditMode);
+  }
+  if (layoutEditToggleBtn) {
+    layoutEditToggleBtn.setAttribute("aria-pressed", isLiveLayoutEditMode ? "true" : "false");
+    layoutEditToggleBtn.textContent = isLiveLayoutEditMode ? "Move UI On" : "Move UI Off";
+    layoutEditToggleBtn.classList.toggle("is-active", isLiveLayoutEditMode);
+  }
+  refreshLiveLayoutEditTargets();
+  if (isLiveLayoutEditMode) {
+    showThinkingQuotaToast("Layout mode is on. Drag the handles to move the chat bar and shell sections.");
+  }
 }
 
 function getComposerSelectableModels() {
@@ -7430,15 +8259,7 @@ function renderWorkspaceUI(options = {}) {
     mainPanel.classList.toggle("workspace-mode", activeTab !== "chat");
   }
 
-  if (workspaceTabs) {
-    workspaceTabs.hidden = false;
-  }
-  if (workspaceSidebarTabs) {
-    workspaceSidebarTabs.hidden = false;
-  }
-  if (workspaceSidebarTabsSection) {
-    workspaceSidebarTabsSection.hidden = false;
-  }
+  syncWorkspaceTabVisibility();
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isMathTab || isSandboxTab;
   workspacePanel.hidden = !isSandboxTab;
@@ -7490,6 +8311,7 @@ function renderWorkspaceUI(options = {}) {
     input.focus();
   }
   wasWorkspaceTabActive = false;
+  refreshLiveLayoutEditTargets();
 }
 
 function setMathChatDrawerOpen(open) {
@@ -12141,6 +12963,12 @@ if (customizeRokBtn) {
   });
 }
 
+if (layoutEditToggleBtn) {
+  layoutEditToggleBtn.addEventListener("click", () => {
+    setLiveLayoutEditMode(!isLiveLayoutEditMode);
+  });
+}
+
 if (incognitoToggleBtn) {
   incognitoToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
@@ -12457,8 +13285,13 @@ function bindWorkspaceTabClickEvents(tabContainer) {
   tabContainer.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
-    const tabBtn = target.closest("[data-workspace-tab]");
+    const tabBtn = target.closest("[data-workspace-tab-id]");
     if (!(tabBtn instanceof Element)) return;
+    const kind = tabBtn.getAttribute("data-workspace-tab-kind");
+    if (kind === "external") {
+      openCustomWorkspaceTab(tabBtn.getAttribute("data-workspace-tab-url") || "");
+      return;
+    }
     const tab = tabBtn.getAttribute("data-workspace-tab");
     if (!tab) return;
     setActiveWorkspaceTab(tab, { focus: true });
