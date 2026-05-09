@@ -217,6 +217,11 @@ const LOCAL_MEMORY_MAX_ENTRIES = 80;
 const LOCAL_MEMORY_PROMPT_LIMIT = 10;
 const LOCAL_PROJECT_MEMORY_PROMPT_LIMIT = 8;
 const LOCAL_MEMORY_MAX_FACT_CHARS = 320;
+const EVIDENCE_HISTORY_PREVIEW_LIMIT = 6;
+const EVIDENCE_ENTRY_PREVIEW_LIMIT = 8;
+const EVIDENCE_TEXT_PREVIEW_CHARS = 220;
+const EVIDENCE_PROMPT_PREVIEW_CHARS = 640;
+const EVIDENCE_WORKSPACE_PREVIEW_CHARS = 420;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
 const ONBOARDING_TOUR_VERSION = 5;
@@ -258,7 +263,9 @@ const DEFAULT_USER_SETTINGS = {
   memoryEnabled: true,
   projectMemoryEnabled: true,
   autoLearn: true,
-  incognitoMode: false
+  incognitoMode: false,
+  askBeforeSensitiveSend: true,
+  showEvidenceButtons: true
 };
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
@@ -1445,7 +1452,9 @@ function buildExportableUserSettings() {
     memoryEnabled: Boolean(source.memoryEnabled),
     projectMemoryEnabled: Boolean(source.projectMemoryEnabled),
     autoLearn: Boolean(source.autoLearn),
-    incognitoMode: Boolean(source.incognitoMode)
+    incognitoMode: Boolean(source.incognitoMode),
+    askBeforeSensitiveSend: source.askBeforeSensitiveSend !== false,
+    showEvidenceButtons: source.showEvidenceButtons !== false
   };
 }
 
@@ -1475,7 +1484,10 @@ function sanitizeImportedUserSettings(rawSettings = {}) {
     typingSpeed: normalizeClientLimit(source.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
     memoryEnabled: source.memoryEnabled !== false,
     projectMemoryEnabled: source.projectMemoryEnabled !== false,
-    autoLearn: source.autoLearn !== false
+    autoLearn: source.autoLearn !== false,
+    incognitoMode: Boolean(source.incognitoMode),
+    askBeforeSensitiveSend: source.askBeforeSensitiveSend !== false,
+    showEvidenceButtons: source.showEvidenceButtons !== false
   };
 }
 
@@ -3192,6 +3204,20 @@ function openCustomizeRokModal() {
               <span>Let ROK quietly remember important preferences and constraints.</span>
             </span>
           </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="askBeforeSensitiveSend" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Ask before sensitive sends</strong>
+              <span>Preview files, memory, and extra context before it leaves this device.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="showEvidenceButtons" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show evidence on replies</strong>
+              <span>Let every answer expose the context that shaped it.</span>
+            </span>
+          </label>
         </div>
       </section>
       <section class="customize-rok-section">
@@ -3578,6 +3604,9 @@ function applyUserSettingsToRuntime(options = {}) {
     document.body.classList.toggle("settings-reduce-motion", Boolean(userSettings.reduceMotion));
     document.body.classList.toggle("settings-hide-welcome-chips", !Boolean(userSettings.showStarterChips));
     document.body.classList.toggle("settings-hide-timestamps", !Boolean(userSettings.showTimestamps));
+    document.querySelectorAll(".msg.bot .bubble").forEach((bubble) => {
+      syncAssistantBubbleActionButtons(bubble);
+    });
   }
   refreshIncognitoChatTheme();
 
@@ -3636,6 +3665,14 @@ function isAutoLearnEnabled() {
 
 function isIncognitoModeEnabled() {
   return Boolean(userSettings.incognitoMode);
+}
+
+function isAskBeforeSensitiveSendEnabled() {
+  return Boolean(userSettings.askBeforeSensitiveSend);
+}
+
+function shouldShowEvidenceButtons() {
+  return userSettings.showEvidenceButtons !== false;
 }
 
 function refreshIncognitoChatTheme() {
@@ -8215,6 +8252,123 @@ function truncateText(text, maxChars) {
   return text.slice(0, maxChars) + "\n...[truncated]";
 }
 
+function sanitizeEvidenceText(value, maxChars = EVIDENCE_TEXT_PREVIEW_CHARS) {
+  const collapsed = String(value || "").replace(/\s+/g, " ").trim();
+  if (!collapsed) return "";
+  if (!Number.isFinite(maxChars) || maxChars <= 0 || collapsed.length <= maxChars) {
+    return collapsed;
+  }
+  return collapsed.slice(0, Math.max(24, maxChars)).trimEnd() + "...";
+}
+
+function buildRequestHistory(messages = []) {
+  if (!Array.isArray(messages)) return [];
+  return messages
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const role = item.role === "assistant" ? "assistant" : item.role === "user" ? "user" : null;
+      const content = typeof item.content === "string" ? item.content : "";
+      if (!role || !content.trim()) return null;
+      return { role, content };
+    })
+    .filter(Boolean);
+}
+
+function sanitizeEvidenceMessageHistory(messages = []) {
+  const safeHistory = buildRequestHistory(messages);
+  return safeHistory
+    .slice(-EVIDENCE_HISTORY_PREVIEW_LIMIT)
+    .map((item) => ({
+      role: item.role,
+      content: sanitizeEvidenceText(item.content, EVIDENCE_TEXT_PREVIEW_CHARS)
+    }));
+}
+
+function sanitizeEvidenceMemoryEntries(entries = [], sourceKey = "fact") {
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const fact = sanitizeEvidenceText(item[sourceKey], EVIDENCE_TEXT_PREVIEW_CHARS);
+      if (!fact) return null;
+      return {
+        fact,
+        kind: sanitizeEvidenceText(item.kind, 40),
+        scope: sanitizeEvidenceText(item.scope, 40),
+        source: sanitizeEvidenceText(item.source || item.source_query, 80)
+      };
+    })
+    .filter(Boolean)
+    .slice(0, EVIDENCE_ENTRY_PREVIEW_LIMIT);
+}
+
+function sanitizeEvidenceAttachments(entries = []) {
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const name = sanitizeEvidenceText(item.name, 120);
+      if (!name) return null;
+      const type = item.type === "image" ? "image" : "text";
+      const size = Number.isFinite(Number(item.size)) ? Number(item.size) : 0;
+      return {
+        name,
+        type,
+        size,
+        sizeLabel: size > 0 ? formatFileSize(size) : "",
+        summary:
+          type === "image"
+            ? "Image data leaves the device with this request."
+            : "File text leaves the device with this request."
+      };
+    })
+    .filter(Boolean)
+    .slice(0, EVIDENCE_ENTRY_PREVIEW_LIMIT);
+}
+
+function sanitizeEvidenceMetadata(rawEvidence) {
+  if (!rawEvidence || typeof rawEvidence !== "object") return null;
+  const historyPreview = sanitizeEvidenceMessageHistory(rawEvidence.messageHistory || rawEvidence.history || []);
+  const historyCount = Array.isArray(rawEvidence.messageHistory || rawEvidence.history)
+    ? (rawEvidence.messageHistory || rawEvidence.history).length
+    : Number(rawEvidence.messageHistoryCount) || historyPreview.length;
+  const workspaceText = String(rawEvidence.workspaceContext || "").trim();
+  const toolNames = Array.isArray(rawEvidence.toolNames)
+    ? rawEvidence.toolNames
+        .map((item) => sanitizeEvidenceText(item, 60).toLowerCase())
+        .filter(Boolean)
+        .slice(0, 12)
+    : [];
+  return {
+    mode: rawEvidence.mode === "sandbox" ? "sandbox" : "chat",
+    model: sanitizeEvidenceText(rawEvidence.model, 80),
+    promptPreview: sanitizeEvidenceText(rawEvidence.promptPreview || rawEvidence.prompt || rawEvidence.message, EVIDENCE_PROMPT_PREVIEW_CHARS),
+    promptChars: Number.isFinite(Number(rawEvidence.promptChars))
+      ? Number(rawEvidence.promptChars)
+      : String(rawEvidence.promptPreview || rawEvidence.prompt || rawEvidence.message || "").trim().length,
+    messageHistory: historyPreview,
+    messageHistoryCount: historyCount,
+    localMemory: sanitizeEvidenceMemoryEntries(rawEvidence.localMemory || rawEvidence.local_memory || []),
+    localKnowledge: sanitizeEvidenceMemoryEntries(rawEvidence.localKnowledge || rawEvidence.local_knowledge || [], "fact"),
+    attachments: sanitizeEvidenceAttachments(rawEvidence.attachments || []),
+    workspaceContext: workspaceText
+      ? {
+          chars: workspaceText.length,
+          preview: sanitizeEvidenceText(workspaceText, EVIDENCE_WORKSPACE_PREVIEW_CHARS)
+        }
+      : null,
+    webSearchEnabled: Boolean(rawEvidence.webSearchEnabled),
+    toolsEnabled: Boolean(rawEvidence.toolsEnabled),
+    explicitWebToolUsed: Boolean(rawEvidence.explicitWebToolUsed),
+    toolNames,
+    toolFollowupCount: Math.max(0, Number(rawEvidence.toolFollowupCount) || 0),
+    incognito: Boolean(rawEvidence.incognito),
+    usingOwnKey: Boolean(rawEvidence.usingOwnKey),
+    stopped: Boolean(rawEvidence.stopped),
+    createdAt: sanitizeEvidenceText(rawEvidence.createdAt || rawEvidence.sentAt || "", 64)
+  };
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -8241,7 +8395,14 @@ function sanitizeMessages(messages) {
     if (!role || typeof item.content !== "string") continue;
     const content = item.content.trim();
     if (!content) continue;
-    cleaned.push({ role, content: item.content });
+    const nextMessage = { role, content: item.content };
+    if (role === "assistant") {
+      const safeEvidence = sanitizeEvidenceMetadata(item.evidence);
+      if (safeEvidence) {
+        nextMessage.evidence = safeEvidence;
+      }
+    }
+    cleaned.push(nextMessage);
   }
   return cleaned;
 }
@@ -8441,7 +8602,7 @@ function syncCurrentSessionFromHistory() {
   if (!current) return;
 
   ensureSessionWorkspace(current);
-  current.messages = history.map((item) => ({ role: item.role, content: item.content }));
+  current.messages = sanitizeMessages(history);
   current.title = buildSessionTitle(current.messages);
   current.updatedAt = Date.now();
   sortSessionsByRecent();
@@ -8548,17 +8709,25 @@ function renderConversation(messages) {
 
   const safeMessages = sanitizeMessages(messages);
   for (const item of safeMessages) {
-    history.push({ role: item.role, content: item.content });
+    const historyEntry = { role: item.role, content: item.content };
+    if (item.role === "assistant" && item.evidence) {
+      historyEntry.evidence = item.evidence;
+    }
+    history.push(historyEntry);
     const displayRole = item.role === "assistant" ? "bot" : "user";
     const renderStoryCanvas = item.role === "assistant" && looksLikeStoryText(item.content);
     const rendered = addMessage(displayRole, item.content, {
       markdown: item.role === "assistant" && !renderStoryCanvas,
-      storyCanvas: renderStoryCanvas
+      storyCanvas: renderStoryCanvas,
+      evidence: item.role === "assistant" ? item.evidence || null : null
     });
     if (renderStoryCanvas && rendered.storyCanvas) {
       updateStoryCanvasOutput(rendered.storyCanvas, item.content);
       rendered.storyCanvas.setStatus("Complete");
       rendered.bubble.textContent = "Story ready. Use Expand to read.";
+      if (item.evidence) {
+        attachEvidenceToAssistantBubble(rendered.bubble, item.evidence);
+      }
     }
   }
 
@@ -9619,26 +9788,7 @@ function setBubbleContent(bubble, text, markdown) {
     bubble.classList.add("plain");
     bubble.textContent = text;
   }
-  // Add bubble copy button for bot messages
-  const msgRow = bubble.closest(".msg.bot");
-  if (msgRow && !bubble.querySelector(".bubble-copy-btn")) {
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "bubble-copy-btn";
-    copyBtn.type = "button";
-    copyBtn.title = "Copy message";
-    copyBtn.textContent = "Copy";
-    copyBtn.addEventListener("click", function () {
-      const textToCopy = bubble.classList.contains("markdown") ? bubble.innerText : bubble.textContent;
-      navigator.clipboard.writeText(textToCopy).then(function () {
-        copyBtn.textContent = "Copied!";
-        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
-      }).catch(function () {
-        copyBtn.textContent = "Failed";
-        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
-      });
-    });
-    bubble.appendChild(copyBtn);
-  }
+  syncAssistantBubbleActionButtons(bubble);
 }
 
 function createTypingDotsElement() {
@@ -9696,7 +9846,7 @@ function populateBotMessageContainer(container, options = {}) {
 }
 
 function addMessage(role, text, options = {}) {
-  const { markdown = false, storyCanvas = false, thinkingBlock = false, typingDots = false } = options;
+  const { markdown = false, storyCanvas = false, thinkingBlock = false, typingDots = false, evidence = null } = options;
 
   const row = document.createElement("div");
   row.className = "msg " + role;
@@ -9752,6 +9902,7 @@ function addMessage(role, text, options = {}) {
     row.appendChild(stack);
     row.appendChild(timeSpan);
     chat.appendChild(row);
+    attachEvidenceToAssistantBubble(mounted.bubble, evidence);
     scrollToBottom();
     updateChatWelcomeVisibility();
     return { row, bubble: mounted.bubble, storyCanvas: mounted.storyCanvas, thinkingPanel: mounted.thinkingPanel };
@@ -9767,6 +9918,9 @@ function addMessage(role, text, options = {}) {
   row.appendChild(timeSpan);
 
   chat.appendChild(row);
+  if (role === "bot") {
+    attachEvidenceToAssistantBubble(bubble, evidence);
+  }
   scrollToBottom();
   updateChatWelcomeVisibility();
   return { row, bubble, storyCanvas: null, thinkingPanel: null };
@@ -10255,9 +10409,6 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
-  maybeCaptureMemoryFromUserTurn(text, {
-    forcedMemory: legacyMemoryCommand ? legacyMemoryCommand.memoryOptions : null
-  });
   const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
     text: text || displayText,
     workspaceContext: sessionWorkspaceContext,
@@ -10273,9 +10424,74 @@ async function send() {
     webSearchEnabled
   });
   const requestHistoryLimit = Math.max(1, Math.min(getHistoryLimitValue(), requestBudget.historyLimit || getHistoryLimitValue()));
-  const intentHistory = history.slice(-Math.min(requestHistoryLimit, INTENT_HISTORY_CONTEXT_LIMIT));
-  const recentHistory = history.slice(-requestHistoryLimit);
+  const intentHistory = buildRequestHistory(history.slice(-Math.min(requestHistoryLimit, INTENT_HISTORY_CONTEXT_LIMIT)));
+  const recentHistory = buildRequestHistory(history.slice(-requestHistoryLimit));
   const priorHistoryLength = history.length;
+  let baseRequestBody;
+  if (sandboxActive) {
+    const sandboxPreviewPayload = buildSandboxRequestPayload(
+      text || SANDBOX_DEFAULT_PROMPT,
+      recentHistory,
+      sessionModel,
+      requestShouldThink,
+      sessionSandbox || getCurrentSandboxState()
+    );
+    baseRequestBody = {
+      message: sandboxPreviewPayload.prompt || text || SANDBOX_DEFAULT_PROMPT,
+      attachments: [
+        ...(Array.isArray(sandboxPreviewPayload.attachments) ? sandboxPreviewPayload.attachments : []),
+        ...(Array.isArray(sandboxPreviewPayload.files)
+          ? sandboxPreviewPayload.files.map((item) => ({
+              type: "text",
+              name: item.path || "sandbox-file",
+              size: String(item.content || "").length
+            }))
+          : [])
+      ],
+      history: Array.isArray(sandboxPreviewPayload.history) ? sandboxPreviewPayload.history : [],
+      model: sandboxPreviewPayload.model || sessionModel,
+      local_memory: sandboxPreviewPayload.local_memory || [],
+      local_knowledge: sandboxPreviewPayload.local_knowledge || [],
+      incognito: Boolean(sandboxPreviewPayload.incognito),
+      enable_thinking: Boolean(sandboxPreviewPayload.enable_thinking),
+      workspace_context: ""
+    };
+  } else {
+    const messageForApiPreview = buildMessageForApi(text, "");
+    const attachmentsPayloadPreview = buildAttachmentsPayload();
+    baseRequestBody = withLocalKnowledge({
+      message: messageForApiPreview,
+      workspace_context: "",
+      attachments: attachmentsPayloadPreview,
+      history: recentHistory,
+      model: sessionModel,
+      max_tokens: requestBudget.maxTokens,
+      enable_thinking: requestShouldThink
+    });
+    if (webSearchEnabled) {
+      baseRequestBody.enable_web_search = true;
+    }
+    if (toolsEnabled) {
+      baseRequestBody.tools = BUILTIN_TOOLS;
+    }
+  }
+  const sendEvidencePreview = buildAssistantEvidenceSnapshot({
+    requestBody: baseRequestBody,
+    model: sessionModel
+  });
+  if (shouldPromptBeforeSendForEvidence(sendEvidencePreview)) {
+    const approved = await openAskBeforeSendModal(sendEvidencePreview);
+    if (!approved) {
+      if (input) {
+        input.focus();
+      }
+      return;
+    }
+  }
+
+  maybeCaptureMemoryFromUserTurn(text, {
+    forcedMemory: legacyMemoryCommand ? legacyMemoryCommand.memoryOptions : null
+  });
 
   addMessage("user", displayText);
   history.push({ role: "user", content: displayText });
@@ -10364,6 +10580,10 @@ async function send() {
   let thinkingTitleResolved = false;
   let autoWebRetryAttempted = false;
   let forceWebSearchForRetry = false;
+  let assistantEvidence = buildAssistantEvidenceSnapshot({
+    requestBody: baseRequestBody,
+    model: sessionModel
+  });
   const streamRenderState = {
     lastFlush: 0,
     flush: () => {}
@@ -10549,6 +10769,7 @@ async function send() {
   const handleToolCalls = (toolCalls, assistantContent) => {
     if (!Array.isArray(toolCalls) || !toolCalls.length) return;
     markAssistantStreamStarted();
+    recordToolCallsInEvidence(assistantEvidence, toolCalls);
     const visibleAssistantContent = shouldHideAssistantToolDraft(toolCalls, assistantContent)
       ? ""
       : String(assistantContent || "");
@@ -10596,6 +10817,9 @@ async function send() {
       showThinkingAvatar();
     } else {
       showGeneratingAvatar();
+    }
+    if (assistantEvidence) {
+      assistantEvidence.webSearchEnabled = true;
     }
     handleStatusUpdate("Searching the web...");
   };
@@ -10685,10 +10909,12 @@ async function send() {
       }
       const analysis = await runSandboxAnalysis(text || SANDBOX_DEFAULT_PROMPT, recentHistory, sessionModel);
       const chatSummary = buildSandboxChatSummary(analysis);
+      const finalEvidence = finalizeAssistantEvidence(assistantEvidence);
       if (bubble) {
         setBubbleContent(bubble, chatSummary, true);
+        attachEvidenceToAssistantBubble(bubble, finalEvidence);
       }
-      history.push({ role: "assistant", content: chatSummary });
+      history.push({ role: "assistant", content: chatSummary, evidence: finalEvidence });
       pushSandboxConversationMessage("assistant", chatSummary);
       trimHistoryToLimit();
       syncCurrentSessionFromHistory();
@@ -10733,8 +10959,8 @@ async function send() {
       showCompactingBar();
     }
 
-    const messageForApi = buildMessageForApi(text, workspaceContext);
-    const attachmentsPayload = buildAttachmentsPayload();
+    const messageForApi = String(baseRequestBody.message || buildMessageForApi(text, workspaceContext));
+    const attachmentsPayload = Array.isArray(baseRequestBody.attachments) ? baseRequestBody.attachments : buildAttachmentsPayload();
     const imageAttachmentCount = attachmentsPayload.filter((item) => item && item.type === "image").length;
     if (writeBackToWorkspace) {
       setWorkspaceAssistantGenerationPhase(WORKSPACE_GENERATION_PHASES.reviewing, {
@@ -10756,20 +10982,10 @@ async function send() {
           handleStatusUpdate("Searching the web...");
         }
       }
-      const requestBody = withLocalKnowledge({
-        message: messageForApi,
-        workspace_context: workspaceContext,
-        attachments: attachmentsPayload,
-        history: recentHistory,
-        model: sessionModel,
-        max_tokens: requestBudget.maxTokens,
-        enable_thinking: requestShouldThink
-      });
+      const requestBody = JSON.parse(JSON.stringify(baseRequestBody));
+      requestBody.workspace_context = workspaceContext;
       if (isWebSearchActiveForRequest()) {
         requestBody.enable_web_search = true;
-      }
-      if (toolsEnabled) {
-        requestBody.tools = BUILTIN_TOOLS;
       }
       const res = await runWithAutoMessageRetry(async (attempt) => {
         activeRequestController = new AbortController();
@@ -10961,6 +11177,7 @@ async function send() {
             if (isWebSearchActiveForRequest()) {
               followupBody.enable_web_search = true;
             }
+            incrementEvidenceFollowupCount(assistantEvidence);
 
             const followupRes = await runWithAutoMessageRetry(async (attempt) => {
               activeRequestController = new AbortController();
@@ -11064,6 +11281,7 @@ async function send() {
       removeTypingIndicator();
 
       if (!writeBackToWorkspace) {
+        const finalEvidence = finalizeAssistantEvidence(assistantEvidence);
         if (storyCanvas) {
           updateStoryCanvasOutput(storyCanvas, partialText);
           storyCanvas.setStatus("Complete");
@@ -11072,7 +11290,8 @@ async function send() {
           setBubbleContent(bubble, partialText, true);
           addRegenerateButton(bubble);
         }
-        history.push({ role: "assistant", content: partialText });
+        attachEvidenceToAssistantBubble(bubble, finalEvidence);
+        history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
         trimHistoryToLimit();
         syncCurrentSessionFromHistory();
         addCorrectMeButton(bubble);
@@ -11326,6 +11545,7 @@ async function send() {
             tools: BUILTIN_TOOLS
           });
           if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
+          incrementEvidenceFollowupCount(assistantEvidence);
 
           const followupRes = await runWithAutoMessageRetry(async (attempt) => {
             activeRequestController = new AbortController();
@@ -11416,6 +11636,7 @@ async function send() {
     removeTypingIndicator();
 
     if (!writeBackToWorkspace) {
+      const finalEvidence = finalizeAssistantEvidence(assistantEvidence);
       streamRenderState.flush();
       if (storyCanvas) {
         storyCanvas.setStatus("Complete");
@@ -11424,7 +11645,8 @@ async function send() {
         setBubbleContent(bubble, partialText, true);
         addRegenerateButton(bubble);
       }
-      history.push({ role: "assistant", content: partialText });
+      attachEvidenceToAssistantBubble(bubble, finalEvidence);
+      history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
       trimHistoryToLimit();
       syncCurrentSessionFromHistory();
       addCorrectMeButton(bubble);
@@ -11461,6 +11683,7 @@ async function send() {
     if (stopRequested || errName === "AbortError") {
       if (partialText) {
         if (!writeBackToWorkspace && bubble) {
+          const finalEvidence = finalizeAssistantEvidence(assistantEvidence, { stopped: true });
           if (storyCanvas) {
             updateStoryCanvasOutput(storyCanvas, partialText);
             storyCanvas.setStatus("Stopped");
@@ -11469,7 +11692,8 @@ async function send() {
             setBubbleContent(bubble, partialText, true);
             addRegenerateButton(bubble);
           }
-          history.push({ role: "assistant", content: partialText });
+          attachEvidenceToAssistantBubble(bubble, finalEvidence);
+          history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
           trimHistoryToLimit();
           syncCurrentSessionFromHistory();
           addCorrectMeButton(bubble);
@@ -12967,6 +13191,590 @@ function withLocalKnowledge(payload) {
   return payload;
 }
 
+function buildAssistantEvidenceSnapshot(options = {}) {
+  const requestBody = options.requestBody && typeof options.requestBody === "object" ? options.requestBody : {};
+  return sanitizeEvidenceMetadata({
+    mode: options.mode || "chat",
+    model: options.model || requestBody.model || "",
+    promptPreview: requestBody.message || "",
+    promptChars: String(requestBody.message || "").trim().length,
+    messageHistory: requestBody.history || [],
+    messageHistoryCount: Array.isArray(requestBody.history) ? requestBody.history.length : 0,
+    localMemory: requestBody.local_memory || [],
+    localKnowledge: requestBody.local_knowledge || [],
+    attachments: requestBody.attachments || [],
+    workspaceContext: requestBody.workspace_context || "",
+    webSearchEnabled: Boolean(requestBody.enable_web_search),
+    toolsEnabled: Boolean(Array.isArray(requestBody.tools) ? requestBody.tools.length : requestBody.tools),
+    explicitWebToolUsed: false,
+    toolNames: [],
+    toolFollowupCount: 0,
+    incognito: Boolean(requestBody.incognito),
+    usingOwnKey: Boolean(getSavedUserOllamaApiKeyForModel(options.model || requestBody.model || "")),
+    createdAt: new Date().toISOString()
+  });
+}
+
+function getEvidenceToolCallName(toolCall) {
+  const fn = toolCall && (toolCall.function || toolCall);
+  return String((fn && fn.name) || "").trim().toLowerCase();
+}
+
+function recordToolCallsInEvidence(evidence, toolCalls) {
+  if (!evidence || !Array.isArray(toolCalls) || !toolCalls.length) return evidence;
+  const existing = new Set(Array.isArray(evidence.toolNames) ? evidence.toolNames : []);
+  toolCalls.forEach((toolCall) => {
+    const toolName = getEvidenceToolCallName(toolCall);
+    if (toolName) {
+      existing.add(toolName);
+      if (toolName === "web_search" || toolName === "web_fetch") {
+        evidence.explicitWebToolUsed = true;
+      }
+    }
+  });
+  evidence.toolNames = Array.from(existing).slice(0, 12);
+  return evidence;
+}
+
+function incrementEvidenceFollowupCount(evidence) {
+  if (!evidence) return;
+  evidence.toolFollowupCount = Math.max(0, Number(evidence.toolFollowupCount) || 0) + 1;
+}
+
+function finalizeAssistantEvidence(evidence, options = {}) {
+  if (!evidence) return null;
+  return sanitizeEvidenceMetadata({
+    ...evidence,
+    stopped: options.stopped === true
+  });
+}
+
+function getSensitiveSendReasons(evidence) {
+  if (!evidence) return [];
+  const reasons = [];
+  const memoryCount =
+    (Array.isArray(evidence.localMemory) ? evidence.localMemory.length : 0) +
+    (Array.isArray(evidence.localKnowledge) ? evidence.localKnowledge.length : 0);
+  if (evidence.incognito) reasons.push("incognito");
+  if (Array.isArray(evidence.attachments) && evidence.attachments.length) reasons.push("attachments");
+  if (memoryCount >= 3) reasons.push("memory");
+  if (evidence.webSearchEnabled) reasons.push("web");
+  if (evidence.toolsEnabled) reasons.push("tools");
+  if (evidence.workspaceContext && evidence.workspaceContext.chars > 0) reasons.push("workspace");
+  if (Number(evidence.messageHistoryCount) >= 12) reasons.push("history");
+  return reasons;
+}
+
+function shouldPromptBeforeSendForEvidence(evidence) {
+  return isAskBeforeSensitiveSendEnabled() && getSensitiveSendReasons(evidence).length > 0;
+}
+
+function createEvidenceSection(title, subtitle = "") {
+  const section = document.createElement("section");
+  section.className = "evidence-section";
+
+  const heading = document.createElement("div");
+  heading.className = "evidence-section-title";
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  if (subtitle) {
+    const hint = document.createElement("div");
+    hint.className = "evidence-section-hint";
+    hint.textContent = subtitle;
+    section.appendChild(hint);
+  }
+
+  return section;
+}
+
+function appendEvidenceEmptyState(section, text) {
+  const empty = document.createElement("div");
+  empty.className = "evidence-empty";
+  empty.textContent = text;
+  section.appendChild(empty);
+}
+
+function appendEvidenceCardList(section, items, renderer) {
+  if (!Array.isArray(items) || !items.length) {
+    return false;
+  }
+  const list = document.createElement("div");
+  list.className = "evidence-card-list";
+  items.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "evidence-card";
+    const rendered = renderer(item) || {};
+    const title = document.createElement("div");
+    title.className = "evidence-card-title";
+    title.textContent = rendered.title || "Context";
+    const body = document.createElement("div");
+    body.className = "evidence-card-body";
+    body.textContent = rendered.body || "";
+    card.appendChild(title);
+    if (rendered.meta) {
+      const meta = document.createElement("div");
+      meta.className = "evidence-card-meta";
+      meta.textContent = rendered.meta;
+      card.appendChild(meta);
+    }
+    card.appendChild(body);
+    list.appendChild(card);
+  });
+  section.appendChild(list);
+  return true;
+}
+
+function formatShadowSendCount(count, singularLabel, pluralLabel = "") {
+  const safeCount = Math.max(0, Number(count) || 0);
+  const plural = pluralLabel || `${singularLabel}s`;
+  return `${safeCount} ${safeCount === 1 ? singularLabel : plural}`;
+}
+
+function renderShadowSendComparison(container, evidence) {
+  if (!(container instanceof HTMLElement) || !evidence) return;
+  const memoryCount =
+    (Array.isArray(evidence.localMemory) ? evidence.localMemory.length : 0) +
+    (Array.isArray(evidence.localKnowledge) ? evidence.localKnowledge.length : 0);
+  const fileCount = Array.isArray(evidence.attachments) ? evidence.attachments.length : 0;
+  const historyCount = Math.max(0, Number(evidence.messageHistoryCount) || 0);
+  const routeLabel = evidence.usingOwnKey ? "Hosted with your own Ollama key" : "Hosted through ROK";
+  const webLabel = evidence.webSearchEnabled
+    ? (evidence.toolsEnabled ? "Web search and tools enabled" : "Web search enabled")
+    : (evidence.toolsEnabled ? "Tools enabled, web off" : "No web or tools enabled");
+
+  const section = createEvidenceSection(
+    "Shadow Send",
+    "The left side is a typical cloud-chat blind spot. The right side is exactly what ROK is showing you before send."
+  );
+  section.classList.add("shadow-send-section");
+
+  const grid = document.createElement("div");
+  grid.className = "shadow-send-grid";
+
+  const buildColumn = (title, toneClass, rows) => {
+    const column = document.createElement("div");
+    column.className = `shadow-send-column ${toneClass}`.trim();
+
+    const header = document.createElement("div");
+    header.className = "shadow-send-column-title";
+    header.textContent = title;
+    column.appendChild(header);
+
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "shadow-send-item";
+
+      const label = document.createElement("div");
+      label.className = "shadow-send-item-label";
+      label.textContent = row.label;
+
+      const value = document.createElement("div");
+      value.className = "shadow-send-item-value";
+      value.textContent = row.value;
+
+      item.appendChild(label);
+      item.appendChild(value);
+      column.appendChild(item);
+    });
+
+    return column;
+  };
+
+  grid.appendChild(buildColumn("Typical cloud chat send", "is-opaque", [
+    {
+      label: "Prompt",
+      value: "Your prompt goes out, but the full packaged request is usually hidden."
+    },
+    {
+      label: "History",
+      value: "Earlier chat context may be bundled in, but you usually do not get an exact receipt."
+    },
+    {
+      label: "Memory",
+      value: "Saved preferences or hidden profile context might be reused without being shown first."
+    },
+    {
+      label: "Files",
+      value: "Attachments can be uploaded as full contents once you hit send, with little preview of scope."
+    },
+    {
+      label: "Route",
+      value: "Usually just 'sent to the cloud' without a visible data path."
+    },
+    {
+      label: "Web and tools",
+      value: "Extra search or tool context can feel black-box unless the product chooses to surface it."
+    }
+  ]));
+
+  grid.appendChild(buildColumn("What ROK is sending", "is-visible", [
+    {
+      label: "Prompt",
+      value: evidence.promptChars
+        ? `${evidence.promptChars.toLocaleString()} prompt chars are visible below before send.`
+        : "No text prompt is being sent."
+    },
+    {
+      label: "History",
+      value: historyCount
+        ? `${formatShadowSendCount(historyCount, "prior message")} are included as context.`
+        : "No prior chat messages are being attached."
+    },
+    {
+      label: "Memory",
+      value: memoryCount
+        ? `${formatShadowSendCount(memoryCount, "memory fact")} are visible before send.`
+        : "No saved memory or correction knowledge is being attached."
+    },
+    {
+      label: "Files",
+      value: fileCount
+        ? `${formatShadowSendCount(fileCount, "attachment")} are listed before send.`
+        : "No files or images are being attached."
+    },
+    {
+      label: "Route",
+      value: `${routeLabel}${evidence.incognito ? " with incognito on" : ""}.`
+    },
+    {
+      label: "Web and tools",
+      value: `${webLabel}.`
+    }
+  ]));
+
+  section.appendChild(grid);
+
+  const note = document.createElement("div");
+  note.className = "shadow-send-note";
+  note.textContent = "ROK sends only what is shown in this preview.";
+  section.appendChild(note);
+
+  container.appendChild(section);
+}
+
+function renderEvidenceBody(container, evidence, options = {}) {
+  if (!(container instanceof HTMLElement)) return;
+  const previewMode = options.previewMode === true;
+  container.textContent = "";
+
+  if (previewMode) {
+    renderShadowSendComparison(container, evidence);
+  }
+
+  const summaryRow = document.createElement("div");
+  summaryRow.className = "evidence-pill-row";
+  const summaryPills = [
+    `${getModelLabelById(evidence.model || "") || "Unknown model"} selected`,
+    evidence.usingOwnKey ? "Your own Ollama key attached" : "ROK hosted route",
+    evidence.incognito ? "Incognito on" : "Standard session",
+    evidence.webSearchEnabled ? "Web access enabled" : "Web access off",
+    evidence.toolsEnabled ? "Tools enabled" : "Tools off"
+  ];
+  summaryPills.forEach((label) => {
+    const pill = document.createElement("span");
+    pill.className = "evidence-pill";
+    pill.textContent = label;
+    summaryRow.appendChild(pill);
+  });
+  container.appendChild(summaryRow);
+
+  const promptSection = createEvidenceSection(
+    previewMode ? "Prompt leaving the device" : "Prompt that shaped this answer",
+    evidence.promptChars
+      ? `${evidence.promptChars.toLocaleString()} characters were sent with the request.`
+      : "No text prompt was included."
+  );
+  if (evidence.promptPreview) {
+    const pre = document.createElement("pre");
+    pre.className = "evidence-preview-block";
+    pre.textContent = evidence.promptPreview;
+    promptSection.appendChild(pre);
+  } else {
+    appendEvidenceEmptyState(promptSection, "No prompt preview was captured for this reply.");
+  }
+  container.appendChild(promptSection);
+
+  const historySubtitle = evidence.messageHistoryCount > evidence.messageHistory.length
+    ? `Showing the most recent ${evidence.messageHistory.length} of ${evidence.messageHistoryCount} messages that were sent as chat context.`
+    : `${evidence.messageHistoryCount} prior message${evidence.messageHistoryCount === 1 ? "" : "s"} were sent as context.`;
+  const historySection = createEvidenceSection("Message history used", historySubtitle);
+  if (!appendEvidenceCardList(historySection, evidence.messageHistory, (item) => ({
+    title: item.role === "assistant" ? "Earlier ROK reply" : "Earlier user message",
+    body: item.content
+  }))) {
+    appendEvidenceEmptyState(historySection, "No previous chat messages were included with this request.");
+  }
+  container.appendChild(historySection);
+
+  const memorySection = createEvidenceSection("Memory used", "Saved browser memory and correction knowledge included with the request.");
+  const memoryEntries = [
+    ...(Array.isArray(evidence.localMemory) ? evidence.localMemory : []),
+    ...(Array.isArray(evidence.localKnowledge) ? evidence.localKnowledge : [])
+  ];
+  if (!appendEvidenceCardList(memorySection, memoryEntries, (item) => ({
+    title: item.kind ? `${item.kind}${item.scope ? ` • ${item.scope}` : ""}` : (item.source ? `Knowledge • ${item.source}` : "Remembered fact"),
+    body: item.fact,
+    meta: item.source || ""
+  }))) {
+    appendEvidenceEmptyState(memorySection, "No saved memory or correction knowledge was attached.");
+  }
+  container.appendChild(memorySection);
+
+  const filesSection = createEvidenceSection("Files used", "Names and file contents attached to this request.");
+  if (!appendEvidenceCardList(filesSection, evidence.attachments, (item) => ({
+    title: item.name,
+    body: item.summary,
+    meta: [item.type === "image" ? "Image" : "Text file", item.sizeLabel].filter(Boolean).join(" • ")
+  }))) {
+    appendEvidenceEmptyState(filesSection, "No files or images were attached.");
+  }
+  container.appendChild(filesSection);
+
+  const webSection = createEvidenceSection("Web results used", "Whether web access or built-in tools shaped the answer.");
+  const webBody = document.createElement("div");
+  webBody.className = "evidence-status-block";
+  if (evidence.explicitWebToolUsed) {
+    webBody.textContent = "ROK explicitly called a web search/fetch tool while building this answer.";
+  } else if (evidence.webSearchEnabled) {
+    webBody.textContent = "Web access was enabled for this request, but no explicit built-in web tool call was captured client-side.";
+  } else {
+    webBody.textContent = "No web access was enabled for this answer.";
+  }
+  webSection.appendChild(webBody);
+  if (Array.isArray(evidence.toolNames) && evidence.toolNames.length) {
+    const toolList = document.createElement("div");
+    toolList.className = "evidence-inline-list";
+    evidence.toolNames.forEach((toolName) => {
+      const chip = document.createElement("span");
+      chip.className = "evidence-inline-chip";
+      chip.textContent = toolName;
+      toolList.appendChild(chip);
+    });
+    webSection.appendChild(toolList);
+  }
+  if (evidence.toolFollowupCount > 0) {
+    const followupMeta = document.createElement("div");
+    followupMeta.className = "evidence-section-hint";
+    followupMeta.textContent = `${evidence.toolFollowupCount} follow-up request${evidence.toolFollowupCount === 1 ? "" : "s"} were made after tool results came back.`;
+    webSection.appendChild(followupMeta);
+  }
+  container.appendChild(webSection);
+}
+
+function openAskBeforeSendModal(evidence) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "correction-modal-overlay";
+
+    const modal = document.createElement("div");
+    modal.className = "correction-modal evidence-modal ask-before-send-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+
+    const title = document.createElement("div");
+    title.className = "correction-modal-title";
+    title.textContent = "Review what will leave this device";
+
+    const hint = document.createElement("div");
+    hint.className = "correction-modal-hint";
+    hint.textContent = "This looks like a more sensitive request, so ROK is pausing to show the context that is about to be sent.";
+
+    const body = document.createElement("div");
+    body.className = "evidence-modal-body";
+    renderEvidenceBody(body, evidence, { previewMode: true });
+
+    const btnRow = document.createElement("div");
+    btnRow.className = "correction-modal-btns";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "correction-modal-cancel";
+    cancelBtn.textContent = "Cancel";
+
+    const sendBtn = document.createElement("button");
+    sendBtn.type = "button";
+    sendBtn.className = "correction-modal-submit";
+    sendBtn.textContent = "Send anyway";
+
+    const close = (approved) => {
+      overlay.remove();
+      resolve(Boolean(approved));
+    };
+
+    cancelBtn.addEventListener("click", () => close(false));
+    sendBtn.addEventListener("click", () => close(true));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        close(false);
+      }
+    });
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close(false);
+      }
+    });
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(sendBtn);
+    modal.appendChild(title);
+    modal.appendChild(hint);
+    modal.appendChild(body);
+    modal.appendChild(btnRow);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    sendBtn.focus();
+  });
+}
+
+function openEvidenceModal(evidence) {
+  const safeEvidence = sanitizeEvidenceMetadata(evidence);
+  if (!safeEvidence) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "correction-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "correction-modal evidence-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+
+  const title = document.createElement("div");
+  title.className = "correction-modal-title";
+  title.textContent = "Evidence view";
+
+  const hint = document.createElement("div");
+  hint.className = "correction-modal-hint";
+  hint.textContent = "This is the client-side context ROK attached or saw while creating this answer.";
+
+  const body = document.createElement("div");
+  body.className = "evidence-modal-body";
+  renderEvidenceBody(body, safeEvidence, { previewMode: false });
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "correction-modal-btns";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "correction-modal-submit";
+  closeBtn.textContent = "Close";
+
+  const close = () => {
+    overlay.remove();
+  };
+
+  closeBtn.addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      close();
+    }
+  });
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    }
+  });
+
+  btnRow.appendChild(closeBtn);
+  modal.appendChild(title);
+  modal.appendChild(hint);
+  modal.appendChild(body);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  closeBtn.focus();
+}
+
+function getBubbleReadableText(bubble) {
+  if (!(bubble instanceof HTMLElement)) return "";
+  const clone = bubble.cloneNode(true);
+  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn, .evidence-btn, .regenerate-btn, .code-copy-btn").forEach(function (node) {
+    node.remove();
+  });
+  return String(clone.innerText || clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function bindEvidenceClickToBubble(bubble) {
+  if (!(bubble instanceof HTMLElement) || bubble._rokEvidenceBound) return;
+  bubble._rokEvidenceBound = true;
+  bubble.addEventListener("click", function (event) {
+    const row = bubble.closest(".msg.bot");
+    if (!row || !row._rokEvidence) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.closest("button, a, input, textarea, select, summary, details, pre, code")) {
+      return;
+    }
+    const selectedText = typeof window !== "undefined" && window.getSelection ? String(window.getSelection() || "").trim() : "";
+    if (selectedText) {
+      return;
+    }
+    openEvidenceModal(row._rokEvidence);
+  });
+}
+
+function syncAssistantBubbleActionButtons(bubble) {
+  if (!(bubble instanceof HTMLElement)) return;
+  const msgRow = bubble.closest(".msg.bot");
+  if (!msgRow) return;
+
+  if (!bubble.querySelector(".bubble-copy-btn")) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "bubble-copy-btn";
+    copyBtn.type = "button";
+    copyBtn.title = "Copy message";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", function () {
+      const textToCopy = getBubbleReadableText(bubble);
+      navigator.clipboard.writeText(textToCopy).then(function () {
+        copyBtn.textContent = "Copied!";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+      }).catch(function () {
+        copyBtn.textContent = "Failed";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+      });
+    });
+    bubble.appendChild(copyBtn);
+  }
+
+  const currentEvidenceBtn = bubble.querySelector(".evidence-btn");
+  if (msgRow._rokEvidence && shouldShowEvidenceButtons()) {
+    if (!currentEvidenceBtn) {
+      const evidenceBtn = document.createElement("button");
+      evidenceBtn.className = "evidence-btn";
+      evidenceBtn.type = "button";
+      evidenceBtn.title = "Inspect the context that shaped this answer";
+      evidenceBtn.textContent = "Evidence";
+      evidenceBtn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        event.preventDefault();
+        openEvidenceModal(msgRow._rokEvidence);
+      });
+      bubble.appendChild(evidenceBtn);
+    }
+  } else if (currentEvidenceBtn) {
+    currentEvidenceBtn.remove();
+  }
+}
+
+function attachEvidenceToAssistantBubble(bubble, evidence) {
+  if (!(bubble instanceof HTMLElement)) return;
+  const row = bubble.closest(".msg.bot");
+  if (!row) return;
+  const safeEvidence = sanitizeEvidenceMetadata(evidence);
+  row._rokEvidence = safeEvidence;
+  row.classList.toggle("msg-has-evidence", Boolean(safeEvidence));
+  bubble.classList.toggle("bubble-has-evidence", Boolean(safeEvidence));
+  if (safeEvidence) {
+    bubble.title = "Click to inspect the context that shaped this answer";
+    bindEvidenceClickToBubble(bubble);
+  } else {
+    bubble.removeAttribute("title");
+  }
+  syncAssistantBubbleActionButtons(bubble);
+}
+
 function upsertLocalKnowledgeFact(fact, sourceQuery) {
   var normalizedFact = sanitizeLocalKnowledgeText(fact, LOCAL_KNOWLEDGE_MAX_FACT_CHARS);
   if (!normalizedFact) return null;
@@ -12992,12 +13800,7 @@ function upsertLocalKnowledgeFact(fact, sourceQuery) {
 }
 
 function getCorrectionTargetText(bubble) {
-  if (!(bubble instanceof HTMLElement)) return "";
-  var clone = bubble.cloneNode(true);
-  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn").forEach(function (node) {
-    node.remove();
-  });
-  return String(clone.innerText || clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+  return getBubbleReadableText(bubble);
 }
 
 function addCorrectMeButton(bubble) {
