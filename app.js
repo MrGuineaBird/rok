@@ -163,6 +163,7 @@ const onboardingSpotlight = document.getElementById("onboardingSpotlight");
 const onboardingGuideStep = document.getElementById("onboardingGuideStep");
 const onboardingGuideHeading = document.getElementById("onboardingGuideHeading");
 const onboardingGuideText = document.getElementById("onboardingGuideText");
+const onboardingChoiceGrid = document.getElementById("onboardingChoiceGrid");
 const onboardingNameField = document.getElementById("onboardingNameField");
 const onboardingCloseBtn = document.getElementById("onboardingCloseBtn");
 const onboardingBackBtn = document.getElementById("onboardingBackBtn");
@@ -226,12 +227,40 @@ const EVIDENCE_PROMPT_PREVIEW_CHARS = 640;
 const EVIDENCE_WORKSPACE_PREVIEW_CHARS = 420;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
-const ONBOARDING_TOUR_VERSION = 5;
+const ONBOARDING_TOUR_VERSION = 6;
 const CUSTOMIZATION_NAME_MAX_CHARS = 64;
 const CUSTOMIZATION_PROMPT_MAX_CHARS = 2400;
 const WORKSPACE_TAB_LABEL_MAX_CHARS = 24;
 const CUSTOM_WORKSPACE_TAB_URL_MAX_CHARS = 320;
 const CUSTOM_WORKSPACE_TAB_LIMIT = 8;
+const PRIMARY_USE_CASE_OPTIONS = [
+  {
+    id: "general",
+    label: "General questions",
+    description: "Bounce between random questions, ideas, and everyday stuff."
+  },
+  {
+    id: "research",
+    label: "Study + research",
+    description: "Explain topics, summarize notes, and work through school or research tasks."
+  },
+  {
+    id: "code",
+    label: "Coding",
+    description: "Debug, plan changes, and move into ROK CODE when you need structure."
+  },
+  {
+    id: "writing",
+    label: "Writing",
+    description: "Draft, brainstorm, rewrite, and keep the tone you want."
+  },
+  {
+    id: "fun",
+    label: "Fun + random stuff",
+    description: "Mess around, ask goofy questions, and use ROK like a creative sandbox."
+  }
+];
+const PRIMARY_USE_CASE_IDS = new Set(PRIMARY_USE_CASE_OPTIONS.map((item) => item.id));
 const CUSTOMIZATION_ACCENT_PRESETS = [
   "#d14b4b",
   "#e27a3f",
@@ -289,6 +318,7 @@ const DEFAULT_USER_SETTINGS = {
   customSystemPrompt: "",
   customIdentityName: "",
   preferredName: "",
+  primaryUseCase: "general",
   memoryEnabled: true,
   projectMemoryEnabled: true,
   autoLearn: true,
@@ -304,6 +334,11 @@ const DEFAULT_USER_SETTINGS = {
   showTopWorkspaceTabs: true,
   showSidebarWorkspaceTabs: true
 };
+
+function sanitizePrimaryUseCase(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return PRIMARY_USE_CASE_IDS.has(normalized) ? normalized : "general";
+}
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
@@ -424,41 +459,23 @@ const MATH_STANDALONE_VERSION = "3";
 const ONBOARDING_TOUR_TEXT_SPEED_MS = 22;
 const ONBOARDING_TOUR_STEPS = [
   {
-    title: "Start with the chat",
-    text: "Type what you are working on here. Use the plus button for files or quick tools, but the prompt stays the main thing.",
-    target: () => composerShell,
-    placement: "top",
-    nextLabel: "Show models"
+    id: "intro",
+    title: "ROK opens ready to work",
+    text: "You land in chat first, the sidebar stays tucked away until you want it, and the heavier control stuff stays optional instead of getting dumped on you right away.",
+    nextLabel: "What are you using ROK for?"
   },
   {
-    title: "Model choice stays visible",
-    text: "Pick a ROK model, your own local Ollama runtime, or your own Ollama Cloud model here instead of digging through hidden settings.",
-    target: () => modelPickerBtn,
-    placement: "top",
-    nextLabel: "Show sidebar"
+    id: "use-case",
+    title: "What are you mainly here for?",
+    text: "Pick the lane that feels closest. This only tunes ROK's first-run suggestions and welcome copy on this device, and you can change it later in Customize.",
+    showChoices: true,
+    nextLabel: "Set my name"
   },
   {
-    title: "The sidebar stays tucked away",
-    text: "This toggle keeps ROK calm. The sidebar starts closed so you are not hit with a bunch of tabs before you even type.",
-    target: () => sidebarToggleBtn,
-    placement: "right",
-    beforeEnter: () => setOnboardingSidebarPreview(false),
-    nextLabel: "Open it"
-  },
-  {
-    title: "Open it only when you need more",
-    text: "New chats, saved sessions, and jumps into ROK CODE or ROK MATH live here. Open it, grab what you need, then get back to work.",
-    target: () => sidebar,
-    placement: "right",
-    beforeEnter: () => setOnboardingSidebarPreview(true),
-    nextLabel: "One last thing"
-  },
-  {
-    title: "One last thing",
-    text: "If you want, tell ROK your name. It stays on this device and only gets used when it actually fits the reply.",
-    placement: "center",
+    id: "name",
+    title: "What should ROK call you?",
+    text: "Optional, local, and lightweight. ROK will only use your name when it actually sounds natural in the conversation.",
     showNameField: true,
-    beforeEnter: () => setOnboardingSidebarPreview(false),
     nextLabel: "Start chatting"
   }
 ];
@@ -899,23 +916,22 @@ function getMergedSystemPromptForApi() {
   return custom || identity;
 }
 
+function getCustomPromptOverridesForApi() {
+  return {
+    customSystemPrompt: sanitizeLongUserSettingText(getMergedSystemPromptForApi()),
+    customIdentity: sanitizeShortUserSettingText(getCustomIdentityHeaderValue())
+  };
+}
+
 function buildApiHeaders(includeJson, options = {}) {
   const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
-    const systemPrompt = getMergedSystemPromptForApi();
-    if (systemPrompt) {
-      headers["X-Custom-System-Prompt"] = systemPrompt;
-    }
   }
   const requestedModel = resolveModelAlias(options && options.modelId ? options.modelId : "");
   const userKey = getSavedUserOllamaApiKeyForModel(requestedModel);
   if (userKey) {
     headers["X-ROK-Ollama-Key"] = userKey;
-  }
-  const customIdentity = getCustomIdentityHeaderValue();
-  if (customIdentity) {
-    headers["X-Custom-Identity"] = customIdentity;
   }
   if (isIncognitoModeEnabled()) {
     headers["X-ROK-Incognito"] = "1";
@@ -1556,6 +1572,7 @@ function buildSanitizedUserSettings(sourceSettings = {}) {
   const customWorkspaceTabs = sanitizeCustomWorkspaceTabs(merged.customWorkspaceTabs);
   return {
     preferredName: sanitizeShortUserSettingText(merged.preferredName),
+    primaryUseCase: sanitizePrimaryUseCase(merged.primaryUseCase),
     customIdentityName: sanitizeShortUserSettingText(merged.customIdentityName),
     customSystemPrompt: sanitizeLongUserSettingText(merged.customSystemPrompt),
     accentColor: normalizeHexColor(merged.accentColor, DEFAULT_USER_SETTINGS.accentColor),
@@ -1565,7 +1582,7 @@ function buildSanitizedUserSettings(sourceSettings = {}) {
     rememberModel: merged.rememberModel !== false,
     enterToSend: merged.enterToSend !== false,
     autoScroll: merged.autoScroll !== false,
-    sidebarStartsCollapsed: Boolean(merged.sidebarStartsCollapsed),
+    sidebarStartsCollapsed: true,
     sidebarWidth: normalizeClientLimit(merged.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
     chatWidth: normalizeClientLimit(merged.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
     bubbleRadius: normalizeClientLimit(merged.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
@@ -1681,7 +1698,7 @@ async function importRokControlSetupFromFile(file) {
     : parsed;
   const nextSettings = sanitizeImportedUserSettings(source);
   persistUserSettingsPatch(nextSettings, { syncModelDefaults: true });
-  applySidebarCollapsedState(Boolean(nextSettings.sidebarStartsCollapsed), { persist: true });
+  applySidebarCollapsedState(true, { persist: true });
   trimSessionsToSettingLimit();
   refreshMemoryToggleButtons();
   renderLocalKnowledgeList();
@@ -1770,6 +1787,7 @@ let onboardingStepIndex = 0;
 let onboardingTourRunToken = 0;
 let onboardingRenderSequence = 0;
 let pendingOnboardingTourStart = false;
+let onboardingSelectedUseCase = "general";
 const ONBOARDING_SLIDE_COUNT = ONBOARDING_TOUR_STEPS.length;
 const ONBOARDING_NAME_SLIDE = ONBOARDING_SLIDE_COUNT - 1;
 
@@ -1798,6 +1816,59 @@ function waitForOnboardingTour(ms) {
 
 function waitForNextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+function buildOnboardingChoiceCards() {
+  return PRIMARY_USE_CASE_OPTIONS.map((item) => {
+    const selected = item.id === onboardingSelectedUseCase;
+    return `
+      <button
+        class="onboarding-choice-card${selected ? " is-selected" : ""}"
+        type="button"
+        data-onboarding-use-case="${escapeHtml(item.id)}"
+        aria-pressed="${selected ? "true" : "false"}"
+      >
+        <span class="onboarding-choice-title">${escapeHtml(item.label)}</span>
+        <span class="onboarding-choice-desc">${escapeHtml(item.description)}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderOnboardingChoiceGrid() {
+  if (!(onboardingChoiceGrid instanceof HTMLElement)) return;
+  onboardingChoiceGrid.innerHTML = buildOnboardingChoiceCards();
+  onboardingChoiceGrid.querySelectorAll("[data-onboarding-use-case]").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener("click", () => {
+      onboardingSelectedUseCase = sanitizePrimaryUseCase(button.getAttribute("data-onboarding-use-case") || "general");
+      renderOnboardingChoiceGrid();
+    });
+  });
+}
+
+function ensureOnboardingLayoutShell() {
+  if (!(onboardingGuide instanceof HTMLElement)) return;
+  const shell = onboardingGuide.querySelector(".onboarding-shell");
+  const card = onboardingGuide.querySelector(".onboarding-card");
+  if (!(shell instanceof HTMLElement) || !(card instanceof HTMLElement)) return;
+  if (shell.querySelector(".onboarding-aside")) return;
+  const aside = document.createElement("aside");
+  aside.className = "onboarding-aside";
+  aside.setAttribute("aria-hidden", "true");
+  aside.innerHTML = `
+    <div class="onboarding-aside-top">
+      <span class="onboarding-badge">First run</span>
+      <span class="onboarding-step-inline">ROK setup</span>
+    </div>
+    <div class="onboarding-orb-stage">
+      <img class="onboarding-guide-orb" src="rokgenerating.gif" alt="" />
+    </div>
+    <p class="onboarding-aside-note">
+      ROK opens straight into chat. This setup just tunes the first-run feel on this device.
+    </p>
+  `;
+  shell.insertBefore(aside, card);
 }
 
 async function typeOnboardingText(text) {
@@ -1921,20 +1992,21 @@ async function renderOnboardingStep() {
     onboardingNextBtn.textContent = step.nextLabel || (onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Start chatting" : "Next");
   }
   if (onboardingSkipBtn) {
-    onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip tour";
+    onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip";
   }
   if (onboardingNameField) {
     onboardingNameField.hidden = !step.showNameField;
   }
-
-  if (typeof step.beforeEnter === "function") {
-    step.beforeEnter();
+  if (onboardingChoiceGrid) {
+    onboardingChoiceGrid.hidden = !step.showChoices;
+    if (step.showChoices) {
+      renderOnboardingChoiceGrid();
+    }
   }
 
   await waitForNextFrame();
   await waitForNextFrame();
   if (renderSequence !== onboardingRenderSequence || !isOnboardingModalVisible()) return;
-  positionOnboardingGuide(step);
   await typeOnboardingText(step.text);
   if (renderSequence !== onboardingRenderSequence || !isOnboardingModalVisible()) return;
 
@@ -1945,12 +2017,14 @@ async function renderOnboardingStep() {
 
 function openOnboardingModal() {
   if (!onboardingModal) return;
+  ensureOnboardingLayoutShell();
   if (onboardingCloseBtn) {
     onboardingCloseBtn.textContent = "\u00d7";
   }
   if (onboardingNameInput) {
     onboardingNameInput.value = String(loadUserSettingsFromStorage().preferredName || "");
   }
+  onboardingSelectedUseCase = sanitizePrimaryUseCase(loadUserSettingsFromStorage().primaryUseCase);
   if (mainPanel) {
     mainPanel.scrollTop = 0;
   }
@@ -1978,6 +2052,11 @@ function closeOnboardingModal() {
 
 function enterAppFromHome() {
   hideHomeScreen();
+  if (isMobileLayout) {
+    applyMobileSidebarState(false);
+  } else {
+    applySidebarCollapsedState(true, { persist: false });
+  }
   checkServerOnBoot();
   renderWorkspaceUI({ focus: true });
   const preferredTab = pendingHomeEnterTab;
@@ -2094,9 +2173,8 @@ function enterAppWithTosCheck() {
 }
 
 function finishOnboardingAndEnter() {
-  if (!hasSavedSidebarCollapsedPreference()) {
-    applySidebarCollapsedState(true);
-  }
+  savePrimaryUseCaseToStorage(onboardingSelectedUseCase);
+  applySidebarCollapsedState(true, { persist: false });
   saveOnboardingCompletedRecord();
   closeOnboardingModal();
   if (input) {
@@ -2124,6 +2202,22 @@ function saveLastModelToStorage(modelId) {
       return;
     }
     localStorage.setItem(LOCAL_LAST_MODEL_KEY, normalized);
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function savePrimaryUseCaseToStorage(rawUseCase) {
+  const nextUseCase = sanitizePrimaryUseCase(rawUseCase);
+  if (isIncognitoModeEnabled()) {
+    userSettings = { ...userSettings, primaryUseCase: nextUseCase };
+    return;
+  }
+  try {
+    const nextSettings = { ...loadUserSettingsFromStorage(), primaryUseCase: nextUseCase };
+    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(nextSettings));
+    userSettings = nextSettings;
+    applyUserSettingsToRuntime({ syncModelDefaults: false });
   } catch {
     // Ignore storage write failures.
   }
@@ -2723,9 +2817,9 @@ function openLayoutStudioModal() {
   modal.innerHTML = `
     <div class="customize-rok-head">
       <div>
-        <div class="customize-rok-kicker">Ultimate control</div>
+        <div class="customize-rok-kicker">Advanced control</div>
         <h2 id="layoutStudioTitle" class="correction-modal-title">Layout Studio</h2>
-        <p class="correction-modal-hint">Rename built-in tabs, add your own link tabs, and drag the shell pieces into the order you want.</p>
+        <p class="correction-modal-hint">Rename tabs, add your own shortcuts, and drag the shell around if you want a custom layout.</p>
       </div>
     </div>
     <div class="customize-rok-body layout-studio-body">
@@ -2785,7 +2879,7 @@ function openLayoutStudioModal() {
     <div class="correction-modal-btns customize-rok-btns">
       <button class="correction-modal-cancel" type="button" data-layout-action="reset">Reset layout</button>
       <button class="correction-modal-cancel" type="button" data-layout-action="cancel">Cancel</button>
-      <button class="correction-modal-submit" type="button" data-layout-action="save">Save layout control</button>
+      <button class="correction-modal-submit" type="button" data-layout-action="save">Save layout</button>
     </div>
   `;
 
@@ -3507,10 +3601,7 @@ function openCustomizeRokModal() {
     resolveModal = resolve;
   });
 
-  const currentSettings = {
-    ...buildExportableUserSettings(),
-    sidebarStartsCollapsed: loadSidebarCollapsedFromStorage()
-  };
+  const currentSettings = buildExportableUserSettings();
   const selectedDefaultModel = resolveDefaultModelId(MODEL_OPTIONS, currentSettings.defaultModel);
   const modelChoices = buildCustomizationModelChoices(selectedDefaultModel);
 
@@ -3525,12 +3616,36 @@ function openCustomizeRokModal() {
   modal.innerHTML = `
     <div class="customize-rok-head">
       <div>
-        <div class="customize-rok-kicker">Ultimate control</div>
+        <div class="customize-rok-kicker">Make ROK yours</div>
         <h2 id="customizeRokTitle" class="correction-modal-title">Customize ROK</h2>
-        <p class="correction-modal-hint">Tune the layout, reply style, session behavior, memory, and browser storage so ROK behaves the way you want on this device.</p>
+        <p class="correction-modal-hint">Start with a simple preset, then tweak the parts you actually care about on this browser.</p>
       </div>
     </div>
     <div class="customize-rok-body">
+      <section class="customize-rok-section">
+        <div class="customize-rok-section-head">
+          <span class="customize-rok-section-kicker">Quick setup</span>
+          <h3 class="customize-rok-section-title">One click to get close</h3>
+        </div>
+        <div class="customize-rok-preset-grid">
+          <button class="customize-rok-action-btn" type="button" data-customize-preset="calm">
+            <strong>Calm</strong>
+            <span>Quieter UI, less motion, less clutter.</span>
+          </button>
+          <button class="customize-rok-action-btn" type="button" data-customize-preset="code">
+            <strong>Coding</strong>
+            <span>Bias the defaults toward debugging and planning changes.</span>
+          </button>
+          <button class="customize-rok-action-btn" type="button" data-customize-preset="writing">
+            <strong>Writing</strong>
+            <span>Make the chat feel better for drafting and rewriting.</span>
+          </button>
+          <button class="customize-rok-action-btn" type="button" data-customize-preset="private">
+            <strong>Privacy first</strong>
+            <span>More previewing, less remembering, less background reuse.</span>
+          </button>
+        </div>
+      </section>
       <section class="customize-rok-section">
         <div class="customize-rok-section-head">
           <span class="customize-rok-section-kicker">Identity</span>
@@ -3543,6 +3658,15 @@ function openCustomizeRokModal() {
             <span class="customize-rok-help">Used only when it actually fits the reply.</span>
           </label>
           <label class="customize-rok-field">
+            <span class="customize-rok-label">What do you mostly use ROK for?</span>
+            <select class="correction-modal-input customize-rok-select" data-customize-field="primaryUseCase">
+              ${PRIMARY_USE_CASE_OPTIONS.map((option) => `
+                <option value="${escapeHtml(option.id)}">${escapeHtml(option.label)}</option>
+              `).join("")}
+            </select>
+            <span class="customize-rok-help">This mainly tunes the welcome copy and starter suggestions.</span>
+          </label>
+          <label class="customize-rok-field">
             <span class="customize-rok-label">What should the assistant call itself?</span>
             <input class="correction-modal-input" data-customize-field="customIdentityName" type="text" maxlength="${CUSTOMIZATION_NAME_MAX_CHARS}" placeholder="Leave blank to keep ROK" />
             <span class="customize-rok-help">Changes the assistant identity without swapping the model underneath.</span>
@@ -3552,7 +3676,7 @@ function openCustomizeRokModal() {
           <span class="customize-rok-label">Custom instructions</span>
           <textarea class="correction-modal-input customize-rok-textarea" data-customize-field="customSystemPrompt" maxlength="${CUSTOMIZATION_PROMPT_MAX_CHARS}" placeholder="Examples: be more concise, answer like a pair programmer, default to bullet points, explain code step-by-step, suggest the safest option first."></textarea>
           <div class="customize-rok-field-footer">
-            <span class="customize-rok-help">This steers tone, formatting, and default behavior for future replies.</span>
+            <span class="customize-rok-help">Extra preferences for future replies. Tone, formatting, and default behavior all go here.</span>
             <span class="correction-modal-charcount" data-customize-prompt-count>0 / ${CUSTOMIZATION_PROMPT_MAX_CHARS}</span>
           </div>
         </label>
@@ -3723,13 +3847,6 @@ function openCustomizeRokModal() {
             </span>
           </label>
           <label class="customize-rok-toggle">
-            <input data-customize-field="sidebarStartsCollapsed" type="checkbox" />
-            <span class="customize-rok-toggle-copy">
-              <strong>Keep the sidebar tucked away</strong>
-              <span>Start chat with the left panel collapsed on desktop.</span>
-            </span>
-          </label>
-          <label class="customize-rok-toggle">
             <input data-customize-field="memoryEnabled" type="checkbox" />
             <span class="customize-rok-toggle-copy">
               <strong>Browser memory</strong>
@@ -3768,13 +3885,13 @@ function openCustomizeRokModal() {
       </section>
       <section class="customize-rok-section">
         <div class="customize-rok-section-head">
-          <span class="customize-rok-section-kicker">Control actions</span>
-          <h3 class="customize-rok-section-title">Move, reset, or wipe local state</h3>
+          <span class="customize-rok-section-kicker">Advanced tools</span>
+          <h3 class="customize-rok-section-title">Layout editing, import/export, and cleanup</h3>
         </div>
         <div class="customize-rok-action-grid">
           <button class="customize-rok-action-btn" type="button" data-customize-action="layout-studio">
-            <strong>Open layout studio</strong>
-            <span>Rename tabs, add custom ones, and drag the shell into your own order.</span>
+            <strong>Advanced layout editor</strong>
+            <span>Rename tabs, add custom ones, and rearrange the shell if you really want to.</span>
           </button>
           <button class="customize-rok-action-btn" type="button" data-customize-action="export">
             <strong>Export setup</strong>
@@ -3802,7 +3919,7 @@ function openCustomizeRokModal() {
     <div class="correction-modal-btns customize-rok-btns">
       <button class="correction-modal-cancel" type="button" data-customize-action="reset">Reset defaults</button>
       <button class="correction-modal-cancel" type="button" data-customize-action="cancel">Cancel</button>
-      <button class="correction-modal-submit" type="button" data-customize-action="save">Save control setup</button>
+      <button class="correction-modal-submit" type="button" data-customize-action="save">Save changes</button>
     </div>
   `;
 
@@ -3815,6 +3932,7 @@ function openCustomizeRokModal() {
   modal.appendChild(importInput);
 
   const preferredNameInput = modal.querySelector('[data-customize-field="preferredName"]');
+  const primaryUseCaseInput = modal.querySelector('[data-customize-field="primaryUseCase"]');
   const customIdentityInput = modal.querySelector('[data-customize-field="customIdentityName"]');
   const customPromptInput = modal.querySelector('[data-customize-field="customSystemPrompt"]');
   const accentColorPicker = modal.querySelector('[data-customize-field="accentColorPicker"]');
@@ -3827,7 +3945,6 @@ function openCustomizeRokModal() {
   const rememberModelInput = modal.querySelector('[data-customize-field="rememberModel"]');
   const enterToSendInput = modal.querySelector('[data-customize-field="enterToSend"]');
   const autoScrollInput = modal.querySelector('[data-customize-field="autoScroll"]');
-  const sidebarStartsCollapsedInput = modal.querySelector('[data-customize-field="sidebarStartsCollapsed"]');
   const memoryEnabledInput = modal.querySelector('[data-customize-field="memoryEnabled"]');
   const projectMemoryEnabledInput = modal.querySelector('[data-customize-field="projectMemoryEnabled"]');
   const autoLearnInput = modal.querySelector('[data-customize-field="autoLearn"]');
@@ -3850,6 +3967,7 @@ function openCustomizeRokModal() {
   const clearProjectMemoryBtn = modal.querySelector('[data-customize-action="clear-project-memory"]');
   const clearChatsBtn = modal.querySelector('[data-customize-action="clear-chats"]');
   const accentSwatches = Array.from(modal.querySelectorAll("[data-accent-swatch]"));
+  const presetButtons = Array.from(modal.querySelectorAll("[data-customize-preset]"));
   const rangeValueEls = {
     chatWidth: modal.querySelector('[data-customize-value="chatWidth"]'),
     sidebarWidth: modal.querySelector('[data-customize-value="sidebarWidth"]'),
@@ -3925,8 +4043,39 @@ function openCustomizeRokModal() {
     }
   };
 
+  const buildDraftSettingsFromFields = () => ({
+    preferredName: sanitizeShortUserSettingText(preferredNameInput ? preferredNameInput.value : ""),
+    primaryUseCase: sanitizePrimaryUseCase(primaryUseCaseInput ? primaryUseCaseInput.value : DEFAULT_USER_SETTINGS.primaryUseCase),
+    customIdentityName: sanitizeShortUserSettingText(customIdentityInput ? customIdentityInput.value : ""),
+    customSystemPrompt: sanitizeLongUserSettingText(customPromptInput ? customPromptInput.value : ""),
+    accentColor: normalizeHexColor(accentColorText ? accentColorText.value : "", DEFAULT_USER_SETTINGS.accentColor),
+    compactMode: Boolean(compactModeInput && compactModeInput.checked),
+    reduceMotion: Boolean(reduceMotionInput && reduceMotionInput.checked),
+    showStarterChips: Boolean(showStarterChipsInput && showStarterChipsInput.checked),
+    showTimestamps: Boolean(showTimestampsInput && showTimestampsInput.checked),
+    defaultModel: resolveDefaultModelId(MODEL_OPTIONS, defaultModelInput ? defaultModelInput.value : DEFAULT_USER_SETTINGS.defaultModel),
+    rememberModel: Boolean(rememberModelInput && rememberModelInput.checked),
+    enterToSend: Boolean(enterToSendInput && enterToSendInput.checked),
+    autoScroll: Boolean(autoScrollInput && autoScrollInput.checked),
+    sidebarStartsCollapsed: true,
+    sidebarWidth: normalizeClientLimit(sidebarWidthInput ? sidebarWidthInput.value : DEFAULT_USER_SETTINGS.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
+    chatWidth: normalizeClientLimit(chatWidthInput ? chatWidthInput.value : DEFAULT_USER_SETTINGS.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
+    bubbleRadius: normalizeClientLimit(bubbleRadiusInput ? bubbleRadiusInput.value : DEFAULT_USER_SETTINGS.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
+    bubbleTextSize: normalizeClientLimit(bubbleTextSizeInput ? bubbleTextSizeInput.value : DEFAULT_USER_SETTINGS.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
+    typingSpeed: normalizeClientLimit(typingSpeedInput ? typingSpeedInput.value : DEFAULT_USER_SETTINGS.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
+    cooldownMs: normalizeClientLimit(cooldownMsInput ? cooldownMsInput.value : DEFAULT_USER_SETTINGS.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
+    historyLimit: normalizeClientLimit(historyLimitInput ? historyLimitInput.value : DEFAULT_USER_SETTINGS.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
+    maxSessions: normalizeClientLimit(maxSessionsInput ? maxSessionsInput.value : DEFAULT_USER_SETTINGS.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
+    memoryEnabled: Boolean(memoryEnabledInput && memoryEnabledInput.checked),
+    projectMemoryEnabled: Boolean(projectMemoryEnabledInput && projectMemoryEnabledInput.checked),
+    autoLearn: Boolean(autoLearnInput && autoLearnInput.checked),
+    askBeforeSensitiveSend: Boolean(modal.querySelector('[data-customize-field="askBeforeSensitiveSend"]')?.checked),
+    showEvidenceButtons: Boolean(modal.querySelector('[data-customize-field="showEvidenceButtons"]')?.checked)
+  });
+
   const applySettingsToFields = (sourceSettings) => {
     if (preferredNameInput) preferredNameInput.value = sanitizeShortUserSettingText(sourceSettings.preferredName);
+    if (primaryUseCaseInput) primaryUseCaseInput.value = sanitizePrimaryUseCase(sourceSettings.primaryUseCase);
     if (customIdentityInput) customIdentityInput.value = sanitizeShortUserSettingText(sourceSettings.customIdentityName);
     if (customPromptInput) customPromptInput.value = sanitizeLongUserSettingText(sourceSettings.customSystemPrompt);
     if (compactModeInput) compactModeInput.checked = Boolean(sourceSettings.compactMode);
@@ -3936,7 +4085,6 @@ function openCustomizeRokModal() {
     if (rememberModelInput) rememberModelInput.checked = Boolean(sourceSettings.rememberModel);
     if (enterToSendInput) enterToSendInput.checked = Boolean(sourceSettings.enterToSend);
     if (autoScrollInput) autoScrollInput.checked = Boolean(sourceSettings.autoScroll);
-    if (sidebarStartsCollapsedInput) sidebarStartsCollapsedInput.checked = Boolean(sourceSettings.sidebarStartsCollapsed);
     if (memoryEnabledInput) memoryEnabledInput.checked = Boolean(sourceSettings.memoryEnabled);
     if (projectMemoryEnabledInput) projectMemoryEnabledInput.checked = Boolean(sourceSettings.projectMemoryEnabled);
     if (autoLearnInput) autoLearnInput.checked = Boolean(sourceSettings.autoLearn);
@@ -3997,6 +4145,48 @@ function openCustomizeRokModal() {
   if (memoryEnabledInput) {
     memoryEnabledInput.addEventListener("change", syncMemoryDependents);
   }
+  const customizationPresets = {
+    calm: {
+      reduceMotion: true,
+      compactMode: false,
+      showStarterChips: false,
+      showTimestamps: false,
+      bubbleRadius: 20,
+      chatWidth: 820,
+      primaryUseCase: "general"
+    },
+    code: {
+      primaryUseCase: "code",
+      typingSpeed: 6,
+      historyLimit: 30,
+      showStarterChips: true,
+      askBeforeSensitiveSend: true
+    },
+    writing: {
+      primaryUseCase: "writing",
+      bubbleTextSize: 15,
+      chatWidth: 860,
+      showStarterChips: true,
+      typingSpeed: 10
+    },
+    private: {
+      askBeforeSensitiveSend: true,
+      memoryEnabled: false,
+      projectMemoryEnabled: false,
+      autoLearn: false
+    }
+  };
+  presetButtons.forEach((btn) => {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    btn.addEventListener("click", () => {
+      const presetId = String(btn.getAttribute("data-customize-preset") || "").trim();
+      const presetPatch = customizationPresets[presetId];
+      if (!presetPatch) return;
+      applySettingsToFields({ ...buildDraftSettingsFromFields(), ...presetPatch });
+      const presetLabel = btn.querySelector("strong") ? btn.querySelector("strong").textContent.trim() : "selected";
+      showThinkingQuotaToast(`Applied the ${presetLabel} preset.`);
+    });
+  });
 
   const keydownHandler = (e) => {
     if (e.key === "Escape") {
@@ -4082,41 +4272,16 @@ function openCustomizeRokModal() {
   }
   if (saveBtn) {
     saveBtn.addEventListener("click", () => {
-      const patch = {
-        preferredName: sanitizeShortUserSettingText(preferredNameInput ? preferredNameInput.value : ""),
-        customIdentityName: sanitizeShortUserSettingText(customIdentityInput ? customIdentityInput.value : ""),
-        customSystemPrompt: sanitizeLongUserSettingText(customPromptInput ? customPromptInput.value : ""),
-        accentColor: normalizeHexColor(accentColorText ? accentColorText.value : "", DEFAULT_USER_SETTINGS.accentColor),
-        compactMode: Boolean(compactModeInput && compactModeInput.checked),
-        reduceMotion: Boolean(reduceMotionInput && reduceMotionInput.checked),
-        showStarterChips: Boolean(showStarterChipsInput && showStarterChipsInput.checked),
-        showTimestamps: Boolean(showTimestampsInput && showTimestampsInput.checked),
-        defaultModel: resolveDefaultModelId(MODEL_OPTIONS, defaultModelInput ? defaultModelInput.value : DEFAULT_USER_SETTINGS.defaultModel),
-        rememberModel: Boolean(rememberModelInput && rememberModelInput.checked),
-        enterToSend: Boolean(enterToSendInput && enterToSendInput.checked),
-        autoScroll: Boolean(autoScrollInput && autoScrollInput.checked),
-        sidebarStartsCollapsed: Boolean(sidebarStartsCollapsedInput && sidebarStartsCollapsedInput.checked),
-        sidebarWidth: normalizeClientLimit(sidebarWidthInput ? sidebarWidthInput.value : DEFAULT_USER_SETTINGS.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
-        chatWidth: normalizeClientLimit(chatWidthInput ? chatWidthInput.value : DEFAULT_USER_SETTINGS.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
-        bubbleRadius: normalizeClientLimit(bubbleRadiusInput ? bubbleRadiusInput.value : DEFAULT_USER_SETTINGS.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
-        bubbleTextSize: normalizeClientLimit(bubbleTextSizeInput ? bubbleTextSizeInput.value : DEFAULT_USER_SETTINGS.bubbleTextSize, DEFAULT_USER_SETTINGS.bubbleTextSize, 12, 18),
-        typingSpeed: normalizeClientLimit(typingSpeedInput ? typingSpeedInput.value : DEFAULT_USER_SETTINGS.typingSpeed, DEFAULT_USER_SETTINGS.typingSpeed, 0, 500),
-        cooldownMs: normalizeClientLimit(cooldownMsInput ? cooldownMsInput.value : DEFAULT_USER_SETTINGS.cooldownMs, DEFAULT_USER_SETTINGS.cooldownMs, 0, 60000),
-        historyLimit: normalizeClientLimit(historyLimitInput ? historyLimitInput.value : DEFAULT_USER_SETTINGS.historyLimit, DEFAULT_USER_SETTINGS.historyLimit, 1, 1000),
-        maxSessions: normalizeClientLimit(maxSessionsInput ? maxSessionsInput.value : DEFAULT_USER_SETTINGS.maxSessions, DEFAULT_USER_SETTINGS.maxSessions, 5, 100),
-        memoryEnabled: Boolean(memoryEnabledInput && memoryEnabledInput.checked),
-        projectMemoryEnabled: Boolean(projectMemoryEnabledInput && projectMemoryEnabledInput.checked),
-        autoLearn: Boolean(autoLearnInput && autoLearnInput.checked)
-      };
+      const patch = buildDraftSettingsFromFields();
       persistUserSettingsPatch(patch, { syncModelDefaults: true });
-      applySidebarCollapsedState(Boolean(patch.sidebarStartsCollapsed), { persist: true });
+      applySidebarCollapsedState(true, { persist: false });
       trimSessionsToSettingLimit();
       if (onboardingNameInput) {
         onboardingNameInput.value = patch.preferredName;
       }
       refreshMemoryToggleButtons();
       renderLocalKnowledgeList();
-      showThinkingQuotaToast("Saved your ROK setup.");
+      showThinkingQuotaToast("Saved your ROK changes.");
       closeCustomizeRokModal({ saved: true, settings: patch });
     });
   }
@@ -4171,6 +4336,7 @@ function applyUserSettingsToRuntime(options = {}) {
   applySidebarSectionOrder();
   applyTopbarActionOrder();
   applyMainSectionOrder();
+  updateChatWelcomeVisibility();
   const currentWorkspaceSession = getWorkspaceCurrentSession();
   if (currentWorkspaceSession && currentWorkspaceSession.workspace) {
     updateWorkspaceTabButtons(currentWorkspaceSession.workspace.activeTab);
@@ -4433,8 +4599,8 @@ function ensureReadyMessage() {
   if (hasShownReadyMessage) return;
   const name = String(loadUserSettingsFromStorage().preferredName || "").trim();
   const text = name
-    ? `Hi, ${name}. ROK is ready â€” ask me anything.`
-    : "ROK is ready. Ask me anything.";
+    ? `Hi, ${name}. ROK is ready - tell me what you are working on.`
+    : "ROK is ready - tell me what you are working on.";
   addMessage("system", text);
   hasShownReadyMessage = true;
 }
@@ -9463,17 +9629,32 @@ function buildChatWelcomeElement() {
   wrapper.innerHTML = `
     <div class="chat-welcome-content" role="presentation">
       <img src="roklogo.png" alt="" class="chat-welcome-logo" />
-      <div class="chat-welcome-title">What can I help with?</div>
-      <div class="chat-welcome-subtitle">Ask a question, drop a file, or paste text to get started.</div>
-      <div class="chat-welcome-chips" aria-hidden="true">
-        <button class="chat-welcome-chip" type="button" data-chip="write">Write</button>
-        <button class="chat-welcome-chip" type="button" data-chip="code">Code</button>
-        <button class="chat-welcome-chip" type="button" data-chip="think">Think</button>
-        <button class="chat-welcome-chip" type="button" data-chip="summarize">Summarize</button>
-      </div>
+      <div class="chat-welcome-title"></div>
+      <div class="chat-welcome-subtitle"></div>
+      <div class="chat-welcome-chips" aria-hidden="true"></div>
     </div>
   `;
   return wrapper;
+}
+
+function syncChatWelcomeElement(welcome) {
+  if (!(welcome instanceof HTMLElement)) return;
+  const profile = getChatWelcomeProfile();
+  const titleEl = welcome.querySelector(".chat-welcome-title");
+  const subtitleEl = welcome.querySelector(".chat-welcome-subtitle");
+  const chipsEl = welcome.querySelector(".chat-welcome-chips");
+  if (titleEl) titleEl.textContent = profile.title;
+  if (subtitleEl) subtitleEl.textContent = profile.subtitle;
+  if (chipsEl instanceof HTMLElement) {
+    chipsEl.innerHTML = profile.chips.map((chip) => `
+      <button
+        class="chat-welcome-chip"
+        type="button"
+        data-chip-prompt="${escapeHtml(chip.prompt || "")}"
+        ${chip.tab ? `data-chip-tab="${escapeHtml(chip.tab)}"` : ""}
+      >${escapeHtml(chip.label)}</button>
+    `).join("");
+  }
 }
 
 function ensureChatWelcomeElement() {
@@ -9485,21 +9666,17 @@ function ensureChatWelcomeElement() {
   if (!welcome.isConnected) {
     chat.appendChild(welcome);
   }
+  syncChatWelcomeElement(welcome);
   // Wire up welcome chip click handlers
   welcome.querySelectorAll(".chat-welcome-chip").forEach(function (chip) {
     if (chip._rokChipWired) return;
     chip._rokChipWired = true;
     chip.addEventListener("click", function () {
-      const type = chip.getAttribute("data-chip");
-      const prompts = {
-        write: "Help me write ",
-        code: "Help me code ",
-        think: "Help me think through ",
-        summarize: "Summarize the following: "
-      };
-      if (type === "code") {
+      const prompt = chip.getAttribute("data-chip-prompt") || "";
+      const tab = chip.getAttribute("data-chip-tab") || "";
+      if (tab === "sandbox") {
         setActiveWorkspaceTab("sandbox", { focus: false });
-        sandboxChatDraft = prompts[type] || "";
+        sandboxChatDraft = prompt;
         if (sandboxChatInput) {
           sandboxChatInput.value = sandboxChatDraft;
           autoResizeSandboxChatInput();
@@ -9507,8 +9684,8 @@ function ensureChatWelcomeElement() {
         }
         return;
       }
-      if (input && prompts[type]) {
-        input.value = prompts[type];
+      if (input && prompt) {
+        input.value = prompt;
         input.focus();
         autoResizeInput();
       }
@@ -13452,14 +13629,18 @@ if (onboardingBackBtn) {
 
 if (onboardingSkipBtn) {
   onboardingSkipBtn.addEventListener("click", () => {
-    savePreferredNameToStorage("");
+    if (onboardingStepIndex >= ONBOARDING_NAME_SLIDE) {
+      savePreferredNameToStorage("");
+    }
     finishOnboardingAndEnter();
   });
 }
 
 if (onboardingCloseBtn) {
   onboardingCloseBtn.addEventListener("click", () => {
-    savePreferredNameToStorage("");
+    if (onboardingStepIndex >= ONBOARDING_NAME_SLIDE && onboardingNameInput && String(onboardingNameInput.value || "").trim()) {
+      savePreferredNameToStorage(onboardingNameInput.value);
+    }
     finishOnboardingAndEnter();
   });
 }
@@ -13493,7 +13674,7 @@ renderSandboxUI();
 bootstrapServerSession();
 refreshModelCatalogFromServer();
 refreshClientConfigFromServer();
-applySidebarCollapsedState(loadSidebarCollapsedFromStorage(), { persist: false });
+applySidebarCollapsedState(true, { persist: false });
 if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
   mobileLayoutMediaQueryList = window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY);
   if (typeof mobileLayoutMediaQueryList.addEventListener === "function") {
@@ -13505,7 +13686,7 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
 if (typeof window !== "undefined") {
   window.addEventListener("resize", () => {
     if (!isOnboardingModalVisible()) return;
-    positionOnboardingGuide(getOnboardingStepConfig());
+    renderOnboardingChoiceGrid();
   });
 }
 syncLayoutForViewport();
@@ -14005,6 +14186,7 @@ function withLocalKnowledge(payload) {
   if (!payload || typeof payload !== "object") return payload;
   const localKnowledge = buildLocalKnowledgePayload();
   const session = getWorkspaceCurrentSession();
+  const promptOverrides = getCustomPromptOverridesForApi();
   const localMemory = buildLocalMemoryPayload({
     message: payload.message || payload.prompt || "",
     workspaceContext: payload.workspace_context || "",
@@ -14020,6 +14202,16 @@ function withLocalKnowledge(payload) {
     payload.local_memory = localMemory;
   } else {
     delete payload.local_memory;
+  }
+  if (promptOverrides.customSystemPrompt) {
+    payload.custom_system_prompt = promptOverrides.customSystemPrompt;
+  } else {
+    delete payload.custom_system_prompt;
+  }
+  if (promptOverrides.customIdentity) {
+    payload.custom_identity = promptOverrides.customIdentity;
+  } else {
+    delete payload.custom_identity;
   }
   return payload;
 }
@@ -14046,6 +14238,109 @@ function buildAssistantEvidenceSnapshot(options = {}) {
     usingOwnKey: Boolean(getSavedUserOllamaApiKeyForModel(options.model || requestBody.model || "")),
     createdAt: new Date().toISOString()
   });
+}
+
+function getCurrentPrimaryUseCase() {
+  return sanitizePrimaryUseCase((userSettings && userSettings.primaryUseCase) || loadUserSettingsFromStorage().primaryUseCase);
+}
+
+function getChatWelcomeTimeBucket(date = new Date()) {
+  const hours = date instanceof Date ? date.getHours() : new Date().getHours();
+  if (hours >= 22 || hours < 5) return "late";
+  if (hours < 11) return "morning";
+  if (hours < 17) return "afternoon";
+  return "evening";
+}
+
+const CHAT_WELCOME_PRESETS = {
+  general: {
+    titles: {
+      late: "Late night thoughts",
+      morning: "Morning check-in",
+      afternoon: "What are we working on",
+      evening: "Evening catch-up"
+    },
+    subtitle: "Ask a question, drop a file, or paste text to get started.",
+    chips: [
+      { label: "Research", prompt: "Help me research " },
+      { label: "Write", prompt: "Help me write " },
+      { label: "Think", prompt: "Help me think through " },
+      { label: "Summarize", prompt: "Summarize the following: " }
+    ]
+  },
+  research: {
+    titles: {
+      late: "Late night research",
+      morning: "Morning study session",
+      afternoon: "Research block",
+      evening: "Evening review"
+    },
+    subtitle: "Paste notes, ask for an explanation, or drop a file to study faster.",
+    chips: [
+      { label: "Explain", prompt: "Explain this clearly: " },
+      { label: "Quiz me", prompt: "Quiz me on " },
+      { label: "Study guide", prompt: "Make a study guide for " },
+      { label: "Summarize notes", prompt: "Summarize these notes: " }
+    ]
+  },
+  code: {
+    titles: {
+      late: "Late night debugging",
+      morning: "Ready to build",
+      afternoon: "What are we shipping",
+      evening: "Evening code session"
+    },
+    subtitle: "Debug in chat, or jump straight into ROK CODE when you want structured changes.",
+    chips: [
+      { label: "Debug", prompt: "Help me debug " },
+      { label: "Explain code", prompt: "Explain this code: " },
+      { label: "Refactor", prompt: "Help me refactor " },
+      { label: "ROK CODE", prompt: "Plan the file changes for ", tab: "sandbox" }
+    ]
+  },
+  writing: {
+    titles: {
+      late: "Late night writing",
+      morning: "Morning draft session",
+      afternoon: "What are we writing",
+      evening: "Evening rewrite"
+    },
+    subtitle: "Brainstorm, rewrite, or keep a draft moving without losing the tone.",
+    chips: [
+      { label: "Brainstorm", prompt: "Brainstorm ideas for " },
+      { label: "Outline", prompt: "Create an outline for " },
+      { label: "Rewrite", prompt: "Rewrite this while keeping the tone: " },
+      { label: "Continue", prompt: "Continue this draft: " }
+    ]
+  },
+  fun: {
+    titles: {
+      late: "Late night chaos",
+      morning: "What are we messing with",
+      afternoon: "Random idea time",
+      evening: "Evening fun"
+    },
+    subtitle: "Use ROK like a sandbox for stories, weird questions, or whatever else sounds fun.",
+    chips: [
+      { label: "Story prompt", prompt: "Give me a story prompt about " },
+      { label: "Random", prompt: "Give me something random and interesting about " },
+      { label: "Debate", prompt: "Argue both sides of " },
+      { label: "Surprise me", prompt: "Surprise me with " }
+    ]
+  }
+};
+
+function getChatWelcomeProfile() {
+  const useCase = getCurrentPrimaryUseCase();
+  const bucket = getChatWelcomeTimeBucket();
+  const name = sanitizeShortUserSettingText((userSettings && userSettings.preferredName) || "");
+  const preset = CHAT_WELCOME_PRESETS[useCase] || CHAT_WELCOME_PRESETS.general;
+  const phrase = preset.titles[bucket] || preset.titles.afternoon || "What are we working on";
+  return {
+    title: name ? `${phrase}, ${name}?` : `${phrase}?`,
+    subtitle: preset.subtitle,
+    chips: preset.chips
+  };
 }
 
 function getEvidenceToolCallName(toolCall) {

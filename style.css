@@ -5730,6 +5730,12 @@ a.server-down-btn {
   gap: 12px;
 }
 
+.customize-rok-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .customize-rok-field {
   display: flex;
   flex-direction: column;
@@ -6083,6 +6089,10 @@ a.server-down-btn {
   }
 
   .customize-rok-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customize-rok-preset-grid {
     grid-template-columns: 1fr;
   }
 
@@ -9804,6 +9814,191 @@ button.stop-mode:hover {
 
   .onboarding-guide-text {
     min-height: 5.4em;
+  }
+}
+
+/* Full-screen onboarding refresh */
+.onboarding-modal {
+  padding: 18px;
+  place-items: center;
+}
+
+.onboarding-spotlight {
+  display: none !important;
+}
+
+.onboarding-guide {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: min(1120px, calc(100vw - 36px));
+  max-width: none;
+  display: block;
+  transform: none !important;
+}
+
+.onboarding-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.onboarding-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(85, 46, 46, 0.72);
+  background:
+    radial-gradient(circle at top, rgba(204, 70, 70, 0.16) 0%, rgba(204, 70, 70, 0) 56%),
+    linear-gradient(180deg, rgba(20, 11, 11, 0.98) 0%, rgba(11, 16, 24, 0.98) 100%);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 219, 219, 0.05);
+}
+
+.onboarding-aside-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.onboarding-orb-stage {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 1px solid rgba(95, 53, 53, 0.72);
+  background: rgba(14, 18, 28, 0.72);
+}
+
+.onboarding-orb-stage .onboarding-guide-orb {
+  width: min(180px, 56vw);
+  height: min(180px, 56vw);
+  filter: drop-shadow(0 0 20px rgba(209, 75, 75, 0.24));
+}
+
+.onboarding-aside-note {
+  margin: 0;
+  color: #c1a0a0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.onboarding-card {
+  width: auto;
+  max-height: min(88vh, 860px);
+  padding: 24px;
+  gap: 18px;
+  border-radius: 24px;
+}
+
+.onboarding-head {
+  align-items: center;
+}
+
+.onboarding-body.onboarding-guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.onboarding-message-shell {
+  padding: 16px 18px;
+  border-radius: 18px;
+}
+
+.onboarding-guide-text {
+  max-width: none;
+  min-height: 5.8em;
+}
+
+.onboarding-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.onboarding-choice-grid[hidden] {
+  display: none !important;
+}
+
+.onboarding-choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 130px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(82, 46, 46, 0.78);
+  background: rgba(14, 18, 27, 0.92);
+  color: #f1dcdc;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.onboarding-choice-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(209, 75, 75, 0.45);
+  background: rgba(20, 25, 36, 0.96);
+}
+
+.onboarding-choice-card.is-selected {
+  border-color: rgba(209, 75, 75, 0.72);
+  background: linear-gradient(180deg, rgba(62, 24, 24, 0.92) 0%, rgba(17, 21, 31, 0.96) 100%);
+  box-shadow: 0 0 0 1px rgba(255, 215, 215, 0.05) inset;
+}
+
+.onboarding-choice-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f4dddd;
+}
+
+.onboarding-choice-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #b89696;
+}
+
+.onboarding-name-field {
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(82, 46, 46, 0.78);
+  background: rgba(14, 18, 27, 0.78);
+}
+
+.onboarding-modal .onboarding-slide {
+  display: none !important;
+}
+
+@media (max-width: 840px) {
+  .onboarding-guide {
+    width: min(100vw - 24px, 760px);
+  }
+
+  .onboarding-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-aside {
+    padding: 18px;
+  }
+
+  .onboarding-orb-stage {
+    min-height: 150px;
+  }
+
+  .onboarding-choice-grid {
+    grid-template-columns: 1fr;
   }
 }
 
