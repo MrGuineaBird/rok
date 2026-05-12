@@ -14281,89 +14281,92 @@ function getChatWelcomeTimeBucket(date = new Date()) {
   return "evening";
 }
 
-const CHAT_WELCOME_PRESETS = {
-  general: {
-    titles: {
-      late: "Late night thoughts",
-      morning: "Morning check-in",
-      afternoon: "What are we working on",
-      evening: "Evening catch-up"
+function getChatWelcomePresets() {
+  return {
+    general: {
+      titles: {
+        late: "Late night thoughts",
+        morning: "Morning check-in",
+        afternoon: "What are we working on",
+        evening: "Evening catch-up"
+      },
+      subtitle: "Ask a question, drop a file, or paste text to get started.",
+      chips: [
+        { label: "Research", prompt: "Help me research " },
+        { label: "Write", prompt: "Help me write " },
+        { label: "Think", prompt: "Help me think through " },
+        { label: "Summarize", prompt: "Summarize the following: " }
+      ]
     },
-    subtitle: "Ask a question, drop a file, or paste text to get started.",
-    chips: [
-      { label: "Research", prompt: "Help me research " },
-      { label: "Write", prompt: "Help me write " },
-      { label: "Think", prompt: "Help me think through " },
-      { label: "Summarize", prompt: "Summarize the following: " }
-    ]
-  },
-  research: {
-    titles: {
-      late: "Late night research",
-      morning: "Morning study session",
-      afternoon: "Research block",
-      evening: "Evening review"
+    research: {
+      titles: {
+        late: "Late night research",
+        morning: "Morning study session",
+        afternoon: "Research block",
+        evening: "Evening review"
+      },
+      subtitle: "Paste notes, ask for an explanation, or drop a file to study faster.",
+      chips: [
+        { label: "Explain", prompt: "Explain this clearly: " },
+        { label: "Quiz me", prompt: "Quiz me on " },
+        { label: "Study guide", prompt: "Make a study guide for " },
+        { label: "Summarize notes", prompt: "Summarize these notes: " }
+      ]
     },
-    subtitle: "Paste notes, ask for an explanation, or drop a file to study faster.",
-    chips: [
-      { label: "Explain", prompt: "Explain this clearly: " },
-      { label: "Quiz me", prompt: "Quiz me on " },
-      { label: "Study guide", prompt: "Make a study guide for " },
-      { label: "Summarize notes", prompt: "Summarize these notes: " }
-    ]
-  },
-  code: {
-    titles: {
-      late: "Late night debugging",
-      morning: "Ready to build",
-      afternoon: "What are we shipping",
-      evening: "Evening code session"
+    code: {
+      titles: {
+        late: "Late night debugging",
+        morning: "Ready to build",
+        afternoon: "What are we shipping",
+        evening: "Evening code session"
+      },
+      subtitle: "Debug in chat, or jump straight into ROK CODE when you want structured changes.",
+      chips: [
+        { label: "Debug", prompt: "Help me debug " },
+        { label: "Explain code", prompt: "Explain this code: " },
+        { label: "Refactor", prompt: "Help me refactor " },
+        { label: "ROK CODE", prompt: "Plan the file changes for ", tab: "sandbox" }
+      ]
     },
-    subtitle: "Debug in chat, or jump straight into ROK CODE when you want structured changes.",
-    chips: [
-      { label: "Debug", prompt: "Help me debug " },
-      { label: "Explain code", prompt: "Explain this code: " },
-      { label: "Refactor", prompt: "Help me refactor " },
-      { label: "ROK CODE", prompt: "Plan the file changes for ", tab: "sandbox" }
-    ]
-  },
-  writing: {
-    titles: {
-      late: "Late night writing",
-      morning: "Morning draft session",
-      afternoon: "What are we writing",
-      evening: "Evening rewrite"
+    writing: {
+      titles: {
+        late: "Late night writing",
+        morning: "Morning draft session",
+        afternoon: "What are we writing",
+        evening: "Evening rewrite"
+      },
+      subtitle: "Brainstorm, rewrite, or keep a draft moving without losing the tone.",
+      chips: [
+        { label: "Brainstorm", prompt: "Brainstorm ideas for " },
+        { label: "Outline", prompt: "Create an outline for " },
+        { label: "Rewrite", prompt: "Rewrite this while keeping the tone: " },
+        { label: "Continue", prompt: "Continue this draft: " }
+      ]
     },
-    subtitle: "Brainstorm, rewrite, or keep a draft moving without losing the tone.",
-    chips: [
-      { label: "Brainstorm", prompt: "Brainstorm ideas for " },
-      { label: "Outline", prompt: "Create an outline for " },
-      { label: "Rewrite", prompt: "Rewrite this while keeping the tone: " },
-      { label: "Continue", prompt: "Continue this draft: " }
-    ]
-  },
-  fun: {
-    titles: {
-      late: "Late night chaos",
-      morning: "What are we messing with",
-      afternoon: "Random idea time",
-      evening: "Evening fun"
-    },
-    subtitle: "Use ROK like a sandbox for stories, weird questions, or whatever else sounds fun.",
-    chips: [
-      { label: "Story prompt", prompt: "Give me a story prompt about " },
-      { label: "Random", prompt: "Give me something random and interesting about " },
-      { label: "Debate", prompt: "Argue both sides of " },
-      { label: "Surprise me", prompt: "Surprise me with " }
-    ]
-  }
-};
+    fun: {
+      titles: {
+        late: "Late night chaos",
+        morning: "What are we messing with",
+        afternoon: "Random idea time",
+        evening: "Evening fun"
+      },
+      subtitle: "Use ROK like a sandbox for stories, weird questions, or whatever else sounds fun.",
+      chips: [
+        { label: "Story prompt", prompt: "Give me a story prompt about " },
+        { label: "Random", prompt: "Give me something random and interesting about " },
+        { label: "Debate", prompt: "Argue both sides of " },
+        { label: "Surprise me", prompt: "Surprise me with " }
+      ]
+    }
+  };
+}
 
 function getChatWelcomeProfile() {
   const useCase = getCurrentPrimaryUseCase();
   const bucket = getChatWelcomeTimeBucket();
   const name = sanitizeShortUserSettingText((userSettings && userSettings.preferredName) || "");
-  const preset = CHAT_WELCOME_PRESETS[useCase] || CHAT_WELCOME_PRESETS.general;
+  const presetMap = getChatWelcomePresets();
+  const preset = presetMap[useCase] || presetMap.general;
   const phrase = preset.titles[bucket] || preset.titles.afternoon || "What are we working on";
   return {
     title: name ? `${phrase}, ${name}?` : `${phrase}?`,
