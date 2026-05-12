@@ -1720,7 +1720,7 @@ function resetSavedChatsAndStartFresh() {
   const freshSession = createSession([]);
   sessions = [freshSession];
   currentSessionId = freshSession.id;
-  hideHomeScreen();
+  hideHomeScreen({ renderWorkspace: false, showReadyMessage: false });
   wasWorkspaceTabActive = false;
   closeMobileSidebarIfNeeded();
   resetChatRuntimeState();
@@ -2051,7 +2051,7 @@ function closeOnboardingModal() {
 }
 
 function enterAppFromHome() {
-  hideHomeScreen();
+  hideHomeScreen({ renderWorkspace: true, showReadyMessage: false });
   if (isMobileLayout) {
     applyMobileSidebarState(false);
   } else {
@@ -4769,7 +4769,8 @@ function showHomeScreen() {
   refreshLiveLayoutEditTargets();
 }
 
-function hideHomeScreen() {
+function hideHomeScreen(options = {}) {
+  const { renderWorkspace = true, showReadyMessage = false } = options;
   stopHomeHeroTyping();
   closeMobileSidebarIfNeeded();
   if (homeScreen) {
@@ -4791,8 +4792,12 @@ function hideHomeScreen() {
   if (workspacePanel) {
     workspacePanel.hidden = true;
   }
-  renderWorkspaceUI({ focus: false });
-  ensureReadyMessage();
+  if (renderWorkspace) {
+    renderWorkspaceUI({ focus: false });
+  }
+  if (showReadyMessage) {
+    ensureReadyMessage();
+  }
   refreshLiveLayoutEditTargets();
 }
 
@@ -5335,8 +5340,7 @@ function ensureSessionModel(session) {
 }
 
 function getWorkspaceCurrentSession() {
-  if (!currentSessionId) return null;
-  const current = getSessionById(currentSessionId);
+  const current = ensureActiveSession();
   if (!current) return null;
   ensureSessionWorkspace(current);
   ensureSessionMemory(current);
@@ -7378,7 +7382,7 @@ function getModelLabelById(modelId) {
 }
 
 function getCurrentSessionModel() {
-  const current = getSessionById(currentSessionId);
+  const current = ensureActiveSession();
   if (!current) return DEFAULT_MODEL_ID;
   return ensureSessionModel(current);
 }
@@ -8409,8 +8413,9 @@ function renderWorkspaceUI(options = {}) {
   const { focus = false } = options;
   if (!workspacePanel || !chat || !composerWrap) return;
 
-  const current = getWorkspaceCurrentSession();
+  const current = ensureActiveSession();
   if (!current) return;
+  ensureSessionWorkspace(current);
   syncModelSelectorWithCurrentSession();
   syncModelPanelWithCurrentSession();
   const workspace = current.workspace;
@@ -8640,11 +8645,11 @@ Rules:
 
 function setActiveWorkspaceTab(tab, options = {}) {
   const { focus = true } = options;
-  if (!WORKSPACE_TAB_KEYS.includes(tab) || !currentSessionId) return;
+  if (!WORKSPACE_TAB_KEYS.includes(tab)) return;
 
   closeMobileSidebarIfNeeded();
   storeWorkspaceDraftsFromWindows();
-  const current = getWorkspaceCurrentSession();
+  const current = ensureActiveSession();
   if (!current) return;
   const workspace = current.workspace;
   workspace.activeTab = tab;
@@ -9438,6 +9443,27 @@ function getSessionById(id) {
   return sessions.find((session) => session.id === id) || null;
 }
 
+function ensureActiveSession() {
+  let current = getSessionById(currentSessionId);
+  if (current) {
+    ensureSessionWorkspace(current);
+    return current;
+  }
+
+  const next = createSession([]);
+  sessions = Array.isArray(sessions) ? sessions.filter(Boolean) : [];
+  sessions.unshift(next);
+  sortSessionsByRecent();
+  sessions = sessions.slice(0, getMaxLocalSessionsValue());
+  currentSessionId = next.id;
+  ensureSessionWorkspace(next);
+  saveSessionsToStorage();
+  saveCurrentSessionIdToStorage();
+  updateCurrentSessionButton();
+  renderSavedSessions();
+  return next;
+}
+
 function loadSessionsFromStorage() {
   try {
     const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
@@ -9586,7 +9612,7 @@ function startRenameSession(sessionId, titleEl) {
 }
 
 function syncCurrentSessionFromHistory() {
-  const current = getSessionById(currentSessionId);
+  const current = ensureActiveSession();
   if (!current) return;
 
   ensureSessionWorkspace(current);
@@ -9755,7 +9781,7 @@ function openSession(sessionId, options = {}) {
   saveSessionsToStorage();
   saveCurrentSessionIdToStorage();
 
-  hideHomeScreen();
+  hideHomeScreen({ renderWorkspace: false, showReadyMessage: false });
   wasWorkspaceTabActive = false;
   resetChatRuntimeState();
   renderConversation(target.messages);
@@ -9815,7 +9841,7 @@ function startNewSession(showNotice) {
   saveSessionsToStorage();
   saveCurrentSessionIdToStorage();
 
-  hideHomeScreen();
+  hideHomeScreen({ renderWorkspace: false, showReadyMessage: false });
   wasWorkspaceTabActive = false;
   clearChat(showNotice);
   updateCurrentSessionButton();
@@ -11339,7 +11365,10 @@ function typeInStoryCanvas(storyCanvas, statusBubble, fullText) {
 
 async function send() {
   if (isBanOverlayActive) return;
-  hideHomeScreen();
+  if (isHomeScreenVisible()) {
+    hideHomeScreen({ renderWorkspace: true, showReadyMessage: false });
+  }
+  ensureActiveSession();
   let text = input.value?.trim() || "";
   const legacyMemoryCommand = parseLegacyMemoryCommand(text);
   if (legacyMemoryCommand && legacyMemoryCommand.normalizedText) {
