@@ -345,6 +345,7 @@ const SUPPORTED_MODEL_IDS = new Set();
 const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-4.7:cloud";
+const HYPERION_MODEL_ID = "qwen3-coder:480b-cloud";
 const DAEDALUS_LEGACY_MODEL_ID = "deepseek-v3.2:cloud";
 const DAEDALUS_LEGACY_MODEL_ID_ALT = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
@@ -356,6 +357,8 @@ const HERMES_LABEL = "Hermes 1.3";
 const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.0";
 const DAEDALUS_PROVIDER_NAME = "GLM 4.7 Cloud";
+const HYPERION_LABEL = "Hyperion";
+const HYPERION_PROVIDER_NAME = "Qwen3 Coder 480B";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
   { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL }
@@ -366,6 +369,7 @@ const KNOWN_MODEL_LABELS = {
   [CHEESE_MODEL_ID]: HERMES_LABEL,
   [CHESS_MODEL_ID]: HERMES_LABEL,
   [DAEDALUS_MODEL_ID]: DAEDALUS_LABEL,
+  [HYPERION_MODEL_ID]: HYPERION_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_LABEL,
   "gemma4:31b-cloud": HERMES_LABEL,
@@ -374,8 +378,9 @@ const KNOWN_MODEL_LABELS = {
   "gpt-oss:20b-cloud": HERMES_LABEL
 };
 const MODEL_DESCRIPTIONS = {
-  [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Gemma 3 vision.`,
+  [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Qwen3-VL vision.`,
   [DAEDALUS_MODEL_ID]: `${DAEDALUS_LABEL} - ${DAEDALUS_PROVIDER_NAME} with a rolling token limit unless you add your own Ollama API key.`,
+  [HYPERION_MODEL_ID]: `${HYPERION_LABEL} - ${HYPERION_PROVIDER_NAME} for advanced coding and cybersecurity work using your own Ollama Cloud key.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
@@ -395,7 +400,8 @@ const COMPOSER_MODEL_ASSETS = {
   [TITAN_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
   [CHEESE_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
   [CHESS_MODEL_ID]: { label: HERMES_LABEL, icon: "rokhermes.png", alt: HERMES_LABEL },
-  [DAEDALUS_MODEL_ID]: { label: DAEDALUS_LABEL, icon: "rokdaedalus.png", alt: DAEDALUS_LABEL }
+  [DAEDALUS_MODEL_ID]: { label: DAEDALUS_LABEL, icon: "rokdaedalus.png", alt: DAEDALUS_LABEL },
+  [HYPERION_MODEL_ID]: { label: HYPERION_LABEL, icon: "roklogo.png", alt: HYPERION_LABEL }
 };
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 60 * 60 * 1000;
@@ -2315,6 +2321,9 @@ function getSavedUserOllamaApiKeyForModel(modelId = "") {
   if (normalized === DAEDALUS_MODEL_ID) {
     return getDaedalusUserApiKey() || getCustomOllamaApiKey();
   }
+  if (normalized === HYPERION_MODEL_ID) {
+    return getCustomOllamaApiKey();
+  }
   const setup = getCustomOllamaSetup();
   if (setup && normalized === setup.modelId) {
     return setup.apiKey;
@@ -3375,12 +3384,18 @@ function requestCustomOllamaCloudSetup(options = {}) {
   }
 
   const autoSelect = options && options.autoSelect === true;
+  const fixedModelId = resolveModelAlias(options && options.fixedModelId ? options.fixedModelId : "");
+  const titleText = String(options && options.titleText ? options.titleText : "").trim() || "Your Ollama Cloud";
+  const hintText = String(options && options.hintText ? options.hintText : "").trim()
+    || "Save your own Ollama API key and any Ollama Cloud model ID. They stay only in this browser on this device.";
+  const modelStatusText = String(options && options.modelStatusText ? options.modelStatusText : "").trim();
+  const successLabel = String(options && options.successLabel ? options.successLabel : "").trim();
   let resolveModal = null;
   const promise = new Promise((resolve) => {
     resolveModal = resolve;
   });
   const existingKey = getCustomOllamaApiKey();
-  const existingModel = getCustomOllamaModelId();
+  const existingModel = fixedModelId || getCustomOllamaModelId();
 
   const overlay = document.createElement("div");
   overlay.className = "correction-modal-overlay";
@@ -3394,11 +3409,11 @@ function requestCustomOllamaCloudSetup(options = {}) {
   const title = document.createElement("div");
   title.id = "customOllamaSetupTitle";
   title.className = "correction-modal-title";
-  title.textContent = "Your Ollama Cloud";
+  title.textContent = titleText;
 
   const hint = document.createElement("div");
   hint.className = "correction-modal-hint";
-  hint.textContent = "Save your own Ollama API key and any Ollama Cloud model ID. They stay only in this browser on this device.";
+  hint.textContent = hintText;
 
   const apiKeyLabel = document.createElement("div");
   apiKeyLabel.className = "correction-modal-hint";
@@ -3425,6 +3440,9 @@ function requestCustomOllamaCloudSetup(options = {}) {
   modelInput.autocomplete = "off";
   modelInput.autocapitalize = "off";
   modelInput.spellcheck = false;
+  if (fixedModelId) {
+    modelInput.readOnly = true;
+  }
 
   const status = document.createElement("div");
   status.className = "correction-modal-hint";
@@ -3436,7 +3454,7 @@ function requestCustomOllamaCloudSetup(options = {}) {
   const forgetBtn = document.createElement("button");
   forgetBtn.type = "button";
   forgetBtn.className = "correction-modal-cancel";
-  forgetBtn.textContent = "Forget Saved Setup";
+  forgetBtn.textContent = fixedModelId ? "Forget Saved Key" : "Forget Saved Setup";
   forgetBtn.disabled = !existingKey && !existingModel;
 
   const cancelBtn = document.createElement("button");
@@ -3452,29 +3470,38 @@ function requestCustomOllamaCloudSetup(options = {}) {
   const syncButtons = () => {
     const rawKey = String(apiKeyInput.value || "").trim();
     const rawModel = String(modelInput.value || "").trim();
-    const modelError = rawModel ? getCustomOllamaModelValidationError(rawModel) : "";
+    const modelError = fixedModelId ? "" : rawModel ? getCustomOllamaModelValidationError(rawModel) : "";
     const hasSavedSetup = !!getCustomOllamaApiKey() || !!getCustomOllamaModelId();
     forgetBtn.disabled = !hasSavedSetup && !rawKey && !rawModel;
-    saveBtn.disabled = !rawKey || !rawModel || !!modelError;
-    status.textContent = modelError || "Use any Ollama Cloud model ID that is not already one of ROK's built-in hosted models.";
+    saveBtn.disabled = !rawKey || (!fixedModelId && !rawModel) || !!modelError;
+    status.textContent = modelError
+      || modelStatusText
+      || "Use any Ollama Cloud model ID that is not already one of ROK's built-in hosted models.";
     status.style.color = modelError ? "#f2a2a2" : "";
   };
 
   const saveSetup = () => {
     const normalizedKey = String(apiKeyInput.value || "").trim();
-    const normalizedModel = resolveModelAlias(modelInput.value || "");
-    const modelError = getCustomOllamaModelValidationError(normalizedModel);
-    if (!normalizedKey || !normalizedModel || modelError) {
+    const normalizedModel = fixedModelId || resolveModelAlias(modelInput.value || "");
+    const modelError = fixedModelId ? "" : getCustomOllamaModelValidationError(normalizedModel);
+    if (!normalizedKey || (!fixedModelId && !normalizedModel) || modelError) {
       syncButtons();
       return;
     }
     setCustomOllamaApiKey(normalizedKey);
-    setCustomOllamaModelId(normalizedModel);
+    if (!fixedModelId) {
+      setCustomOllamaModelId(normalizedModel);
+    }
     syncLocalOllamaSetupToRuntime();
     if (autoSelect && currentSessionId) {
       setCurrentSessionModel(normalizedModel);
     }
-    closeCustomOllamaSetupModal({ saved: true, apiKey: normalizedKey, modelId: normalizedModel });
+    closeCustomOllamaSetupModal({
+      saved: true,
+      apiKey: normalizedKey,
+      modelId: normalizedModel,
+      label: successLabel || normalizedModel
+    });
   };
 
   apiKeyInput.addEventListener("input", syncButtons);
@@ -3494,9 +3521,11 @@ function requestCustomOllamaCloudSetup(options = {}) {
 
   forgetBtn.addEventListener("click", () => {
     setCustomOllamaApiKey("");
-    setCustomOllamaModelId("");
+    if (!fixedModelId) {
+      setCustomOllamaModelId("");
+    }
     apiKeyInput.value = "";
-    modelInput.value = "";
+    modelInput.value = fixedModelId || "";
     syncLocalOllamaSetupToRuntime();
     syncButtons();
     apiKeyInput.focus();
@@ -3512,13 +3541,17 @@ function requestCustomOllamaCloudSetup(options = {}) {
   modal.appendChild(hint);
   modal.appendChild(apiKeyLabel);
   modal.appendChild(apiKeyInput);
-  modal.appendChild(modelLabel);
-  modal.appendChild(modelInput);
+  if (!fixedModelId) {
+    modal.appendChild(modelLabel);
+    modal.appendChild(modelInput);
+  }
   modal.appendChild(status);
   modal.appendChild(btnRow);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-  if (existingModel) {
+  if (fixedModelId) {
+    apiKeyInput.focus();
+  } else if (existingModel) {
     modelInput.focus();
     modelInput.select();
   } else if (existingKey) {
@@ -3544,7 +3577,7 @@ function requestCustomOllamaCloudSetup(options = {}) {
   syncButtons();
   return promise.then((result) => {
     if (result && result.saved) {
-      showThinkingQuotaToast(`Saved ${result.modelId} for Your Ollama Cloud on this device.`);
+      showThinkingQuotaToast(`Saved ${result.label || result.modelId} for Your Ollama Cloud on this device.`);
     }
     return result;
   });
@@ -5319,6 +5352,9 @@ function ensureSessionMemory(session) {
 
 function normalizeSessionModel(rawModel) {
   const candidate = resolveModelAlias(rawModel);
+  if (candidate === HYPERION_MODEL_ID) {
+    return getCustomOllamaApiKey() ? candidate : DEFAULT_MODEL_ID;
+  }
   if (candidate && isCustomOllamaModelId(candidate)) {
     return candidate;
   }
@@ -7131,8 +7167,19 @@ function getComposerSelectableModels() {
       id,
       label: KNOWN_MODEL_LABELS[id] || id
     }));
+  rows.push({
+    id: HYPERION_MODEL_ID,
+    label: HYPERION_LABEL,
+    icon: "roklogo.png",
+    alt: HYPERION_LABEL,
+    title: getCustomOllamaApiKey()
+      ? `Use ${HYPERION_LABEL} with your saved Ollama Cloud key.`
+      : `${HYPERION_LABEL} is BYOK only for now. Add your Ollama Cloud key to unlock it.`,
+    isHyperion: true,
+    requiresOllamaKey: !getCustomOllamaApiKey()
+  });
   const customSetup = getCustomOllamaSetup();
-  if (customSetup) {
+  if (customSetup && resolveModelAlias(customSetup.modelId) !== HYPERION_MODEL_ID) {
     rows.push({
       id: customSetup.modelId,
       label: customSetup.modelId,
@@ -7156,11 +7203,17 @@ function getComposerSelectableModelGroups(rows = []) {
     items.forEach((item) => groupedIds.add(item.id));
     groups.push({ label: group.label, items });
   });
-  const remainingItems = availableRows.filter((item) => !groupedIds.has(item.id) && !(item && item.isCustomOllama));
+  const remainingItems = availableRows.filter(
+    (item) => !groupedIds.has(item.id) && !(item && item.isCustomOllama) && !(item && item.isHyperion)
+  );
   if (remainingItems.length) {
     groups.push({ label: groups.length ? "More models" : "", items: remainingItems });
   }
   const customItems = [];
+  const hyperionModel = availableRows.find((item) => item && item.isHyperion);
+  if (hyperionModel) {
+    customItems.push(hyperionModel);
+  }
   const customModel = availableRows.find((item) => item && item.isCustomOllama);
   if (customModel) {
     customItems.push(customModel);
@@ -7306,8 +7359,11 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   }
   const safeId = escapeHtml(item.id);
   const active = item.id === sessionModel;
-  const locked = (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
-  const lockTitle = titanLocked && item.id === TITAN_MODEL_ID
+  const requiresKey = Boolean(item && item.requiresOllamaKey);
+  const locked = requiresKey || (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
+  const lockTitle = requiresKey
+    ? "Add your own Ollama Cloud key to use Hyperion."
+    : titanLocked && item.id === TITAN_MODEL_ID
     ? "Temporarily unavailable."
     : daedalusLocked && item.id === DAEDALUS_MODEL_ID
     ? "Hourly token limit reached."
@@ -7315,11 +7371,14 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const iconHtml = meta.icon
     ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
     : "";
-  const lockBadge = locked ? `<span class="composer-model-picker-option-lock">Locked</span>` : "";
+  const lockBadge = locked
+    ? `<span class="composer-model-picker-option-lock">${requiresKey ? "BYOK" : "Locked"}</span>`
+    : "";
   const titleText = lockTitle || item.title || "";
   const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true"` : "";
+  const requiresKeyAttr = requiresKey ? ` data-model-requires-key="true"` : "";
   const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : "";
-  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${requiresKeyAttr}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
 }
 
 function setModelPickerOpen(nextOpen) {
@@ -7374,6 +7433,9 @@ function renderModelSelectOptions() {
 
 function getModelLabelById(modelId) {
   const normalizedId = normalizeSessionModel(modelId);
+  if (normalizedId === HYPERION_MODEL_ID) {
+    return HYPERION_LABEL;
+  }
   if (isCustomOllamaModelId(normalizedId)) {
     return getConfiguredCustomOllamaModelId() || normalizedId;
   }
@@ -13469,6 +13531,19 @@ if (modelPickerBtn && modelPickerMenu) {
     if (!(opt instanceof HTMLElement)) return;
     const modelId = opt.getAttribute("data-model-id");
     if (!modelId) return;
+    const requiresKey = opt.getAttribute("data-model-requires-key") === "true";
+    if (requiresKey && modelId === HYPERION_MODEL_ID) {
+      setModelPickerOpen(false);
+      void requestCustomOllamaCloudSetup({
+        autoSelect: true,
+        fixedModelId: HYPERION_MODEL_ID,
+        titleText: `Unlock ${HYPERION_LABEL}`,
+        hintText: `${HYPERION_LABEL} is a cloud-only BYOK lane for advanced coding and cybersecurity work.`,
+        modelStatusText: `${HYPERION_LABEL} uses ${HYPERION_MODEL_ID} with your own Ollama Cloud key on this device.`,
+        successLabel: HYPERION_LABEL
+      });
+      return;
+    }
     const isLocked = opt.getAttribute("data-model-locked") === "true";
     if (isLocked && modelId === DAEDALUS_MODEL_ID) {
       setModelPickerOpen(false);
