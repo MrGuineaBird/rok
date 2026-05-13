@@ -309,6 +309,7 @@
               <div class="workspace-panel-hint">Project files</div>
               <div class="workspace-panel-actions">
                 <button id="sandboxUploadBtn" class="workspace-mini-btn ghost" type="button">Upload</button>
+                <button id="sandboxUploadFolderBtn" class="workspace-mini-btn ghost" type="button">Folder</button>
                 <button id="sandboxNewFileBtn" class="workspace-mini-btn ghost" type="button">New File</button>
               </div>
             </div>
@@ -529,6 +530,7 @@ Change Scope: Short</p>
                 </button>
                 <div id="composerTray" class="composer-tray" hidden>
                   <button id="attachBtn" class="ghost composer-tray-btn" type="button">Attach</button>
+                  <button id="attachFolderBtn" class="ghost composer-tray-btn" type="button">Folder</button>
                   <button id="webToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="false">Web</button>
                   <button id="memoryToggleBtn" class="ghost composer-tray-btn" type="button" aria-pressed="true">Memory On</button>
                 </div>
@@ -583,11 +585,27 @@ Change Scope: Short</p>
           multiple
         />
         <input
+          id="folderInput"
+          class="file-input"
+          type="file"
+          multiple
+          webkitdirectory
+          directory
+        />
+        <input
           id="sandboxFileInput"
           class="file-input"
           type="file"
           accept=".txt,.md,.csv,.json,.js,.ts,.tsx,.jsx,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.sh,.yml,.yaml,.toml,.xml,.svg,.sql,text/*"
           multiple
+        />
+        <input
+          id="sandboxFolderInput"
+          class="file-input"
+          type="file"
+          multiple
+          webkitdirectory
+          directory
         />
         <div id="attachmentList" class="attachment-list" aria-live="polite"></div>
         <div id="composerMeta" class="composer-meta" hidden>

@@ -27,6 +27,7 @@ const sandboxFileCount = document.getElementById("sandboxFileCount");
 const sandboxChangeCount = document.getElementById("sandboxChangeCount");
 const sandboxStatusChip = document.getElementById("sandboxStatusChip");
 const sandboxUploadBtn = document.getElementById("sandboxUploadBtn");
+const sandboxUploadFolderBtn = document.getElementById("sandboxUploadFolderBtn");
 const sandboxNewFileBtn = document.getElementById("sandboxNewFileBtn");
 const sandboxSaveBtn = document.getElementById("sandboxSaveBtn");
 const sandboxDeleteBtn = document.getElementById("sandboxDeleteBtn");
@@ -73,13 +74,16 @@ const composerToolbox = document.getElementById("composerToolbox");
 const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
+const attachFolderBtn = document.getElementById("attachFolderBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
 const memoryToggleBtn = document.getElementById("memoryToggleBtn");
 const customizeRokBtn = document.getElementById("customizeRokBtn");
 const incognitoToggleBtn = document.getElementById("incognitoToggleBtn");
 const toolsToggleBtn = document.getElementById("toolsToggleBtn");
 const fileInput = document.getElementById("fileInput");
+const folderInput = document.getElementById("folderInput");
 const sandboxFileInput = document.getElementById("sandboxFileInput");
+const sandboxFolderInput = document.getElementById("sandboxFolderInput");
 const attachmentList = document.getElementById("attachmentList");
 const brandHomeBtn = document.getElementById("brandHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
@@ -191,7 +195,7 @@ const DEFAULT_CLIENT_LIMITS = {
   cooldownMs: 1000,
   historyLimit: 20,          // was 200 â€” large history balloons every request payload
   maxHistoryMessages: 20,    // was 200
-  maxAttachments: 3,
+  maxAttachments: 20,
   maxImageAttachmentBytes: 8 * 1024 * 1024,
   maxTotalImageBytes: 16 * 1024 * 1024,
   maxFileSizeBytes: 2 * 1024 * 1024,   // was 200MB â€” capped at 2MB
@@ -392,7 +396,7 @@ const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
 /** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, DAEDALUS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
-  { label: "ROK", modelIds: [HERMES_MODEL_ID, DAEDALUS_MODEL_ID] }
+  { label: "ROK", modelIds: [HERMES_MODEL_ID, DAEDALUS_MODEL_ID, HYPERION_MODEL_ID] }
 ];
 /** Icons + labels for the composer model control (paths relative to index.html). */
 const COMPOSER_MODEL_ASSETS = {
@@ -1088,20 +1092,21 @@ async function safeReadResponseText(response) {
 
 
 function extractTokenFromStreamPayload(payload) {
-  const raw = String(payload || "").trim();
+  const raw = String(payload || "");
+  const trimmed = raw.trim();
   if (!raw) {
     return { token: "", thinking: "", status: "", done: false };
   }
-  if (raw === "[DONE]") {
+  if (trimmed === "[DONE]") {
     return { token: "", thinking: "", status: "", done: true };
   }
-  if (raw[0] !== "{") {
+  if (trimmed[0] !== "{") {
     return { token: raw, thinking: "", status: "", done: false, tool_calls: null, assistant_content: "" };
   }
 
   let parsed = null;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(trimmed);
   } catch {
     return { token: raw, thinking: "", status: "", done: false, tool_calls: null, assistant_content: "" };
   }
@@ -3390,6 +3395,7 @@ function requestCustomOllamaCloudSetup(options = {}) {
     || "Save your own Ollama API key and any Ollama Cloud model ID. They stay only in this browser on this device.";
   const modelStatusText = String(options && options.modelStatusText ? options.modelStatusText : "").trim();
   const successLabel = String(options && options.successLabel ? options.successLabel : "").trim();
+  const suppressDefaultModelHint = options && options.suppressDefaultModelHint === true;
   let resolveModal = null;
   const promise = new Promise((resolve) => {
     resolveModal = resolve;
@@ -3476,7 +3482,8 @@ function requestCustomOllamaCloudSetup(options = {}) {
     saveBtn.disabled = !rawKey || (!fixedModelId && !rawModel) || !!modelError;
     status.textContent = modelError
       || modelStatusText
-      || "Use any Ollama Cloud model ID that is not already one of ROK's built-in hosted models.";
+      || (suppressDefaultModelHint ? "" : "Use any Ollama Cloud model ID that is not already one of ROK's built-in hosted models.");
+    status.style.display = status.textContent ? "" : "none";
     status.style.color = modelError ? "#f2a2a2" : "";
   };
 
@@ -6835,6 +6842,9 @@ function renderSandboxUI() {
   if (sandboxUploadBtn) {
     sandboxUploadBtn.disabled = isSending;
   }
+  if (sandboxUploadFolderBtn) {
+    sandboxUploadFolderBtn.disabled = isSending;
+  }
   if (sandboxNewFileBtn) {
     sandboxNewFileBtn.disabled = isSending;
   }
@@ -7210,10 +7220,6 @@ function getComposerSelectableModelGroups(rows = []) {
     groups.push({ label: groups.length ? "More models" : "", items: remainingItems });
   }
   const customItems = [];
-  const hyperionModel = availableRows.find((item) => item && item.isHyperion);
-  if (hyperionModel) {
-    customItems.push(hyperionModel);
-  }
   const customModel = availableRows.find((item) => item && item.isCustomOllama);
   if (customModel) {
     customItems.push(customModel);
@@ -7371,7 +7377,9 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const iconHtml = meta.icon
     ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
     : "";
-  const lockBadge = locked
+  const lockBadge = item && item.isHyperion
+    ? `<span class="composer-model-picker-option-lock">BYOK</span>`
+    : locked
     ? `<span class="composer-model-picker-option-lock">${requiresKey ? "BYOK" : "Locked"}</span>`
     : "";
   const titleText = lockTitle || item.title || "";
@@ -10165,9 +10173,7 @@ function renderAttachments() {
 
 function clearAttachments() {
   attachments.length = 0;
-  if (fileInput) {
-    fileInput.value = "";
-  }
+  resetAttachmentInputs();
   renderAttachments();
 }
 
@@ -10529,6 +10535,24 @@ function getCurrentAttachedImageBytes() {
   }, 0);
 }
 
+function resetAttachmentInputs() {
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  if (folderInput) {
+    folderInput.value = "";
+  }
+}
+
+function resetSandboxUploadInputs() {
+  if (sandboxFileInput) {
+    sandboxFileInput.value = "";
+  }
+  if (sandboxFolderInput) {
+    sandboxFolderInput.value = "";
+  }
+}
+
 async function addSelectedFiles(fileList) {
   if (isSending) return;
 
@@ -10548,17 +10572,16 @@ async function addSelectedFiles(fileList) {
       }
       try {
         const content = await file.text();
+        const displayName = String(file.webkitRelativePath || file.name || "file").trim() || file.name;
         attachments.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           kind: "text",
-          name: file.name,
+          name: displayName,
           size: file.size,
           content: truncateText(content, clientLimits.maxFileChars)
         });
         renderAttachments();
-        if (fileInput) {
-          fileInput.value = "";
-        }
+        resetAttachmentInputs();
       } catch {
         addMessage("system", `Could not read ${file.name}.`);
       }
@@ -10568,6 +10591,7 @@ async function addSelectedFiles(fileList) {
     if (isImageLikeFile(file)) {
       try {
         const normalizedImage = await normalizeImageFileForAttachment(file);
+        const displayName = String(file.webkitRelativePath || file.name || "image").trim() || file.name;
         const maxTotalImageBytes = normalizeClientLimit(
           clientLimits.maxTotalImageBytes,
           DEFAULT_CLIENT_LIMITS.maxTotalImageBytes,
@@ -10581,15 +10605,13 @@ async function addSelectedFiles(fileList) {
         attachments.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           kind: "image",
-          name: file.name,
+          name: displayName,
           size: normalizedImage.sizeBytes,
           mimeType: normalizedImage.mimeType || (file.type || "image/png").toLowerCase(),
           contentBase64: normalizedImage.contentBase64
         });
         renderAttachments();
-        if (fileInput) {
-          fileInput.value = "";
-        }
+        resetAttachmentInputs();
       } catch (error) {
         addMessage("system", error && error.message ? error.message : `Could not read image ${file.name}.`);
       }
@@ -10600,6 +10622,7 @@ async function addSelectedFiles(fileList) {
   }
 
   renderAttachments();
+  resetAttachmentInputs();
 }
 
 async function addSelectedSandboxFiles(fileList) {
@@ -10651,9 +10674,7 @@ async function addSelectedSandboxFiles(fileList) {
   syncCurrentSessionFromHistory();
   loadSandboxDraftFromSelectedFile(true);
   renderSandboxUI();
-  if (sandboxFileInput) {
-    sandboxFileInput.value = "";
-  }
+  resetSandboxUploadInputs();
 }
 
 function autoResizeInput() {
@@ -11271,6 +11292,9 @@ function refreshSendState() {
   if (attachBtn) {
     attachBtn.disabled = uiLocked;
   }
+  if (attachFolderBtn) {
+    attachFolderBtn.disabled = uiLocked;
+  }
   if (webToggleBtn) {
     webToggleBtn.disabled = uiLocked;
   }
@@ -11280,6 +11304,9 @@ function refreshSendState() {
   refreshMemoryToggleButtons();
   if (fileInput) {
     fileInput.disabled = uiLocked;
+  }
+  if (folderInput) {
+    folderInput.disabled = uiLocked;
   }
   if (modelPickerBtn) {
     modelPickerBtn.disabled = uiLocked;
@@ -13025,6 +13052,15 @@ if (attachBtn && fileInput) {
   fileInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
 }
 
+if (attachFolderBtn && folderInput) {
+  attachFolderBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading) return;
+    setComposerTrayOpen(false);
+    folderInput.click();
+  });
+  folderInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
+}
+
 // Drag-and-drop file attach on chat area
 if (chat) {
   chat.addEventListener("dragover", function (e) {
@@ -13055,6 +13091,14 @@ if (sandboxUploadBtn && sandboxFileInput) {
     sandboxFileInput.click();
   });
   sandboxFileInput.addEventListener("change", (e) => addSelectedSandboxFiles(e.target.files));
+}
+
+if (sandboxUploadFolderBtn && sandboxFolderInput) {
+  sandboxUploadFolderBtn.addEventListener("click", () => {
+    if (isSending) return;
+    sandboxFolderInput.click();
+  });
+  sandboxFolderInput.addEventListener("change", (e) => addSelectedSandboxFiles(e.target.files));
 }
 
 if (sandboxNewFileBtn) {
@@ -13539,8 +13583,8 @@ if (modelPickerBtn && modelPickerMenu) {
         fixedModelId: HYPERION_MODEL_ID,
         titleText: `Unlock ${HYPERION_LABEL}`,
         hintText: `${HYPERION_LABEL} is a cloud-only BYOK lane for advanced coding and cybersecurity work.`,
-        modelStatusText: `${HYPERION_LABEL} uses ${HYPERION_MODEL_ID} with your own Ollama Cloud key on this device.`,
-        successLabel: HYPERION_LABEL
+        successLabel: HYPERION_LABEL,
+        suppressDefaultModelHint: true
       });
       return;
     }
@@ -14356,14 +14400,53 @@ function getChatWelcomeTimeBucket(date = new Date()) {
   return "evening";
 }
 
+function hashChatWelcomeSeed(value = "") {
+  const source = String(value || "");
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function pickChatWelcomeTitleVariant(entry, seed = "") {
+  if (Array.isArray(entry)) {
+    const variants = entry.map((item) => String(item || "").trim()).filter(Boolean);
+    if (!variants.length) return "";
+    const index = hashChatWelcomeSeed(seed) % variants.length;
+    return variants[index];
+  }
+  return String(entry || "").trim();
+}
+
 function getChatWelcomePresets() {
   return {
     general: {
       titles: {
-        late: "Late night thoughts",
-        morning: "Morning check-in",
-        afternoon: "What are we working on",
-        evening: "Evening catch-up"
+        late: [
+          "Late night thoughts",
+          "Still up working",
+          "Night shift mode",
+          "Burning the midnight oil"
+        ],
+        morning: [
+          "Morning check-in",
+          "Starting fresh",
+          "Morning momentum",
+          "Ready to get into it"
+        ],
+        afternoon: [
+          "What are we working on",
+          "What needs moving",
+          "What are we getting done",
+          "What are we diving into"
+        ],
+        evening: [
+          "Evening catch-up",
+          "What are we wrapping up",
+          "Evening session",
+          "What are we tackling tonight"
+        ]
       },
       subtitle: "Ask a question, drop a file, or paste text to get started.",
       chips: [
@@ -14375,10 +14458,30 @@ function getChatWelcomePresets() {
     },
     research: {
       titles: {
-        late: "Late night research",
-        morning: "Morning study session",
-        afternoon: "Research block",
-        evening: "Evening review"
+        late: [
+          "Late night research",
+          "Late night deep dive",
+          "Research rabbit hole",
+          "Still digging into it"
+        ],
+        morning: [
+          "Morning study session",
+          "Morning review block",
+          "Ready to study",
+          "Starting with research"
+        ],
+        afternoon: [
+          "Research block",
+          "What are we looking into",
+          "Time to dig through it",
+          "What are we figuring out"
+        ],
+        evening: [
+          "Evening review",
+          "Study wrap-up",
+          "Evening deep dive",
+          "Review session"
+        ]
       },
       subtitle: "Paste notes, ask for an explanation, or drop a file to study faster.",
       chips: [
@@ -14390,10 +14493,30 @@ function getChatWelcomePresets() {
     },
     code: {
       titles: {
-        late: "Late night debugging",
-        morning: "Ready to build",
-        afternoon: "What are we shipping",
-        evening: "Evening code session"
+        late: [
+          "Late night debugging",
+          "Late night ship fix",
+          "Night build session",
+          "Still chasing the bug"
+        ],
+        morning: [
+          "Ready to build",
+          "Morning coding session",
+          "What are we building",
+          "Fresh build start"
+        ],
+        afternoon: [
+          "What are we shipping",
+          "What are we building",
+          "What needs fixing",
+          "What are we pushing forward"
+        ],
+        evening: [
+          "Evening code session",
+          "What are we coding tonight",
+          "Evening debug run",
+          "What still needs a fix"
+        ]
       },
       subtitle: "Debug in chat, or jump straight into ROK CODE when you want structured changes.",
       chips: [
@@ -14405,10 +14528,30 @@ function getChatWelcomePresets() {
     },
     writing: {
       titles: {
-        late: "Late night writing",
-        morning: "Morning draft session",
-        afternoon: "What are we writing",
-        evening: "Evening rewrite"
+        late: [
+          "Late night writing",
+          "Midnight draft energy",
+          "Still writing",
+          "Late night page work"
+        ],
+        morning: [
+          "Morning draft session",
+          "Fresh page start",
+          "Morning writing block",
+          "What are we drafting"
+        ],
+        afternoon: [
+          "What are we writing",
+          "What are we drafting",
+          "What needs rewriting",
+          "What are we putting into words"
+        ],
+        evening: [
+          "Evening rewrite",
+          "Evening draft session",
+          "What are we polishing",
+          "Time for a better draft"
+        ]
       },
       subtitle: "Brainstorm, rewrite, or keep a draft moving without losing the tone.",
       chips: [
@@ -14420,10 +14563,30 @@ function getChatWelcomePresets() {
     },
     fun: {
       titles: {
-        late: "Late night chaos",
-        morning: "What are we messing with",
-        afternoon: "Random idea time",
-        evening: "Evening fun"
+        late: [
+          "Late night chaos",
+          "Midnight nonsense",
+          "Late night weirdness",
+          "What kind of chaos are we on"
+        ],
+        morning: [
+          "What are we messing with",
+          "Starting with something fun",
+          "Morning nonsense",
+          "What are we playing with"
+        ],
+        afternoon: [
+          "Random idea time",
+          "What are we messing with",
+          "Let's make something weird",
+          "What sounds fun right now"
+        ],
+        evening: [
+          "Evening fun",
+          "What kind of nonsense tonight",
+          "Time for something random",
+          "What are we messing with tonight"
+        ]
       },
       subtitle: "Use ROK like a sandbox for stories, weird questions, or whatever else sounds fun.",
       chips: [
@@ -14442,7 +14605,12 @@ function getChatWelcomeProfile() {
   const name = sanitizeShortUserSettingText((userSettings && userSettings.preferredName) || "");
   const presetMap = getChatWelcomePresets();
   const preset = presetMap[useCase] || presetMap.general;
-  const phrase = preset.titles[bucket] || preset.titles.afternoon || "What are we working on";
+  const dayKey = new Date().toDateString();
+  const seed = `${useCase}:${bucket}:${name}:${dayKey}`;
+  const phrase = pickChatWelcomeTitleVariant(
+    preset.titles[bucket] || preset.titles.afternoon || "What are we working on",
+    seed
+  ) || "What are we working on";
   return {
     title: name ? `${phrase}, ${name}?` : `${phrase}?`,
     subtitle: preset.subtitle,
