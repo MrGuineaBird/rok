@@ -10888,6 +10888,30 @@ function normalizeLooseMarkdownCodeFences(text) {
   return String(text || "").replace(/\r\n/g, "\n");
 }
 
+function normalizeMermaidBlockBody(body) {
+  var value = String(body || "").replace(/\r\n/g, "\n").trim();
+  if (!value) {
+    return "";
+  }
+  value = value.replace(/^((?:flowchart|graph)\s+[a-z0-9_-]+)\s+([\s\S]+)$/i, function (_, directive, remainder) {
+    var rest = String(remainder || "").trim();
+    return rest ? directive + "\n" + rest : directive;
+  });
+  return value.replace(/(\]|\)|\})\s+([a-z][a-z0-9_:-]*\s*(?:-->|---|==>|-.->|--x|x--|o--|--o))/gi, "$1\n$2");
+}
+
+function looksLikeMermaidContinuation(body) {
+  var text = String(body || "").trim();
+  if (!text) {
+    return false;
+  }
+  if (/^(?:-->|---|==>|-.->|--x|x--|o--|--o)/.test(text)) {
+    return true;
+  }
+  return /-->|---|==>|-.->|--x|x--|o--|--o/.test(text) &&
+    /(?:\[[^\]]+\]|\{[^\}]+\}|\([^)]+\)|\bsubgraph\b|\bend\b)/i.test(text);
+}
+
 const STRUCTURED_MARKDOWN_LANGUAGES = [
   "mermaid",
   "python",
@@ -10916,6 +10940,24 @@ const STRUCTURED_MARKDOWN_LANGUAGES = [
   "rs"
 ];
 
+function formatStructuredLanguageBlock(language, body) {
+  var normalizedLanguage = String(language || "").trim().toLowerCase();
+  if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(normalizedLanguage)) {
+    return "";
+  }
+  var normalizedBody = String(body || "").trim();
+  if (normalizedLanguage !== "mermaid" && looksLikeMermaidContinuation(normalizedBody)) {
+    return "";
+  }
+  if (!looksLikeStructuredLanguageBlock(normalizedLanguage, normalizedBody)) {
+    return "";
+  }
+  if (normalizedLanguage === "mermaid") {
+    normalizedBody = normalizeMermaidBlockBody(normalizedBody);
+  }
+  return "```" + normalizedLanguage + "\n" + normalizedBody + "\n```";
+}
+
 function looksLikeStructuredLanguageBlock(language, body) {
   var lang = String(language || "").trim().toLowerCase();
   var text = String(body || "").trim();
@@ -10937,15 +10979,8 @@ function normalizeStructuredLanguageLine(line) {
   if (!match) {
     return raw;
   }
-  var language = String(match[1] || "").trim().toLowerCase();
-  if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
-    return raw;
-  }
-  var body = String(match[2] || "").trim();
-  if (!looksLikeStructuredLanguageBlock(language, body)) {
-    return raw;
-  }
-  return "```" + language + "\n" + body + "\n```";
+  var formatted = formatStructuredLanguageBlock(match[1], match[2]);
+  return formatted || raw;
 }
 
 function normalizeStructuredLanguageLines(text) {
@@ -10956,11 +10991,40 @@ function normalizeStructuredLanguageLines(text) {
     .join("\n");
 }
 
+function normalizeStructuredLanguageParagraph(paragraph) {
+  var raw = String(paragraph || "");
+  var trimmed = raw.trim();
+  if (!trimmed) {
+    return raw;
+  }
+  if (/^```[a-z0-9_#+-]*\s*\n[\s\S]*\n```$/i.test(trimmed)) {
+    return trimmed;
+  }
+  var match = trimmed.match(/^(?:[`"'\u201c\u201d\u2018\u2019]{1,3}\s*)?(?:```+\s*)?([a-z0-9_#+-]+)\s+([\s\S]*?)(?:\s*```+|[`"'\u201c\u201d\u2018\u2019]{1,3})?$/i);
+  if (!match) {
+    return raw;
+  }
+  var formatted = formatStructuredLanguageBlock(match[1], match[2]);
+  return formatted || raw;
+}
+
+function normalizeStructuredLanguageParagraphs(text) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+  return value
+    .split(/\n{2,}/)
+    .map(normalizeStructuredLanguageParagraph)
+    .join("\n\n");
+}
+
 function normalizeAssistantParagraph(paragraph) {
   var raw = String(paragraph || "");
   var trimmed = raw.trim();
   if (!trimmed) {
     return raw;
+  }
+  var normalizedParagraph = normalizeStructuredLanguageParagraph(trimmed);
+  if (normalizedParagraph !== trimmed) {
+    return normalizedParagraph;
   }
   if (/```/.test(trimmed) || /^```[a-z0-9_#+-]*\n[\s\S]*\n```$/i.test(trimmed)) {
     return trimmed;
@@ -10989,7 +11053,9 @@ function normalizeBareLanguageParagraphs(text) {
 function normalizeAssistantMarkdown(text) {
   return normalizeBareLanguageParagraphs(
     normalizeStructuredLanguageLines(
-      normalizeLooseMarkdownCodeFences(text)
+      normalizeStructuredLanguageParagraphs(
+        normalizeLooseMarkdownCodeFences(text)
+      )
     )
   );
 }
