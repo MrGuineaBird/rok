@@ -10899,6 +10899,12 @@ function normalizeQuotedFenceBlocks(text) {
   );
 }
 
+function normalizeFenceWrapperQuoteLines(text) {
+  return String(text || "")
+    .replace(/(^|\n)\s*["'\u201c\u201d\u2018\u2019]\s*\n(?=```)/g, "$1")
+    .replace(/(\n```(?:\n|$))\s*["'\u201c\u201d\u2018\u2019]\s*(?=\n|$)/g, "$1");
+}
+
 function normalizeMermaidBlockBody(body) {
   var value = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!value) {
@@ -11058,12 +11064,108 @@ function normalizeAssistantMarkdown(text) {
   return normalizeBareLanguageParagraphs(
     normalizeStructuredLanguageLines(
       normalizeStructuredLanguageParagraphs(
-        normalizeQuotedFenceBlocks(
-          normalizeLooseMarkdownCodeFences(text)
+        normalizeFenceWrapperQuoteLines(
+          normalizeQuotedFenceBlocks(
+            normalizeLooseMarkdownCodeFences(text)
+          )
         )
       )
     )
   );
+}
+
+function renderInlineMarkdownFallback(text) {
+  var placeholders = [];
+  var value = escapeHtml(String(text || ""));
+  value = value.replace(/`([^`]+)`/g, function (_, code) {
+    var idx = placeholders.length;
+    placeholders.push("<code>" + code + "</code>");
+    return "@@ROKINLINECODE" + idx + "@@";
+  });
+  value = value.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (_, label, href) {
+    return '<a href="' + href + '">' + label + "</a>";
+  });
+  value = value.replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>");
+  value = value.replace(/__([\s\S]+?)__/g, "<strong>$1</strong>");
+  value = value.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  value = value.replace(/_([^_\n]+)_/g, "<em>$1</em>");
+  value = value.replace(/@@ROKINLINECODE(\d+)@@/g, function (_, idxStr) {
+    var idx = parseInt(idxStr, 10);
+    return placeholders[idx] || "";
+  });
+  return value;
+}
+
+function renderMarkdownFallback(text) {
+  var source = String(text || "").replace(/\r\n/g, "\n");
+  var codeBlocks = [];
+  var protectedText = source.replace(/```([a-z0-9_#+-]*)\n([\s\S]*?)\n```/gi, function (_, language, body) {
+    var idx = codeBlocks.length;
+    codeBlocks.push({
+      language: String(language || "").trim().toLowerCase(),
+      body: String(body || "")
+    });
+    return "@@ROKCODEBLOCK" + idx + "@@";
+  });
+
+  function renderCodeBlock(matchText) {
+    return String(matchText || "").replace(/@@ROKCODEBLOCK(\d+)@@/g, function (_, idxStr) {
+      var idx = parseInt(idxStr, 10);
+      var block = codeBlocks[idx];
+      if (!block) return "";
+      var classAttr = block.language ? ' class="language-' + escapeHtml(block.language) + '"' : "";
+      return "<pre><code" + classAttr + ">" + escapeHtml(block.body) + "</code></pre>";
+    });
+  }
+
+  var blocks = protectedText
+    .split(/\n{2,}/)
+    .map(function (block) { return String(block || "").trim(); })
+    .filter(Boolean);
+
+  return blocks.map(function (block) {
+    if (/^@@ROKCODEBLOCK\d+@@$/.test(block)) {
+      return renderCodeBlock(block);
+    }
+
+    var lines = block.split("\n");
+    if (lines.every(function (line) { return /^\d+\.\s+/.test(line); })) {
+      return "<ol>" + lines.map(function (line) {
+        return "<li>" + renderInlineMarkdownFallback(line.replace(/^\d+\.\s+/, "")) + "</li>";
+      }).join("") + "</ol>";
+    }
+
+    if (lines.every(function (line) { return /^[-*]\s+/.test(line); })) {
+      return "<ul>" + lines.map(function (line) {
+        return "<li>" + renderInlineMarkdownFallback(line.replace(/^[-*]\s+/, "")) + "</li>";
+      }).join("") + "</ul>";
+    }
+
+    var headingMatch = block.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      var level = Math.max(1, Math.min(6, headingMatch[1].length));
+      return "<h" + level + ">" + renderInlineMarkdownFallback(headingMatch[2]) + "</h" + level + ">";
+    }
+
+    return "<p>" + renderCodeBlock(renderInlineMarkdownFallback(block).replace(/\n/g, "<br>")) + "</p>";
+  }).join("\n");
+}
+
+function renderAssistantMarkdownHtml(text) {
+  var normalizedMarkdown = normalizeAssistantMarkdown(text);
+  if (hasMarked) {
+    try {
+      var mathProtected = hasKaTeX ? protectMathForMarked(normalizedMarkdown) : null;
+      var rawHtml = marked.parse(mathProtected ? mathProtected.text : normalizedMarkdown);
+      if (mathProtected) {
+        rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
+      }
+      return rawHtml;
+    } catch (error) {
+      console.warn("Markdown render failed, falling back to local renderer:", error);
+    }
+  }
+  return renderMarkdownFallback(normalizedMarkdown);
 }
 
 function ensureMermaidInitialized() {
@@ -11136,17 +11238,11 @@ async function renderMermaidBlocksInElement(root) {
 }
 
 function setBubbleContent(bubble, text, markdown) {
-  if (markdown && hasMarked) {
+  if (markdown) {
     var wasPlain = bubble.classList.contains("plain");
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
-    // Protect math from marked, then restore after parsing
-    var normalizedMarkdown = normalizeAssistantMarkdown(text);
-    var mathProtected = hasKaTeX ? protectMathForMarked(normalizedMarkdown) : null;
-    var rawHtml = marked.parse(mathProtected ? mathProtected.text : normalizedMarkdown);
-    if (mathProtected) {
-      rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
-    }
+    var rawHtml = renderAssistantMarkdownHtml(text);
     // Sanitize HTML to prevent XSS attacks
     var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
     bubble.innerHTML = cleanHtml;
@@ -12099,20 +12195,11 @@ async function send() {
     thinkingPanel.shell.hidden = false;
     thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
     setThinkingSummaryLabel("Thinking...");
-    // Render thinking body with markdown + KaTeX
-    if (hasMarked) {
-      var normalizedThinkingMarkdown = normalizeAssistantMarkdown(thinkingText.trim());
-      var mathProtected = hasKaTeX ? protectMathForMarked(normalizedThinkingMarkdown) : null;
-      var html = marked.parse(mathProtected ? mathProtected.text : normalizedThinkingMarkdown);
-      if (mathProtected) html = restoreMathAfterMarked(html, mathProtected.mathBlocks);
-      // Sanitize HTML to prevent XSS attacks
-      var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(html) : html;
-      thinkingPanel.body.innerHTML = cleanHtml;
-      renderKatexInElement(thinkingPanel.body);
-      void renderMermaidBlocksInElement(thinkingPanel.body);
-    } else {
-      thinkingPanel.body.textContent = thinkingText.trim();
-    }
+    var html = renderAssistantMarkdownHtml(thinkingText.trim());
+    var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(html) : html;
+    thinkingPanel.body.innerHTML = cleanHtml;
+    renderKatexInElement(thinkingPanel.body);
+    void renderMermaidBlocksInElement(thinkingPanel.body);
     scrollToBottom();
   };
   const handleStatusUpdate = (status) => {
