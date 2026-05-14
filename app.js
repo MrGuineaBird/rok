@@ -10927,13 +10927,42 @@ function looksLikeStructuredLanguageBlock(language, body) {
   return /(?:\bdef\b|\bclass\b|\bimport\b|\breturn\b|\bif\b|\belse\b|\btry\b|\bcatch\b|\bfunction\b|\bconst\b|\blet\b|\bvar\b|\bpackage\b|\bfn\b|=>|==|!=|:=|::|->|\{|\}|;|#|<\w+|SELECT\b|INSERT\b|UPDATE\b|DELETE\b|\b[a-z_][a-z0-9_]*\s*=|\w+\.\w+\(|\w+\()/i.test(text);
 }
 
+function normalizeStructuredLanguageLine(line) {
+  var raw = String(line || "");
+  var trimmed = raw.trim();
+  if (!trimmed) {
+    return raw;
+  }
+  var match = trimmed.match(/^(?:[`"]{1,3}\s*)?(?:```+\s*)?([a-z0-9_#+-]+)\s+([\s\S]*?)(?:\s*```+|[`"]{1,3})?$/i);
+  if (!match) {
+    return raw;
+  }
+  var language = String(match[1] || "").trim().toLowerCase();
+  if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
+    return raw;
+  }
+  var body = String(match[2] || "").trim();
+  if (!looksLikeStructuredLanguageBlock(language, body)) {
+    return raw;
+  }
+  return "```" + language + "\n" + body + "\n```";
+}
+
+function normalizeStructuredLanguageLines(text) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+  return value
+    .split("\n")
+    .map(normalizeStructuredLanguageLine)
+    .join("\n");
+}
+
 function normalizeAssistantParagraph(paragraph) {
   var raw = String(paragraph || "");
   var trimmed = raw.trim();
   if (!trimmed) {
     return raw;
   }
-  if (/^```[a-z0-9_#+-]*\n[\s\S]*\n```$/i.test(trimmed)) {
+  if (/```/.test(trimmed) || /^```[a-z0-9_#+-]*\n[\s\S]*\n```$/i.test(trimmed)) {
     return trimmed;
   }
   var match = trimmed.match(/^(?:[`"'“”‘’]{2,3}\s*)?(?:```+\s*)?([a-z0-9_#+-]+)\s+([\s\S]*?)(?:\s*```+|[`"'“”‘’]{2,3})?$/i);
@@ -10958,7 +10987,11 @@ function normalizeBareLanguageParagraphs(text) {
 }
 
 function normalizeAssistantMarkdown(text) {
-  return normalizeBareLanguageParagraphs(normalizeLooseMarkdownCodeFences(text));
+  return normalizeBareLanguageParagraphs(
+    normalizeStructuredLanguageLines(
+      normalizeLooseMarkdownCodeFences(text)
+    )
+  );
 }
 
 function ensureMermaidInitialized() {
