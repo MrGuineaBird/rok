@@ -960,6 +960,7 @@ function getModelSpecificSystemPrompt() {
   return [
     "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include a short fenced ```mermaid``` diagram that shows the bug flow and the fix boundary.",
     "Prefer a valid Mermaid flowchart (for example, flowchart TD) with 3-7 nodes, and keep it concise.",
+    "Put the opening and closing code fences on their own lines.",
     "After the Mermaid diagram, continue with the normal technical explanation, repro details, and fix notes.",
     "If the request is unrelated to code or security, do not force a diagram."
   ].join(" ");
@@ -10884,14 +10885,18 @@ function restoreMathAfterMarked(html, mathBlocks) {
 }
 
 function normalizeLooseMarkdownCodeFences(text) {
-  var value = String(text || "");
-  return value.replace(/```([a-z0-9_+-]+)?[ \t]+([\s\S]*?)```/gi, function (_match, lang, body) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+  value = value.replace(/```([a-z0-9_+-]+)?[ \t]+([\s\S]*?)```/gi, function (_match, lang, body) {
     var language = String(lang || "").trim();
     var normalizedBody = String(body || "").replace(/^\s+|\s+$/g, "");
     return language
-      ? "```" + language + "\n" + normalizedBody + "\n```"
-      : "```\n" + normalizedBody + "\n```";
+      ? "\n\n```" + language + "\n" + normalizedBody + "\n```\n\n"
+      : "\n\n```\n" + normalizedBody + "\n```\n\n";
   });
+  value = value.replace(/([^\n])(```[a-z0-9_+-]*\n)/gi, "$1\n\n$2");
+  value = value.replace(/\n```([ \t]*)([^\n])/g, "\n```\n\n$2");
+  value = value.replace(/\n{3,}/g, "\n\n");
+  return value;
 }
 
 function ensureMermaidInitialized() {
