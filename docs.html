@@ -262,7 +262,7 @@
           </p>
           <div class="docs-callout">
             <strong>Base URL:</strong>
-            <p><code>https://rokbackendreal.kyklos.online</code></p>
+            <p><code>https://rokapi.rokteam.org</code></p>
           </div>
           <button id="requestApiKeyBtn" class="docs-primary-btn" type="button">Request API Key</button>
           <p class="docs-note">
@@ -418,7 +418,7 @@
           <div class="docs-block" data-api-example="js">
             <h3 class="docs-block-title">JavaScript SSE Example</h3>
             <pre><code>async function runRokChat() {
-  const response = await fetch("https://rokbackendreal.kyklos.online/api/chat", {
+  const response = await fetch("https://rokapi.rokteam.org/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -462,7 +462,7 @@
 import requests
 
 with requests.post(
-    "https://rokbackendreal.kyklos.online/api/chat",
+    "https://rokapi.rokteam.org/api/chat",
     headers={
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
@@ -484,7 +484,7 @@ with requests.post(
 
           <div class="docs-block" data-api-example="curl" hidden>
             <h3 class="docs-block-title">cURL Example</h3>
-            <pre><code>curl -N -X POST "https://rokbackendreal.kyklos.online/api/chat" \
+            <pre><code>curl -N -X POST "https://rokapi.rokteam.org/api/chat" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -H "X-ROK-API-Key: YOUR_KEY" \

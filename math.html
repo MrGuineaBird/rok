@@ -469,7 +469,17 @@
   <script>
     function getStoredApiBase() {
       try {
-        return localStorage.getItem("rok_api_base") || localStorage.getItem("apiBase") || "";
+        const raw = localStorage.getItem("rok_api_base") || localStorage.getItem("apiBase") || "";
+        const normalized = String(raw || "").trim().replace(/\/+$/, "");
+        if (
+          normalized.toLowerCase() === "https://rokbackendreal.kyklos.online" ||
+          normalized.toLowerCase() === "https://rok.rokteam.org"
+        ) {
+          localStorage.setItem("rok_api_base", "https://rokapi.rokteam.org");
+          localStorage.setItem("apiBase", "https://rokapi.rokteam.org");
+          return "https://rokapi.rokteam.org";
+        }
+        return normalized;
       } catch {
         return "";
       }
@@ -485,7 +495,7 @@
     const defaultApiBase =
       (runtimeHost === "127.0.0.1" || runtimeHost === "localhost" || runtimeHost === "::1")
         ? ""
-        : "https://rokbackendreal.kyklos.online";
+        : "https://rokapi.rokteam.org";
     const ROK_API_BASE = String(
       runtimeApiBase ||
       runtimeConfig.apiBase ||

@@ -380,11 +380,21 @@
 
   <script>
     (function () {
-      const API_BASE = (
+      const rawApiBase =
         localStorage.getItem("rok_api_base") ||
         localStorage.getItem("apiBase") ||
-        "https://rokbackendreal.kyklos.online"
-      ).replace(/\/+$/, "");
+        "https://rokapi.rokteam.org";
+      const normalizedApiBase = String(rawApiBase || "").trim().replace(/\/+$/, "");
+      const API_BASE = (
+        normalizedApiBase.toLowerCase() === "https://rokbackendreal.kyklos.online" ||
+        normalizedApiBase.toLowerCase() === "https://rok.rokteam.org"
+      )
+        ? "https://rokapi.rokteam.org"
+        : normalizedApiBase;
+      try {
+        localStorage.setItem("rok_api_base", API_BASE);
+        localStorage.setItem("apiBase", API_BASE);
+      } catch {}
       const ADMIN_KEY_STORAGE = "rok.blog.admin_key";
 
       const isAdminPage = new URLSearchParams(window.location.search).has("admin");

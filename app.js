@@ -178,9 +178,49 @@ const onboardingNameInput =
   document.getElementById("onboardingNameInput");
 
 const runtimeConfig = (typeof window !== "undefined" && window.ROK_CONFIG) ? window.ROK_CONFIG : {};
+const DEFAULT_REMOTE_API_BASE = "https://rokapi.rokteam.org";
+const LEGACY_REMOTE_API_BASES = new Set([
+  "https://rokbackendreal.kyklos.online",
+  "https://rok.rokteam.org"
+]);
+
+function normalizeApiBaseValue(rawValue) {
+  const value = String(rawValue || "").trim().replace(/\/+$/, "");
+  if (!value) return "";
+  const lowered = value.toLowerCase();
+  if (LEGACY_REMOTE_API_BASES.has(lowered)) {
+    return DEFAULT_REMOTE_API_BASE;
+  }
+  return value;
+}
+
+function isLocalBrowserHost() {
+  if (typeof window === "undefined" || !window.location) return false;
+  const host = String(window.location.hostname || "").toLowerCase();
+  return host === "127.0.0.1" || host === "localhost" || host === "::1";
+}
+
+function migrateLegacyApiBaseStorage() {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    const legacyKeys = ["rok_api_base", "apiBase"];
+    legacyKeys.forEach(function (storageKey) {
+      const currentValue = normalizeApiBaseValue(window.localStorage.getItem(storageKey));
+      if (!currentValue) return;
+      window.localStorage.setItem(storageKey, currentValue);
+    });
+  } catch {
+    
+  }
+}
+
+migrateLegacyApiBaseStorage();
+
 const runtimeApiBase =
   (typeof window !== "undefined" && typeof window.ROK_API_BASE === "string") ? window.ROK_API_BASE : "";
-const ROK_API_BASE = String(runtimeApiBase || "").trim().replace(/\/+$/, "");
+const ROK_API_BASE = isLocalBrowserHost()
+  ? ""
+  : (normalizeApiBaseValue(runtimeApiBase) || DEFAULT_REMOTE_API_BASE);
 const buildApiUrl = (path) => `${ROK_API_BASE}${path}`;
 const API_URL = buildApiUrl("/api/chat");
 const SANDBOX_URL = buildApiUrl("/api/sandbox");
