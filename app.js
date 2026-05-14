@@ -961,6 +961,7 @@ function getModelSpecificSystemPrompt() {
     "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include a short fenced ```mermaid``` diagram that shows the bug flow and the fix boundary.",
     "Prefer a valid Mermaid flowchart (for example, flowchart TD) with 3-7 nodes, and keep it concise.",
     "Put the opening and closing code fences on their own lines.",
+    "Use triple backticks for code fences. Do not use triple double-quotes or triple single-quotes as fence markers.",
     "After the Mermaid diagram, continue with the normal technical explanation, repro details, and fix notes.",
     "If the request is unrelated to code or security, do not force a diagram."
   ].join(" ");
@@ -10888,6 +10889,16 @@ function normalizeLooseMarkdownCodeFences(text) {
   return String(text || "").replace(/\r\n/g, "\n");
 }
 
+function normalizeQuotedFenceBlocks(text) {
+  return String(text || "").replace(
+    /(^|\n)\s*(?:[`"'\u201c\u201d\u2018\u2019]{3})\s*([a-z0-9_#+-]+)\s*\n([\s\S]*?)\n\s*(?:[`"'\u201c\u201d\u2018\u2019]{3})(?=\n|$)/gi,
+    function (_, prefix, language, body) {
+      var formatted = formatStructuredLanguageBlock(language, body);
+      return prefix + (formatted || String(body || ""));
+    }
+  );
+}
+
 function normalizeMermaidBlockBody(body) {
   var value = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!value) {
@@ -11026,22 +11037,15 @@ function normalizeAssistantParagraph(paragraph) {
   if (normalizedParagraph !== trimmed) {
     return normalizedParagraph;
   }
-  if (/```/.test(trimmed) || /^```[a-z0-9_#+-]*\n[\s\S]*\n```$/i.test(trimmed)) {
+  if (/^```[a-z0-9_#+-]*\s*\n[\s\S]*\n```$/i.test(trimmed)) {
     return trimmed;
   }
   var match = trimmed.match(/^(?:[`"'“”‘’]{2,3}\s*)?(?:```+\s*)?([a-z0-9_#+-]+)\s+([\s\S]*?)(?:\s*```+|[`"'“”‘’]{2,3})?$/i);
   if (!match) {
     return raw;
   }
-  var language = String(match[1] || "").trim().toLowerCase();
-  if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
-    return raw;
-  }
-  var body = String(match[2] || "").trim();
-  if (!looksLikeStructuredLanguageBlock(language, body)) {
-    return raw;
-  }
-  return "```" + language + "\n" + body + "\n```";
+  var formatted = formatStructuredLanguageBlock(match[1], match[2]);
+  return formatted || raw;
 }
 
 function normalizeBareLanguageParagraphs(text) {
@@ -11054,7 +11058,9 @@ function normalizeAssistantMarkdown(text) {
   return normalizeBareLanguageParagraphs(
     normalizeStructuredLanguageLines(
       normalizeStructuredLanguageParagraphs(
-        normalizeLooseMarkdownCodeFences(text)
+        normalizeQuotedFenceBlocks(
+          normalizeLooseMarkdownCodeFences(text)
+        )
       )
     )
   );
