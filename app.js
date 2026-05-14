@@ -10899,6 +10899,59 @@ function normalizeLooseMarkdownCodeFences(text) {
   return value;
 }
 
+const STRUCTURED_MARKDOWN_LANGUAGES = [
+  "mermaid",
+  "python",
+  "javascript",
+  "typescript",
+  "bash",
+  "shell",
+  "json",
+  "html",
+  "css",
+  "sql",
+  "yaml"
+];
+
+function looksLikeStructuredLanguageBlock(language, body) {
+  var lang = String(language || "").trim().toLowerCase();
+  var text = String(body || "").trim();
+  if (!lang || !text) return false;
+  if (lang === "mermaid") {
+    return /\b(?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|mindmap|timeline|quadrantChart|gitGraph)\b/.test(text) ||
+      /-->|---|\[[^\]]+\]|\{[^\}]+\}/.test(text);
+  }
+  return /(?:\bdef\b|\bclass\b|\bimport\b|\breturn\b|\bif\b|\belse\b|\btry\b|\bcatch\b|\bfunction\b|\bconst\b|\blet\b|\bvar\b|=>|==|!=|:=|::|\{|\}|;|#|<\w+|SELECT\b|INSERT\b|UPDATE\b|DELETE\b)/i.test(text);
+}
+
+function normalizeBareLanguageParagraphs(text) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+  var paragraphs = value.split(/\n{2,}/);
+  return paragraphs.map(function (paragraph) {
+    var trimmed = String(paragraph || "").trim();
+    if (!trimmed || /^```/m.test(trimmed)) {
+      return paragraph;
+    }
+    var match = trimmed.match(/^(?:`{2,3}|"{2,3}|'{2,3})?\s*([a-z0-9_+-]+)\s+([\s\S]*?)(?:`{2,3}|"{2,3}|'{2,3})?$/i);
+    if (!match) {
+      return paragraph;
+    }
+    var language = String(match[1] || "").trim().toLowerCase();
+    if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
+      return paragraph;
+    }
+    var body = String(match[2] || "").trim();
+    if (!looksLikeStructuredLanguageBlock(language, body)) {
+      return paragraph;
+    }
+    return "```" + language + "\n" + body + "\n```";
+  }).join("\n\n");
+}
+
+function normalizeAssistantMarkdown(text) {
+  return normalizeBareLanguageParagraphs(normalizeLooseMarkdownCodeFences(text));
+}
+
 function ensureMermaidInitialized() {
   if (!hasMermaid || mermaidInitialized) return;
   mermaid.initialize({
@@ -10974,7 +11027,7 @@ function setBubbleContent(bubble, text, markdown) {
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
     // Protect math from marked, then restore after parsing
-    var normalizedMarkdown = normalizeLooseMarkdownCodeFences(text);
+    var normalizedMarkdown = normalizeAssistantMarkdown(text);
     var mathProtected = hasKaTeX ? protectMathForMarked(normalizedMarkdown) : null;
     var rawHtml = marked.parse(mathProtected ? mathProtected.text : normalizedMarkdown);
     if (mathProtected) {
@@ -11934,7 +11987,7 @@ async function send() {
     setThinkingSummaryLabel("Thinking...");
     // Render thinking body with markdown + KaTeX
     if (hasMarked) {
-      var normalizedThinkingMarkdown = normalizeLooseMarkdownCodeFences(thinkingText.trim());
+      var normalizedThinkingMarkdown = normalizeAssistantMarkdown(thinkingText.trim());
       var mathProtected = hasKaTeX ? protectMathForMarked(normalizedThinkingMarkdown) : null;
       var html = marked.parse(mathProtected ? mathProtected.text : normalizedThinkingMarkdown);
       if (mathProtected) html = restoreMathAfterMarked(html, mathProtected.mathBlocks);
