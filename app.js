@@ -10885,32 +10885,35 @@ function restoreMathAfterMarked(html, mathBlocks) {
 }
 
 function normalizeLooseMarkdownCodeFences(text) {
-  var value = String(text || "").replace(/\r\n/g, "\n");
-  value = value.replace(/```([a-z0-9_+-]+)?[ \t]+([\s\S]*?)```/gi, function (_match, lang, body) {
-    var language = String(lang || "").trim();
-    var normalizedBody = String(body || "").replace(/^\s+|\s+$/g, "");
-    return language
-      ? "\n\n```" + language + "\n" + normalizedBody + "\n```\n\n"
-      : "\n\n```\n" + normalizedBody + "\n```\n\n";
-  });
-  value = value.replace(/([^\n])(```[a-z0-9_+-]*\n)/gi, "$1\n\n$2");
-  value = value.replace(/\n```([ \t]*)([^\n])/g, "\n```\n\n$2");
-  value = value.replace(/\n{3,}/g, "\n\n");
-  return value;
+  return String(text || "").replace(/\r\n/g, "\n");
 }
 
 const STRUCTURED_MARKDOWN_LANGUAGES = [
   "mermaid",
   "python",
+  "py",
   "javascript",
+  "js",
   "typescript",
+  "ts",
   "bash",
+  "sh",
   "shell",
   "json",
   "html",
   "css",
   "sql",
-  "yaml"
+  "yaml",
+  "yml",
+  "c",
+  "cpp",
+  "c++",
+  "csharp",
+  "cs",
+  "java",
+  "go",
+  "rust",
+  "rs"
 ];
 
 function looksLikeStructuredLanguageBlock(language, body) {
@@ -10921,31 +10924,37 @@ function looksLikeStructuredLanguageBlock(language, body) {
     return /\b(?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|mindmap|timeline|quadrantChart|gitGraph)\b/.test(text) ||
       /-->|---|\[[^\]]+\]|\{[^\}]+\}/.test(text);
   }
-  return /(?:\bdef\b|\bclass\b|\bimport\b|\breturn\b|\bif\b|\belse\b|\btry\b|\bcatch\b|\bfunction\b|\bconst\b|\blet\b|\bvar\b|=>|==|!=|:=|::|\{|\}|;|#|<\w+|SELECT\b|INSERT\b|UPDATE\b|DELETE\b)/i.test(text);
+  return /(?:\bdef\b|\bclass\b|\bimport\b|\breturn\b|\bif\b|\belse\b|\btry\b|\bcatch\b|\bfunction\b|\bconst\b|\blet\b|\bvar\b|\bpackage\b|\bfn\b|=>|==|!=|:=|::|->|\{|\}|;|#|<\w+|SELECT\b|INSERT\b|UPDATE\b|DELETE\b|\b[a-z_][a-z0-9_]*\s*=|\w+\.\w+\(|\w+\()/i.test(text);
+}
+
+function normalizeAssistantParagraph(paragraph) {
+  var raw = String(paragraph || "");
+  var trimmed = raw.trim();
+  if (!trimmed) {
+    return raw;
+  }
+  if (/^```[a-z0-9_#+-]*\n[\s\S]*\n```$/i.test(trimmed)) {
+    return trimmed;
+  }
+  var match = trimmed.match(/^(?:[`"'“”‘’]{2,3}\s*)?(?:```+\s*)?([a-z0-9_#+-]+)\s+([\s\S]*?)(?:\s*```+|[`"'“”‘’]{2,3})?$/i);
+  if (!match) {
+    return raw;
+  }
+  var language = String(match[1] || "").trim().toLowerCase();
+  if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
+    return raw;
+  }
+  var body = String(match[2] || "").trim();
+  if (!looksLikeStructuredLanguageBlock(language, body)) {
+    return raw;
+  }
+  return "```" + language + "\n" + body + "\n```";
 }
 
 function normalizeBareLanguageParagraphs(text) {
   var value = String(text || "").replace(/\r\n/g, "\n");
   var paragraphs = value.split(/\n{2,}/);
-  return paragraphs.map(function (paragraph) {
-    var trimmed = String(paragraph || "").trim();
-    if (!trimmed || /^```/m.test(trimmed)) {
-      return paragraph;
-    }
-    var match = trimmed.match(/^(?:`{2,3}|"{2,3}|'{2,3})?\s*([a-z0-9_+-]+)\s+([\s\S]*?)(?:`{2,3}|"{2,3}|'{2,3})?$/i);
-    if (!match) {
-      return paragraph;
-    }
-    var language = String(match[1] || "").trim().toLowerCase();
-    if (!STRUCTURED_MARKDOWN_LANGUAGES.includes(language)) {
-      return paragraph;
-    }
-    var body = String(match[2] || "").trim();
-    if (!looksLikeStructuredLanguageBlock(language, body)) {
-      return paragraph;
-    }
-    return "```" + language + "\n" + body + "\n```";
-  }).join("\n\n");
+  return paragraphs.map(normalizeAssistantParagraph).join("\n\n");
 }
 
 function normalizeAssistantMarkdown(text) {
