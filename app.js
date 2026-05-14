@@ -714,6 +714,8 @@ let modelPickerOpen = false;
 const hasMarked = typeof marked !== "undefined";
 const hasKaTeX = typeof katex !== "undefined";
 const hasDOMPurify = typeof DOMPurify !== "undefined";
+const hasMermaid = typeof mermaid !== "undefined";
+let mermaidInitialized = false;
 if (hasMarked) {
   marked.setOptions({ breaks: true, gfm: true });
 }
@@ -910,20 +912,31 @@ function getCustomIdentityHeaderValue() {
   }
 }
 
+function getModelSpecificSystemPrompt() {
+  const activeModel = normalizeSessionModel(getCurrentSessionModel());
+  if (activeModel !== HYPERION_MODEL_ID) {
+    return "";
+  }
+  return [
+    "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include a short fenced ```mermaid``` diagram that shows the bug flow and the fix boundary.",
+    "Prefer a valid Mermaid flowchart (for example, flowchart TD) with 3-7 nodes, and keep it concise.",
+    "After the Mermaid diagram, continue with the normal technical explanation, repro details, and fix notes.",
+    "If the request is unrelated to code or security, do not force a diagram."
+  ].join(" ");
+}
+
 function getMergedSystemPromptForApi() {
   const custom = getCustomSystemPromptHeaderValue();
+  const modelSpecific = getModelSpecificSystemPrompt();
   if (isIncognitoModeEnabled()) {
-    return custom || "";
+    return [custom, modelSpecific].filter(Boolean).join("\n\n");
   }
   const parsed = { ...loadUserSettingsFromStorage(), ...userSettings };
   const name = sanitizeShortUserSettingText(parsed.preferredName);
   const identity = name
     ? `User context: The user goes by "${name}". Address them by this name when it feels natural in conversation.`
     : "";
-  if (custom && identity) {
-    return `${custom}\n\n${identity}`;
-  }
-  return custom || identity;
+  return [custom, modelSpecific, identity].filter(Boolean).join("\n\n");
 }
 
 function getCustomPromptOverridesForApi() {
@@ -10830,14 +10843,95 @@ function restoreMathAfterMarked(html, mathBlocks) {
   });
 }
 
+function normalizeLooseMarkdownCodeFences(text) {
+  var value = String(text || "");
+  return value.replace(/```([a-z0-9_+-]+)?[ \t]+([\s\S]*?)```/gi, function (_match, lang, body) {
+    var language = String(lang || "").trim();
+    var normalizedBody = String(body || "").replace(/^\s+|\s+$/g, "");
+    return language
+      ? "```" + language + "\n" + normalizedBody + "\n```"
+      : "```\n" + normalizedBody + "\n```";
+  });
+}
+
+function ensureMermaidInitialized() {
+  if (!hasMermaid || mermaidInitialized) return;
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: "base",
+    themeVariables: {
+      background: "#12090B",
+      primaryColor: "#231214",
+      primaryTextColor: "#F7ECE8",
+      primaryBorderColor: "#5F2A2D",
+      lineColor: "#C14C42",
+      secondaryColor: "#1A0D0F",
+      tertiaryColor: "#160B0D",
+      mainBkg: "#231214",
+      secondBkg: "#1A0D0F",
+      tertiaryBkg: "#160B0D",
+      clusterBkg: "#1A0D0F",
+      clusterBorder: "#5F2A2D",
+      edgeLabelBackground: "#12090B",
+      fontFamily: "Sora, Segoe UI, sans-serif",
+      textColor: "#F7ECE8",
+      nodeTextColor: "#F7ECE8"
+    },
+    flowchart: {
+      curve: "basis"
+    }
+  });
+  mermaidInitialized = true;
+}
+
+async function renderMermaidBlocksInElement(root) {
+  if (!hasMermaid || !(root instanceof HTMLElement)) return;
+  const mermaidCodeBlocks = Array.from(
+    root.querySelectorAll("pre > code.language-mermaid, pre > code.lang-mermaid, pre > code[class*=\"language-mermaid\"]")
+  );
+  if (!mermaidCodeBlocks.length) return;
+  ensureMermaidInitialized();
+  for (const codeEl of mermaidCodeBlocks) {
+    const pre = codeEl.closest("pre");
+    if (!pre || pre.dataset.mermaidRendered === "1") continue;
+    const source = String(codeEl.textContent || "").trim();
+    if (!source) continue;
+    pre.dataset.mermaidRendered = "1";
+    const container = document.createElement("div");
+    container.className = "mermaid-block";
+    container.setAttribute("data-mermaid-source", source);
+    try {
+      const renderId = "rok-mermaid-" + Math.random().toString(36).slice(2, 10);
+      const renderResult = await mermaid.render(renderId, source);
+      container.innerHTML = renderResult.svg;
+      if (typeof renderResult.bindFunctions === "function") {
+        renderResult.bindFunctions(container);
+      }
+    } catch (error) {
+      container.classList.add("mermaid-block-error");
+      const errorLabel = document.createElement("div");
+      errorLabel.className = "mermaid-block-error-label";
+      errorLabel.textContent = "Diagram couldn't render";
+      const fallbackPre = document.createElement("pre");
+      fallbackPre.textContent = source;
+      container.appendChild(errorLabel);
+      container.appendChild(fallbackPre);
+      console.warn("Mermaid render failed:", error);
+    }
+    pre.replaceWith(container);
+  }
+}
+
 function setBubbleContent(bubble, text, markdown) {
   if (markdown && hasMarked) {
     var wasPlain = bubble.classList.contains("plain");
     bubble.classList.remove("plain");
     bubble.classList.add("markdown");
     // Protect math from marked, then restore after parsing
-    var mathProtected = hasKaTeX ? protectMathForMarked(text) : null;
-    var rawHtml = marked.parse(mathProtected ? mathProtected.text : text);
+    var normalizedMarkdown = normalizeLooseMarkdownCodeFences(text);
+    var mathProtected = hasKaTeX ? protectMathForMarked(normalizedMarkdown) : null;
+    var rawHtml = marked.parse(mathProtected ? mathProtected.text : normalizedMarkdown);
     if (mathProtected) {
       rawHtml = restoreMathAfterMarked(rawHtml, mathProtected.mathBlocks);
     }
@@ -10861,12 +10955,15 @@ function setBubbleContent(bubble, text, markdown) {
     });
     // Add copy button to each code block
     bubble.querySelectorAll("pre").forEach(function (pre) {
+      const codeEl = pre.querySelector("code");
+      if (codeEl && /\blang(?:uage)?-mermaid\b/i.test(codeEl.className || "")) {
+        return;
+      }
       const wrapper = document.createElement("div");
       wrapper.className = "code-block-wrapper";
       pre.parentNode.insertBefore(wrapper, pre);
       wrapper.appendChild(pre);
       // Language label
-      const codeEl = pre.querySelector("code");
       const langMatch = codeEl ? (codeEl.className.match(/language-(\S+)/) || []) : [];
       if (langMatch[1]) {
         const langLabel = document.createElement("span");
@@ -10891,6 +10988,7 @@ function setBubbleContent(bubble, text, markdown) {
       });
       wrapper.appendChild(copyBtn);
     });
+    void renderMermaidBlocksInElement(bubble);
   } else {
     bubble.classList.remove("markdown");
     bubble.classList.add("plain");
@@ -11791,13 +11889,15 @@ async function send() {
     setThinkingSummaryLabel("Thinking...");
     // Render thinking body with markdown + KaTeX
     if (hasMarked) {
-      var mathProtected = hasKaTeX ? protectMathForMarked(thinkingText.trim()) : null;
-      var html = marked.parse(mathProtected ? mathProtected.text : thinkingText.trim());
+      var normalizedThinkingMarkdown = normalizeLooseMarkdownCodeFences(thinkingText.trim());
+      var mathProtected = hasKaTeX ? protectMathForMarked(normalizedThinkingMarkdown) : null;
+      var html = marked.parse(mathProtected ? mathProtected.text : normalizedThinkingMarkdown);
       if (mathProtected) html = restoreMathAfterMarked(html, mathProtected.mathBlocks);
       // Sanitize HTML to prevent XSS attacks
       var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(html) : html;
       thinkingPanel.body.innerHTML = cleanHtml;
       renderKatexInElement(thinkingPanel.body);
+      void renderMermaidBlocksInElement(thinkingPanel.body);
     } else {
       thinkingPanel.body.textContent = thinkingText.trim();
     }

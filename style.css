@@ -4979,6 +4979,38 @@ a.server-down-btn {
   user-select: none;
 }
 
+.mermaid-block {
+  margin: 12px 0;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #361F1F;
+  background: #170B0B;
+  overflow-x: auto;
+}
+
+.mermaid-block svg {
+  display: block;
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.mermaid-block-error {
+  border-color: #6A2D2D;
+}
+
+.mermaid-block-error-label {
+  margin-bottom: 8px;
+  color: #E19A9A;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mermaid-block-error pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 /* Bubble copy button for bot messages */
 .bubble-copy-btn {
   display: inline-block;
