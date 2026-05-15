@@ -75,6 +75,7 @@ const composerPlusBtn = document.getElementById("composerPlusBtn");
 const composerTray = document.getElementById("composerTray");
 const attachBtn = document.getElementById("attachBtn");
 const attachFolderBtn = document.getElementById("attachFolderBtn");
+const browserPilotBtn = document.getElementById("browserPilotBtn");
 const webToggleBtn = document.getElementById("webToggleBtn");
 const memoryToggleBtn = document.getElementById("memoryToggleBtn");
 const customizeRokBtn = document.getElementById("customizeRokBtn");
@@ -229,6 +230,9 @@ const STATUS_URL = buildApiUrl("/api/status");
 const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
+const BROWSER_PILOT_START_URL = buildApiUrl("/api/browser/start");
+const BROWSER_PILOT_STOP_URL = buildApiUrl("/api/browser/stop");
+const BROWSER_PILOT_STATUS_URL = buildApiUrl("/api/browser/status");
 const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/sandbox", "/api/intent", "/api/status", "/api/models"]);
 const DEFAULT_CLIENT_LIMITS = {
   typingSpeedMs: 12,
@@ -271,7 +275,7 @@ const EVIDENCE_PROMPT_PREVIEW_CHARS = 640;
 const EVIDENCE_WORKSPACE_PREVIEW_CHARS = 420;
 const TOS_VERSION = 1;
 /** Bump this to force every browser to see the tour one more time after deploy. */
-const ONBOARDING_TOUR_VERSION = 6;
+const ONBOARDING_TOUR_VERSION = 7;
 const CUSTOMIZATION_NAME_MAX_CHARS = 64;
 const CUSTOMIZATION_PROMPT_MAX_CHARS = 2400;
 const WORKSPACE_TAB_LABEL_MAX_CHARS = 24;
@@ -506,27 +510,27 @@ const HOME_SLOGAN_TYPING_SPEED_MS = 34;
 const HOME_SLOGAN_HOLD_MS = 1600;
 const HOME_SLOGAN_ERASE_SPEED_MS = 18;
 const MATH_STANDALONE_VERSION = "3";
-const ONBOARDING_TOUR_TEXT_SPEED_MS = 22;
+const ONBOARDING_TOUR_TEXT_SPEED_MS = 8;
 const ONBOARDING_TOUR_STEPS = [
   {
     id: "intro",
-    title: "ROK opens ready to work",
-    text: "You land in chat first, the sidebar stays tucked away until you want it, and the heavier control stuff stays optional instead of getting dumped on you right away.",
-    nextLabel: "What are you using ROK for?"
+    title: "Hi, I'm ROK.",
+    text: "I'm your private assistant for questions, writing, code, studying, and messy ideas. This setup is quick and stays on this device.",
+    nextLabel: "Next"
   },
   {
     id: "use-case",
-    title: "What are you mainly here for?",
-    text: "Pick the lane that feels closest. This only tunes ROK's first-run suggestions and welcome copy on this device, and you can change it later in Customize.",
+    title: "What do you use ROK for?",
+    text: "Pick the closest lane. I'll use it for first-run suggestions, and you can change it later in Customize.",
     showChoices: true,
-    nextLabel: "Set my name"
+    nextLabel: "Next"
   },
   {
     id: "name",
-    title: "What should ROK call you?",
-    text: "Optional, local, and lightweight. ROK will only use your name when it actually sounds natural in the conversation.",
+    title: "Tell me ya name",
+    text: "What should I call you? It stays on this device, and you can leave it blank.",
     showNameField: true,
-    nextLabel: "Start chatting"
+    nextLabel: "Start ROK"
   }
 ];
 const STORY_MIN_CANVAS_CHARS = 260;
@@ -703,6 +707,7 @@ const attachments = [];
 let sessions = [];
 let currentSessionId = null;
 let isSending = false;
+let browserPilotLaunching = false;
 let nextAllowedAt = 0;
 let cooldownTimer = null;
 let activeRequestController = null;
@@ -750,6 +755,7 @@ let composerTrayOpen = false;
 let webSearchEnabled = false;
 let toolsEnabled = false;
 let modelPickerOpen = false;
+let hyperionUnlockAnimationUntil = 0;
 
 const hasMarked = typeof marked !== "undefined";
 const hasKaTeX = typeof katex !== "undefined";
@@ -958,6 +964,19 @@ function getModelSpecificSystemPrompt() {
     return "";
   }
   return [
+    "You are Hyperion, ROK's advanced defensive cybersecurity and secure-code-review mode. Be calm, precise, and threat-model oriented.",
+    "Optimize for vulnerability analysis, secure code review, authentication and session design, CORS, rate limiting, SSRF, XSS, SQL injection, path traversal, access control, secrets handling, dependency risk, logging, and safe deployment hardening.",
+    "For security or code-review requests, start by identifying assets, trust boundaries, entry points, attacker capabilities, and likely impact. Then provide prioritized findings with severity, affected component, exploitability, evidence, fix, and regression tests.",
+    "Use CWE, OWASP, CVSS-style severity language, or MITRE ATT&CK concepts when they clarify the risk, but do not pad answers with labels when the code evidence is weak.",
+    "For auth/session/CORS/rate-limit issues, explicitly check cookie flags, token lifetime, origin/referrer validation, credentialed CORS, CSRF exposure, replay risk, bypass paths, quota scope, shared-IP behavior, and fail-open cases.",
+    "For SSRF/XSS/SQLi/path traversal, explain the vulnerable data flow, source, sink, missing validation, realistic preconditions, and the safest fix pattern.",
+    "For threat modeling, produce a compact model: assets, actors, boundaries, abuse cases, mitigations, residual risks, and monitoring signals.",
+    "For CTF-style learning or toy labs, teach the concept and defensive lesson clearly. Keep examples bounded to local, intentionally vulnerable, or fictional targets.",
+    "Explain exploits safely: give enough detail to help the user understand, reproduce in their own authorized lab, and patch the issue, but do not provide real-world intrusion playbooks, credential theft steps, persistence, evasion, malware, destructive payloads, or instructions for attacking third-party systems.",
+    "If a request moves toward real unauthorized exploitation, redirect to defensive analysis, detection, hardening, responsible disclosure, or a harmless local lab version.",
+    "Prefer actionable patches and tests over vague warnings. When reviewing code, cite the exact function, route, config, or logic branch involved when visible in context.",
+    "When there are no clear findings, say so plainly and list the remaining assumptions or test gaps.",
+    "Use this default security review shape when useful: Summary, Attack Surface, Findings, Fix Plan, Regression Tests, Monitoring.",
     "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include one short Mermaid diagram in a fenced code block that shows the bug flow and the fix boundary.",
     "Prefer a valid Mermaid flowchart starting with flowchart TD, with 3-7 nodes and simple node ids like A, B, C, and D.",
     "The opening fence must be exactly three backticks followed by mermaid, then a newline. Put the closing fence on its own line.",
@@ -1918,23 +1937,7 @@ function ensureOnboardingLayoutShell() {
   const shell = onboardingGuide.querySelector(".onboarding-shell");
   const card = onboardingGuide.querySelector(".onboarding-card");
   if (!(shell instanceof HTMLElement) || !(card instanceof HTMLElement)) return;
-  if (shell.querySelector(".onboarding-aside")) return;
-  const aside = document.createElement("aside");
-  aside.className = "onboarding-aside";
-  aside.setAttribute("aria-hidden", "true");
-  aside.innerHTML = `
-    <div class="onboarding-aside-top">
-      <span class="onboarding-badge">First run</span>
-      <span class="onboarding-step-inline">ROK setup</span>
-    </div>
-    <div class="onboarding-orb-stage">
-      <img class="onboarding-guide-orb" src="rokgenerating.gif" alt="" />
-    </div>
-    <p class="onboarding-aside-note">
-      ROK opens straight into chat. This setup just tunes the first-run feel on this device.
-    </p>
-  `;
-  shell.insertBefore(aside, card);
+  shell.querySelectorAll(".onboarding-aside").forEach((aside) => aside.remove());
 }
 
 async function typeOnboardingText(text) {
@@ -2058,7 +2061,12 @@ async function renderOnboardingStep() {
     onboardingNextBtn.textContent = step.nextLabel || (onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Start chatting" : "Next");
   }
   if (onboardingSkipBtn) {
-    onboardingSkipBtn.textContent = onboardingStepIndex >= ONBOARDING_NAME_SLIDE ? "Skip name" : "Skip";
+    onboardingSkipBtn.hidden = true;
+    onboardingSkipBtn.setAttribute("aria-hidden", "true");
+  }
+  if (onboardingCloseBtn) {
+    onboardingCloseBtn.hidden = true;
+    onboardingCloseBtn.setAttribute("aria-hidden", "true");
   }
   if (onboardingNameField) {
     onboardingNameField.hidden = !step.showNameField;
@@ -2085,7 +2093,12 @@ function openOnboardingModal() {
   if (!onboardingModal) return;
   ensureOnboardingLayoutShell();
   if (onboardingCloseBtn) {
-    onboardingCloseBtn.textContent = "\u00d7";
+    onboardingCloseBtn.hidden = true;
+    onboardingCloseBtn.setAttribute("aria-hidden", "true");
+  }
+  if (onboardingSkipBtn) {
+    onboardingSkipBtn.hidden = true;
+    onboardingSkipBtn.setAttribute("aria-hidden", "true");
   }
   if (onboardingNameInput) {
     onboardingNameInput.value = String(loadUserSettingsFromStorage().preferredName || "");
@@ -2751,6 +2764,206 @@ function showThinkingQuotaToast(message) {
   toast.style.opacity = "1";
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => { toast.style.opacity = "0"; }, 5000);
+}
+
+function parseBrowserPilotCommand(text) {
+  const trimmed = String(text || "").trim();
+  const match = trimmed.match(/^\/browser(?:\s+([\s\S]*))?$/i);
+  if (!match) return null;
+  return String(match[1] || "").trim();
+}
+
+function formatBrowserPilotGuardrails(guardrails) {
+  const items = Array.isArray(guardrails) && guardrails.length
+    ? guardrails
+    : [
+        "passwords",
+        "2FA / verification codes",
+        "payments",
+        "sharing files",
+        "sending emails or messages",
+        "deleting anything",
+        "changing account settings",
+        "downloading unknown files"
+      ];
+  return items.map((item) => `- ${item}`).join("\n");
+}
+
+function buildBrowserPilotReply(data, task) {
+  const payload = data && typeof data === "object" ? data : {};
+  const guardrails = formatBrowserPilotGuardrails(payload.guardrails);
+  if (payload.paused) {
+    const reason = payload.pause_reason || "a sensitive action";
+    return [
+      "**Browser Pilot paused.**",
+      "",
+      `ROK will not automate ${reason}. Handle that step manually in your browser, then ask ROK for the next safe step.`,
+      "",
+      "**Hard stops:**",
+      guardrails
+    ].join("\n");
+  }
+  if (!payload.ok) {
+    const errorText = payload.error || "Browser Pilot could not start.";
+    return [
+      "**Browser Pilot could not start.**",
+      "",
+      errorText,
+      "",
+      "For local setup, install Playwright and Chromium for the backend:",
+      "`pip install playwright && python -m playwright install chromium`"
+    ].join("\n");
+  }
+  const target = payload.target || (task ? "Requested task" : "Blank browser tab");
+  const urlLine = payload.last_url ? `\nCurrent page: ${payload.last_url}` : "";
+  const loginLine = payload.manual_login_required
+    ? "\n\nGoogle wants login or 2FA. Use the visible browser window manually; ROK will not touch passwords or verification codes."
+    : "";
+  return [
+    "**Browser Pilot is open.**",
+    "",
+    "Visible Chromium launched with ROK's persistent local browser profile.",
+    `Target: ${target}${urlLine}`,
+    loginLine,
+    "",
+    "**Hard stops:**",
+    guardrails
+  ].join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+async function handleBrowserPilotCommand(task = "") {
+  if (browserPilotLaunching) return;
+  if (isSending || isIntentClassificationLoading || isWorkspaceSuggestionLoading) {
+    addMessage("system", "Wait for the current ROK action to finish before starting Browser Pilot.");
+    return;
+  }
+
+  browserPilotLaunching = true;
+  refreshSendState();
+  const normalizedTask = String(task || "").trim();
+  const commandText = normalizedTask ? `/browser ${normalizedTask}` : "/browser";
+  addMessage("user", commandText);
+  history.push({ role: "user", content: commandText });
+  trimHistoryToLimit();
+  syncCurrentSessionFromHistory();
+
+  const bot = addMessage("bot", "Starting Browser Pilot...", { markdown: true });
+  try {
+    const response = await fetchWithBanGuard(BROWSER_PILOT_START_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({ task: normalizedTask })
+    });
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+    if (!response.ok && !payload.paused) {
+      payload.ok = false;
+      payload.error = payload.error || `Browser Pilot failed (${response.status || "unknown"}).`;
+    }
+    const reply = buildBrowserPilotReply(payload, normalizedTask);
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } catch (error) {
+    const reply = buildBrowserPilotReply({
+      ok: false,
+      error: error && error.message ? error.message : "Could not reach the local Browser Pilot backend."
+    }, normalizedTask);
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } finally {
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+  }
+}
+
+async function handleBrowserPilotStopCommand() {
+  if (browserPilotLaunching) return;
+  browserPilotLaunching = true;
+  refreshSendState();
+  addMessage("user", "/browser stop");
+  history.push({ role: "user", content: "/browser stop" });
+  const bot = addMessage("bot", "Stopping Browser Pilot...", { markdown: true });
+  try {
+    const response = await fetchWithBanGuard(BROWSER_PILOT_STOP_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({})
+    });
+    const payload = await response.json().catch(() => ({}));
+    const reply = response.ok && payload.ok
+      ? "**Browser Pilot stopped.**\n\nThe visible Chromium session is closed."
+      : buildBrowserPilotReply({ ok: false, error: payload.error || "Browser Pilot could not stop." }, "");
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } catch (error) {
+    const reply = buildBrowserPilotReply({
+      ok: false,
+      error: error && error.message ? error.message : "Could not reach the local Browser Pilot backend."
+    }, "");
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } finally {
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+  }
+}
+
+async function handleBrowserPilotStatusCommand() {
+  if (browserPilotLaunching) return;
+  browserPilotLaunching = true;
+  refreshSendState();
+  addMessage("user", "/browser status");
+  history.push({ role: "user", content: "/browser status" });
+  const bot = addMessage("bot", "Checking Browser Pilot...", { markdown: true });
+  try {
+    const response = await fetchWithBanGuard(BROWSER_PILOT_STATUS_URL, {
+      method: "GET",
+      headers: buildApiHeaders(false)
+    });
+    const payload = await response.json().catch(() => ({}));
+    const reply = response.ok && payload.ok
+      ? [
+          `**Browser Pilot ${payload.running ? "is running" : "is stopped"}.**`,
+          "",
+          payload.last_url ? `Current page: ${payload.last_url}` : "Current page: none",
+          `Profile: ${payload.profile_dir || "local ROK browser profile"}`,
+          "",
+          "**Hard stops:**",
+          formatBrowserPilotGuardrails(payload.guardrails)
+        ].join("\n")
+      : buildBrowserPilotReply({ ok: false, error: payload.error || "Browser Pilot status is unavailable." }, "");
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } catch (error) {
+    const reply = buildBrowserPilotReply({
+      ok: false,
+      error: error && error.message ? error.message : "Could not reach the local Browser Pilot backend."
+    }, "");
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+  } finally {
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+  }
 }
 
 let activeDaedalusLimitModal = null;
@@ -7293,6 +7506,18 @@ function getComposerSelectableModelGroups(rows = []) {
   return groups;
 }
 
+function isHyperionUnlockAnimating() {
+  return Date.now() < hyperionUnlockAnimationUntil;
+}
+
+function playHyperionUnlockAnimation() {
+  hyperionUnlockAnimationUntil = Date.now() + 1800;
+  refreshComposerModelPicker();
+  setTimeout(() => {
+    refreshComposerModelPicker();
+  }, 1900);
+}
+
 function getOperationalModelId(modelId = "") {
   const normalized = normalizeSessionModel(modelId || getCurrentSessionModel());
   if (UNOFFICIAL_MODEL_IDS.has(normalized)) {
@@ -7421,6 +7646,8 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const safeId = escapeHtml(item.id);
   const active = item.id === sessionModel;
   const requiresKey = Boolean(item && item.requiresOllamaKey);
+  const isHyperion = Boolean(item && item.isHyperion);
+  const hyperionUnlocking = isHyperion && !requiresKey && isHyperionUnlockAnimating();
   const locked = requiresKey || (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
   const lockTitle = requiresKey
     ? "Add your own Ollama Cloud key to use Hyperion."
@@ -7429,11 +7656,14 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
     : daedalusLocked && item.id === DAEDALUS_MODEL_ID
     ? "Hourly token limit reached."
     : "";
-  const iconHtml = meta.icon
-    ? `<img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />`
+  const iconStateClass = isHyperion
+    ? ` is-hyperion${requiresKey ? " is-locked" : ""}${hyperionUnlocking ? " is-unlocking" : ""}`
     : "";
-  const lockBadge = item && item.isHyperion
-    ? `<span class="composer-model-picker-option-lock">BYOK</span>`
+  const iconHtml = meta.icon
+    ? `<span class="composer-model-picker-option-icon-shell${iconStateClass}"><img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />${isHyperion ? '<span class="composer-model-picker-option-key" aria-hidden="true"></span>' : ""}</span>`
+    : "";
+  const lockBadge = isHyperion
+    ? `<span class="composer-model-picker-option-lock">${requiresKey ? "Locked" : hyperionUnlocking ? "Unlocked" : "BYOK"}</span>`
     : locked
     ? `<span class="composer-model-picker-option-lock">${requiresKey ? "BYOK" : "Locked"}</span>`
     : "";
@@ -7441,7 +7671,7 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true"` : "";
   const requiresKeyAttr = requiresKey ? ` data-model-requires-key="true"` : "";
   const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : "";
-  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${requiresKeyAttr}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}${isHyperion ? " is-hyperion-option" : ""}${hyperionUnlocking ? " is-hyperion-unlocking" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${requiresKeyAttr}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
 }
 
 function setModelPickerOpen(nextOpen) {
@@ -7475,6 +7705,10 @@ function refreshComposerModelPicker() {
 
   const item = rows.find((r) => r.id === sessionModel) || rows[0];
   if (item) {
+    const currentIsHyperion = item.id === HYPERION_MODEL_ID;
+    const currentHyperionUnlocking = currentIsHyperion && isHyperionUnlockAnimating();
+    modelPickerBtn.classList.toggle("is-hyperion-selected", currentIsHyperion);
+    modelPickerBtn.classList.toggle("is-hyperion-unlocking", currentHyperionUnlocking);
     const meta = item && (item.icon || item.alt)
       ? { label: item.label, icon: item.icon || "", alt: item.alt || item.label || "" }
       : COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
@@ -7487,6 +7721,8 @@ function refreshComposerModelPicker() {
         modelPickerIcon.alt = meta.alt || meta.label || "";
       }
     }
+  } else {
+    modelPickerBtn.classList.remove("is-hyperion-selected", "is-hyperion-unlocking");
   }
 }
 
@@ -10925,6 +11161,210 @@ function looksLikeMermaidContinuation(body) {
     /(?:\[[^\]]+\]|\{[^\}]+\}|\([^)]+\)|\bsubgraph\b|\bend\b)/i.test(text);
 }
 
+function escapeMermaidLabel(label) {
+  return String(label || "")
+    .replace(/\r?\n/g, " ")
+    .replace(/"/g, "'")
+    .replace(/`/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120) || "Step";
+}
+
+function stripMermaidLabelQuotes(label) {
+  var value = String(label || "").trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value.trim();
+}
+
+function quoteMermaidFlowchartLabels(source) {
+  return String(source || "").replace(
+    /(^|[\s;])([a-z][a-z0-9_:-]*)\s*(\[\[([^\]\n]+)\]\]|\[([^\]\n]+)\]|\{([^\}\n]+)\}|\(([^)\n]+)\))/gi,
+    function (match, prefix, nodeId, fullShape, doubleLabel, squareLabel, diamondLabel, roundLabel) {
+      var label = doubleLabel || squareLabel || diamondLabel || roundLabel || "";
+      var cleanLabel = stripMermaidLabelQuotes(label);
+      if (!cleanLabel || /^["']/.test(String(label || "").trim())) {
+        return match;
+      }
+      if (doubleLabel) {
+        return prefix + nodeId + '[["' + escapeMermaidLabel(cleanLabel) + '"]]';
+      }
+      if (squareLabel) {
+        return prefix + nodeId + '["' + escapeMermaidLabel(cleanLabel) + '"]';
+      }
+      if (diamondLabel) {
+        return prefix + nodeId + '{"' + escapeMermaidLabel(cleanLabel) + '"}';
+      }
+      return prefix + nodeId + '("' + escapeMermaidLabel(cleanLabel) + '")';
+    }
+  );
+}
+
+function normalizeMermaidEdgeLabelSyntax(line) {
+  return String(line || "")
+    .replace(/\s+-->\s*\|[^|\n]*\|\s*/g, " --> ")
+    .replace(/\s+--\s*\|[^|\n]*\|\s*-->/g, " --> ")
+    .replace(/\s+--\s+[^-\n]+?\s+-->/g, " --> ")
+    .replace(/\s+-\.\s+[^.\n]+?\s+\.->/g, " -.-> ")
+    .replace(/\s+==\s+[^=\n]+?\s+==>/g, " ==> ");
+}
+
+function parseMermaidFlowNodeToken(token) {
+  var value = String(token || "")
+    .replace(/%%.*$/g, "")
+    .replace(/;+\s*$/g, "")
+    .trim();
+  if (!value) {
+    return null;
+  }
+  value = value.replace(/^\|[^|]*\|\s*/, "").trim();
+  var shapedMatch = value.match(/^([a-z][a-z0-9_:-]*)\s*(?:\[\[([^\]]+)\]\]|\[([^\]]+)\]|\{([^\}]+)\}|\(([^)]+)\))$/i);
+  if (shapedMatch) {
+    return {
+      key: shapedMatch[1],
+      label: stripMermaidLabelQuotes(shapedMatch[2] || shapedMatch[3] || shapedMatch[4] || shapedMatch[5] || shapedMatch[1])
+    };
+  }
+  if (/^[a-z][a-z0-9_:-]*$/i.test(value)) {
+    return {
+      key: value,
+      label: value
+    };
+  }
+  return {
+    key: value,
+    label: stripMermaidLabelQuotes(value)
+  };
+}
+
+function buildSafeMermaidNodeId(key, fallbackIndex) {
+  var value = String(key || "").trim().replace(/[^a-zA-Z0-9_]/g, "_");
+  value = value.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  if (!value) {
+    value = "N" + fallbackIndex;
+  }
+  if (!/^[a-zA-Z_]/.test(value)) {
+    value = "N_" + value;
+  }
+  return value.slice(0, 36);
+}
+
+function coerceMermaidFlowchart(source) {
+  var text = String(source || "").replace(/\r\n/g, "\n").trim();
+  if (!text) {
+    return "";
+  }
+  var lines = text
+    .split("\n")
+    .map(function (line) { return line.trim(); })
+    .filter(function (line) { return line && !line.startsWith("%%"); });
+  if (!lines.length) {
+    return "";
+  }
+  var headerMatch = lines[0].match(/^(?:flowchart|graph)\s+([a-z0-9_-]+)/i);
+  var direction = headerMatch ? String(headerMatch[1] || "TD").toUpperCase() : "TD";
+  if (!/^(?:TD|TB|BT|LR|RL)$/.test(direction)) {
+    direction = "TD";
+  }
+
+  var nodes = new Map();
+  var usedIds = new Set();
+  var edges = [];
+  var edgeOperatorPattern = /(-\.->|==>|-->|---|--x|x--|o--|--o)/;
+
+  function ensureNode(parsed) {
+    if (!parsed || !parsed.key) {
+      return "";
+    }
+    var mapKey = String(parsed.key || parsed.label || "").trim();
+    if (nodes.has(mapKey)) {
+      return nodes.get(mapKey).id;
+    }
+    var baseId = buildSafeMermaidNodeId(mapKey, nodes.size + 1);
+    var safeId = baseId;
+    var suffix = 2;
+    while (usedIds.has(safeId)) {
+      safeId = (baseId.slice(0, 30) || "N") + "_" + suffix;
+      suffix += 1;
+    }
+    usedIds.add(safeId);
+    nodes.set(mapKey, {
+      id: safeId,
+      label: escapeMermaidLabel(parsed.label || parsed.key || safeId)
+    });
+    return safeId;
+  }
+
+  lines.forEach(function (rawLine, index) {
+    var line = normalizeMermaidEdgeLabelSyntax(rawLine);
+    if (index === 0 && headerMatch) {
+      line = line.replace(/^(?:flowchart|graph)\s+[a-z0-9_-]+\s*/i, "").trim();
+      if (!line) {
+        return;
+      }
+    }
+    if (/^(?:subgraph\b|end\b|click\b|style\b|classDef\b|class\b)/i.test(line)) {
+      return;
+    }
+    if (edgeOperatorPattern.test(line)) {
+      var parts = line.split(/(-\.->|==>|-->|---|--x|x--|o--|--o)/);
+      for (var i = 1; i < parts.length; i += 2) {
+        var fromId = ensureNode(parseMermaidFlowNodeToken(parts[i - 1]));
+        var toId = ensureNode(parseMermaidFlowNodeToken(parts[i + 1]));
+        if (fromId && toId && fromId !== toId) {
+          edges.push([fromId, toId]);
+        }
+      }
+      return;
+    }
+    var nodeOnly = parseMermaidFlowNodeToken(line);
+    if (nodeOnly && nodeOnly.key) {
+      ensureNode(nodeOnly);
+    }
+  });
+
+  if (!edges.length && nodes.size > 1) {
+    var orderedNodeIds = Array.from(nodes.values()).map(function (node) { return node.id; });
+    for (var edgeIndex = 1; edgeIndex < orderedNodeIds.length; edgeIndex += 1) {
+      edges.push([orderedNodeIds[edgeIndex - 1], orderedNodeIds[edgeIndex]]);
+    }
+  }
+  if (!nodes.size || !edges.length) {
+    return "";
+  }
+
+  var output = ["flowchart " + direction];
+  nodes.forEach(function (node) {
+    output.push("  " + node.id + '["' + node.label + '"]');
+  });
+  edges.forEach(function (edge) {
+    output.push("  " + edge[0] + " --> " + edge[1]);
+  });
+  return output.join("\n");
+}
+
+function buildMermaidRenderCandidates(source) {
+  var original = String(source || "").replace(/\r\n/g, "\n").trim();
+  var normalized = normalizeMermaidBlockBody(original);
+  var quoted = quoteMermaidFlowchartLabels(normalized || original);
+  var coerced = coerceMermaidFlowchart(quoted || normalized || original);
+  var seen = new Set();
+  return [original, normalized, quoted, coerced]
+    .map(function (candidate) { return String(candidate || "").trim(); })
+    .filter(function (candidate) {
+      if (!candidate || seen.has(candidate)) {
+        return false;
+      }
+      seen.add(candidate);
+      return true;
+    });
+}
+
 const STRUCTURED_MARKDOWN_LANGUAGES = [
   "mermaid",
   "python",
@@ -11211,12 +11651,27 @@ async function renderMermaidBlocksInElement(root) {
     const container = document.createElement("div");
     container.className = "mermaid-block";
     container.setAttribute("data-mermaid-source", source);
+    const renderCandidates = buildMermaidRenderCandidates(source);
+    let lastRenderError = null;
+    let rendered = false;
     try {
-      const renderId = "rok-mermaid-" + Math.random().toString(36).slice(2, 10);
-      const renderResult = await mermaid.render(renderId, source);
-      container.innerHTML = renderResult.svg;
-      if (typeof renderResult.bindFunctions === "function") {
-        renderResult.bindFunctions(container);
+      for (const candidate of renderCandidates) {
+        try {
+          const renderId = "rok-mermaid-" + Math.random().toString(36).slice(2, 10);
+          const renderResult = await mermaid.render(renderId, candidate);
+          container.innerHTML = renderResult.svg;
+          container.setAttribute("data-mermaid-rendered-source", candidate);
+          if (typeof renderResult.bindFunctions === "function") {
+            renderResult.bindFunctions(container);
+          }
+          rendered = true;
+          break;
+        } catch (candidateError) {
+          lastRenderError = candidateError;
+        }
+      }
+      if (!rendered) {
+        throw lastRenderError || new Error("Unable to render Mermaid diagram.");
       }
     } catch (error) {
       container.classList.add("mermaid-block-error");
@@ -11697,6 +12152,9 @@ function refreshSendState() {
   if (attachFolderBtn) {
     attachFolderBtn.disabled = uiLocked;
   }
+  if (browserPilotBtn) {
+    browserPilotBtn.disabled = uiLocked || browserPilotLaunching;
+  }
   if (webToggleBtn) {
     webToggleBtn.disabled = uiLocked;
   }
@@ -11864,6 +12322,20 @@ async function send() {
   const legacyMemoryCommand = parseLegacyMemoryCommand(text);
   if (legacyMemoryCommand && legacyMemoryCommand.normalizedText) {
     text = legacyMemoryCommand.normalizedText;
+  }
+
+  const browserPilotCommand = parseBrowserPilotCommand(text);
+  if (browserPilotCommand !== null) {
+    input.value = "";
+    autoResizeInput();
+    if (/^stop$/i.test(browserPilotCommand)) {
+      void handleBrowserPilotStopCommand();
+    } else if (/^status$/i.test(browserPilotCommand)) {
+      void handleBrowserPilotStatusCommand();
+    } else {
+      void handleBrowserPilotCommand(browserPilotCommand);
+    }
+    return;
   }
   
   // Handle /imagine command for pixel painting
@@ -13456,6 +13928,17 @@ if (attachFolderBtn && folderInput) {
   folderInput.addEventListener("change", (e) => addSelectedFiles(e.target.files));
 }
 
+if (browserPilotBtn) {
+  browserPilotBtn.addEventListener("click", () => {
+    if (isSending || isIntentClassificationLoading || browserPilotLaunching) return;
+    setComposerTrayOpen(false);
+    input.value = "/browser ";
+    input.focus();
+    autoResizeInput();
+    refreshSendState();
+  });
+}
+
 // Drag-and-drop file attach on chat area
 if (chat) {
   chat.addEventListener("dragover", function (e) {
@@ -13980,6 +14463,10 @@ if (modelPickerBtn && modelPickerMenu) {
         hintText: `${HYPERION_LABEL} is a cloud-only BYOK lane for advanced coding and cybersecurity work.`,
         successLabel: HYPERION_LABEL,
         suppressDefaultModelHint: true
+      }).then((result) => {
+        if (result && result.saved) {
+          playHyperionUnlockAnimation();
+        }
       });
       return;
     }
@@ -14088,8 +14575,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key !== "Escape") return;
   if (onboardingModal && !onboardingModal.hidden) {
-    savePreferredNameToStorage("");
-    finishOnboardingAndEnter();
+    event.preventDefault();
     return;
   }
   if (forumSurveyModal && !forumSurveyModal.hidden) {
@@ -14171,20 +14657,14 @@ if (onboardingBackBtn) {
 }
 
 if (onboardingSkipBtn) {
-  onboardingSkipBtn.addEventListener("click", () => {
-    if (onboardingStepIndex >= ONBOARDING_NAME_SLIDE) {
-      savePreferredNameToStorage("");
-    }
-    finishOnboardingAndEnter();
+  onboardingSkipBtn.addEventListener("click", (event) => {
+    event.preventDefault();
   });
 }
 
 if (onboardingCloseBtn) {
-  onboardingCloseBtn.addEventListener("click", () => {
-    if (onboardingStepIndex >= ONBOARDING_NAME_SLIDE && onboardingNameInput && String(onboardingNameInput.value || "").trim()) {
-      savePreferredNameToStorage(onboardingNameInput.value);
-    }
-    finishOnboardingAndEnter();
+  onboardingCloseBtn.addEventListener("click", (event) => {
+    event.preventDefault();
   });
 }
 

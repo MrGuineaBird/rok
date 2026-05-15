@@ -6680,6 +6680,129 @@ a.server-down-btn {
   flex-shrink: 0;
 }
 
+.composer-model-picker-option-icon-shell {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.composer-model-picker-option-icon-shell.is-hyperion .composer-model-picker-option-icon {
+  transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.composer-model-picker-option-icon-shell.is-hyperion.is-locked .composer-model-picker-option-icon {
+  opacity: 0.58;
+  filter: grayscale(0.8) brightness(0.72);
+}
+
+.composer-model-picker-option-key {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 14px;
+  height: 12px;
+  border-radius: 3px;
+  background: #170b0b;
+  border: 1px solid rgba(242, 193, 119, 0.88);
+  box-shadow: 0 0 0 2px rgba(23, 11, 11, 0.95);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.composer-model-picker-option-key::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: -8px;
+  width: 8px;
+  height: 9px;
+  border: 2px solid rgba(242, 193, 119, 0.92);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  transform-origin: 2px 8px;
+}
+
+.composer-model-picker-option-key::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  width: 2px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(242, 193, 119, 0.9);
+}
+
+.composer-model-picker-option-icon-shell.is-hyperion.is-locked .composer-model-picker-option-key {
+  opacity: 1;
+}
+
+.composer-model-picker-option-icon-shell.is-hyperion.is-unlocking .composer-model-picker-option-icon {
+  animation: hyperion-icon-unlock-glow 900ms ease-out both;
+}
+
+.composer-model-picker-option-icon-shell.is-hyperion.is-unlocking .composer-model-picker-option-key {
+  opacity: 1;
+  animation: hyperion-lock-release 900ms ease-out both;
+}
+
+.composer-model-picker-btn.is-hyperion-unlocking .composer-model-picker-icon {
+  animation: hyperion-icon-unlock-glow 900ms ease-out both;
+}
+
+.composer-model-picker-option.is-hyperion-unlocking {
+  animation: hyperion-row-unlock 900ms ease-out both;
+}
+
+@keyframes hyperion-lock-release {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  38% {
+    opacity: 1;
+    transform: translate3d(1px, -2px, 0) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(7px, -9px, 0) rotate(-24deg);
+  }
+}
+
+@keyframes hyperion-icon-unlock-glow {
+  0% {
+    filter: grayscale(0.8) brightness(0.72);
+    transform: scale(0.96);
+  }
+  45% {
+    filter: saturate(1.5) brightness(1.35) drop-shadow(0 0 12px rgba(209, 75, 75, 0.55));
+    transform: scale(1.12);
+  }
+  100% {
+    filter: none;
+    transform: scale(1);
+  }
+}
+
+@keyframes hyperion-row-unlock {
+  0% {
+    border-color: rgba(242, 193, 119, 0.44);
+    background: rgba(255, 160, 50, 0.1);
+  }
+  50% {
+    border-color: rgba(209, 75, 75, 0.82);
+    background: rgba(209, 75, 75, 0.22);
+  }
+  100% {
+    border-color: #754242;
+    background: rgba(209, 75, 75, 0.18);
+  }
+}
+
 .composer-model-picker-option-lock {
   margin-left: auto;
   padding: 2px 8px;
@@ -9863,21 +9986,18 @@ button.stop-mode:hover {
   position: relative;
   top: auto;
   left: auto;
-  width: min(1120px, calc(100vw - 36px));
+  width: min(720px, calc(100vw - 36px));
   max-width: none;
   display: block;
   transform: none !important;
 }
 
 .onboarding-shell {
-  display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  gap: 18px;
-  align-items: stretch;
+  display: block;
 }
 
 .onboarding-aside {
-  display: flex;
+  display: none !important;
   flex-direction: column;
   gap: 18px;
   padding: 24px;
@@ -9921,11 +10041,11 @@ button.stop-mode:hover {
 }
 
 .onboarding-card {
-  width: auto;
-  max-height: min(88vh, 860px);
-  padding: 24px;
-  gap: 18px;
-  border-radius: 24px;
+  width: 100%;
+  max-height: min(88vh, 640px);
+  padding: 22px;
+  gap: 16px;
+  border-radius: 20px;
 }
 
 .onboarding-head {
@@ -9947,13 +10067,13 @@ button.stop-mode:hover {
 
 .onboarding-guide-text {
   max-width: none;
-  min-height: 5.8em;
+  min-height: 3.8em;
 }
 
 .onboarding-choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .onboarding-choice-grid[hidden] {
@@ -9964,10 +10084,10 @@ button.stop-mode:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  min-height: 130px;
-  padding: 16px;
-  border-radius: 18px;
+  gap: 6px;
+  min-height: 92px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(82, 46, 46, 0.78);
   background: rgba(14, 18, 27, 0.92);
   color: #f1dcdc;
@@ -10001,14 +10121,19 @@ button.stop-mode:hover {
 }
 
 .onboarding-name-field {
-  gap: 12px;
-  padding: 16px;
-  border-radius: 18px;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
   border: 1px solid rgba(82, 46, 46, 0.78);
   background: rgba(14, 18, 27, 0.78);
 }
 
 .onboarding-modal .onboarding-slide {
+  display: none !important;
+}
+
+.onboarding-modal .onboarding-close,
+.onboarding-modal #onboardingSkipBtn {
   display: none !important;
 }
 
