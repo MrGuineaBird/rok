@@ -2789,6 +2789,76 @@ function formatBrowserPilotGuardrails(guardrails) {
   return items.map((item) => `- ${item}`).join("\n");
 }
 
+function normalizeBrowserPilotTaskText(task) {
+  return String(task || "")
+    .trim()
+    .replace(/^(?:open|go to|visit|search for)\s+/i, "")
+    .trim();
+}
+
+function normalizeBrowserPilotClientUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(value)) {
+    return `https://${value}`;
+  }
+  return "";
+}
+
+function resolveBrowserPilotClientTarget(task) {
+  const normalized = normalizeBrowserPilotTaskText(task);
+  const lowered = normalized.toLowerCase();
+  const directUrl = normalizeBrowserPilotClientUrl(normalized);
+  if (directUrl) {
+    return { url: directUrl, label: "Requested URL", mode: "url" };
+  }
+  if (!normalized || /^(?:start|open|new tab|blank)$/i.test(normalized)) {
+    return { url: "about:blank", label: "Blank browser tab", mode: "blank" };
+  }
+  if (lowered.includes("google doc") || lowered.includes("google docs") || lowered.includes("docs.new")) {
+    return { url: "https://docs.new", label: "Google Docs", mode: "docs" };
+  }
+  if (lowered.includes("gmail")) {
+    return { url: "https://mail.google.com", label: "Gmail", mode: "gmail" };
+  }
+  if (/^google(?:\.com)?$/i.test(lowered)) {
+    return { url: "https://www.google.com", label: "Google", mode: "google" };
+  }
+  return {
+    url: `https://www.google.com/search?q=${encodeURIComponent(normalized)}`,
+    label: `Google search for "${normalized}"`,
+    mode: "search"
+  };
+}
+
+function openBrowserPilotClientTab(task) {
+  const target = resolveBrowserPilotClientTarget(task);
+  let opened = null;
+  try {
+    opened = window.open(target.url, "_blank", "noopener,noreferrer");
+  } catch {
+    opened = null;
+  }
+  return { ...target, opened: Boolean(opened) };
+}
+
+function buildBrowserPilotHostedReply(target) {
+  const openedText = target.opened
+    ? `Opened a new tab: ${target.label}.`
+    : `ROK tried to open ${target.label}, but the browser blocked the popup. Allow popups for ROK and run /browser again.`;
+  return [
+    "**Browser tab opened.**",
+    "",
+    openedText,
+    "",
+    "Hosted ROK can open tabs directly. Full click/type control still needs the local ROK backend on localhost so the browser runs on your computer.",
+    "",
+    "**Hard stops:**",
+    formatBrowserPilotGuardrails()
+  ].join("\n");
+}
+
 function buildBrowserPilotReply(data, task) {
   const payload = data && typeof data === "object" ? data : {};
   const guardrails = formatBrowserPilotGuardrails(payload.guardrails);
@@ -2846,6 +2916,19 @@ async function handleBrowserPilotCommand(task = "") {
   history.push({ role: "user", content: commandText });
   trimHistoryToLimit();
   syncCurrentSessionFromHistory();
+
+  if (!isLocalBrowserHost()) {
+    const target = openBrowserPilotClientTab(normalizedTask);
+    const reply = buildBrowserPilotHostedReply(target);
+    addMessage("bot", reply, { markdown: true });
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+    return;
+  }
 
   const bot = addMessage("bot", "Starting Browser Pilot...", { markdown: true });
   try {
