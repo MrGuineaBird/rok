@@ -958,9 +958,9 @@ function getModelSpecificSystemPrompt() {
     return "";
   }
   return [
-    "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include a short fenced ```mermaid``` diagram that shows the bug flow and the fix boundary.",
-    "Prefer a valid Mermaid flowchart (for example, flowchart TD) with 3-7 nodes, and keep it concise.",
-    "Put the opening and closing code fences on their own lines.",
+    "When the request is about coding, debugging, vulnerabilities, exploit paths, code review, or fixes, include one short Mermaid diagram in a fenced code block that shows the bug flow and the fix boundary.",
+    "Prefer a valid Mermaid flowchart starting with flowchart TD, with 3-7 nodes and simple node ids like A, B, C, and D.",
+    "The opening fence must be exactly three backticks followed by mermaid, then a newline. Put the closing fence on its own line.",
     "Use triple backticks for code fences. Do not use triple double-quotes or triple single-quotes as fence markers.",
     "After the Mermaid diagram, continue with the normal technical explanation, repro details, and fix notes.",
     "If the request is unrelated to code or security, do not force a diagram."
@@ -10838,39 +10838,35 @@ function renderKatexInElement(el) {
 }
 
 function protectMathForMarked(text) {
-  // Replace math delimiters with placeholders so marked doesn't mangle them
   var mathBlocks = [];
-  // Protect code blocks first so we don't touch $ inside code
-  var codeProtected = text.replace(/```[\s\S]*?```|`[^`]+`/g, function (m) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+
+  function stashMathBlock(m) {
     var idx = mathBlocks.length;
     mathBlocks.push(m);
     return "%%MATH_PLACEHOLDER_" + idx + "%%";
+  }
+
+  function protectMathSegment(segment) {
+    return String(segment || "")
+      .replace(/\$\$([\s\S]+?)\$\$/g, stashMathBlock)
+      .replace(/\\\[([\s\S]+?)\\\]/g, stashMathBlock)
+      .replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, stashMathBlock)
+      .replace(/\\\(([\s\S]+?)\\\)/g, stashMathBlock);
+  }
+
+  var output = "";
+  var lastIndex = 0;
+  var codePattern = /```[\s\S]*?```|`[^`\n]+`/g;
+  value.replace(codePattern, function (match, offset) {
+    output += protectMathSegment(value.slice(lastIndex, offset));
+    output += match;
+    lastIndex = offset + match.length;
+    return match;
   });
-  // Protect display math $$...$$
-  codeProtected = codeProtected.replace(/\$\$([\s\S]+?)\$\$/g, function (m) {
-    var idx = mathBlocks.length;
-    mathBlocks.push(m);
-    return "%%MATH_PLACEHOLDER_" + idx + "%%";
-  });
-  // Protect \[...\]
-  codeProtected = codeProtected.replace(/\\\[([\s\S]+?)\\\]/g, function (m) {
-    var idx = mathBlocks.length;
-    mathBlocks.push(m);
-    return "%%MATH_PLACEHOLDER_" + idx + "%%";
-  });
-  // Protect inline math $...$  (not $$)
-  codeProtected = codeProtected.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, function (m) {
-    var idx = mathBlocks.length;
-    mathBlocks.push(m);
-    return "%%MATH_PLACEHOLDER_" + idx + "%%";
-  });
-  // Protect \(...\)
-  codeProtected = codeProtected.replace(/\\\(([\s\S]+?)\\\)/g, function (m) {
-    var idx = mathBlocks.length;
-    mathBlocks.push(m);
-    return "%%MATH_PLACEHOLDER_" + idx + "%%";
-  });
-  return { text: codeProtected, mathBlocks: mathBlocks };
+  output += protectMathSegment(value.slice(lastIndex));
+
+  return { text: output, mathBlocks: mathBlocks };
 }
 
 function restoreMathAfterMarked(html, mathBlocks) {
@@ -10892,9 +10888,9 @@ function normalizeLooseMarkdownCodeFences(text) {
 function normalizeQuotedFenceBlocks(text) {
   return String(text || "").replace(
     /(^|\n)\s*(?:[`"'\u201c\u201d\u2018\u2019]{3})\s*([a-z0-9_#+-]+)\s*\n([\s\S]*?)\n\s*(?:[`"'\u201c\u201d\u2018\u2019]{3})(?=\n|$)/gi,
-    function (_, prefix, language, body) {
+    function (match, prefix, language, body) {
       var formatted = formatStructuredLanguageBlock(language, body);
-      return prefix + (formatted || String(body || ""));
+      return formatted ? prefix + formatted : match;
     }
   );
 }
