@@ -17299,10 +17299,134 @@ function normalizePixelPainterPrimitive(rawPrimitive, index, palette) {
   return primitive;
 }
 
+function buildPixelPainterSceneBackground(prompt, palette) {
+  const text = String(prompt || "").toLowerCase();
+  const outline = palette[1] || "#1F2937";
+  if (/\b(sunset|sunrise|dusk|evening)\b/.test(text)) {
+    return [
+      { type: "background_gradient", layer: 0, x: 0, y: 0, w: 300, h: 300, colors: ["#5E4B9A", "#F07A44", "#FFD37A"], opacity: 1 },
+      { type: "circle", layer: 1, cx: 214, cy: 126, r: 38, fill: "#FFD15C", stroke: "#F08A2F", stroke_width: 4, opacity: 0.95 },
+      { type: "rect", layer: 2, x: 0, y: 172, w: 300, h: 128, fill: "#3F5C45", stroke: "#3F5C45", stroke_width: 0, opacity: 1 },
+      { type: "line", layer: 3, x1: 0, y1: 172, x2: 300, y2: 172, stroke: "#F8B05E", stroke_width: 5, opacity: 0.75 }
+    ];
+  }
+  if (/\b(night|moon|space|star)\b/.test(text)) {
+    return [
+      { type: "background_gradient", layer: 0, x: 0, y: 0, w: 300, h: 300, colors: ["#08111F", "#263B60"], opacity: 1 },
+      { type: "circle", layer: 1, cx: 226, cy: 70, r: 24, fill: "#F6F0C8", stroke: "#FFFFFF", stroke_width: 2, opacity: 0.95 },
+      { type: "rect", layer: 2, x: 0, y: 218, w: 300, h: 82, fill: "#111827", stroke: "#111827", opacity: 1 }
+    ];
+  }
+  if (/\b(outside|field|grass|park|forest|horse|riding)\b/.test(text)) {
+    return [
+      { type: "background_gradient", layer: 0, x: 0, y: 0, w: 300, h: 300, colors: ["#B9E6FF", "#EDF8FF"], opacity: 1 },
+      { type: "rect", layer: 1, x: 0, y: 202, w: 300, h: 98, fill: "#78B84A", stroke: "#78B84A", opacity: 1 },
+      { type: "line", layer: 2, x1: 0, y1: 202, x2: 300, y2: 202, stroke: "#5D9E3B", stroke_width: 5, opacity: 0.8 }
+    ];
+  }
+  return [
+    { type: "background_gradient", layer: 0, x: 0, y: 0, w: 300, h: 300, colors: [palette[0] || "#F7FAFC", mixPixelPainterColors(palette[0] || "#F7FAFC", outline, 0.12)], opacity: 1 }
+  ];
+}
+
+function buildApplePixelPainterTemplate(prompt, palette) {
+  const bg = buildPixelPainterSceneBackground(prompt, palette);
+  const appleFill = /\b(green apple|granny smith)\b/.test(String(prompt || "").toLowerCase()) ? "#78B943" : "#D9362D";
+  const appleDark = adjustPixelPainterColor(appleFill, -48);
+  return [
+    ...bg,
+    { type: "shadow", layer: 5, cx: 150, cy: 232, rx: 58, ry: 14, fill: "#1F2937", opacity: 0.18, blur: 12 },
+    { type: "blob", layer: 10, points: [[112, 127], [128, 95], [151, 102], [174, 94], [197, 128], [191, 185], [165, 215], [133, 207], [107, 179]], fill: appleFill, stroke: appleDark, stroke_width: 6, opacity: 1 },
+    { type: "capsule", layer: 11, x1: 151, y1: 103, x2: 164, y2: 72, stroke: "#69401E", stroke_width: 11, opacity: 1 },
+    { type: "blob", layer: 12, points: [[165, 78], [189, 62], [209, 76], [192, 93]], fill: "#3C9A3A", stroke: "#1F5F2B", stroke_width: 3, opacity: 1 },
+    { type: "highlight", layer: 13, x1: 130, y1: 124, x2: 155, y2: 114, stroke: "#FFD6C9", stroke_width: 8, opacity: 0.48 },
+    { type: "ellipse", layer: 14, cx: 167, cy: 150, rx: 18, ry: 44, fill: adjustPixelPainterColor(appleFill, 18), stroke: adjustPixelPainterColor(appleFill, 18), opacity: 0.23 },
+    { type: "noise", layer: 30, opacity: 0.045 }
+  ];
+}
+
+function buildPersonPixelPainterTemplate(prompt, palette) {
+  const bg = buildPixelPainterSceneBackground(prompt, palette);
+  const shirt = /\b(red)\b/.test(prompt) ? "#D33A32" : /\b(green)\b/.test(prompt) ? "#3E9D58" : "#2F6FD6";
+  const pants = "#253858";
+  const skin = "#D59B72";
+  return [
+    ...bg,
+    { type: "shadow", layer: 5, cx: 150, cy: 247, rx: 52, ry: 12, fill: "#1F2937", opacity: 0.18, blur: 10 },
+    { type: "circle", layer: 10, cx: 150, cy: 82, r: 27, fill: skin, stroke: "#5C3827", stroke_width: 4, opacity: 1 },
+    { type: "blob", layer: 11, points: [[126, 72], [139, 52], [163, 54], [177, 75], [166, 65], [148, 62]], fill: "#2B1C16", stroke: "#2B1C16", stroke_width: 2, opacity: 1 },
+    { type: "capsule", layer: 12, x1: 150, y1: 109, x2: 150, y2: 174, stroke: shirt, stroke_width: 44, opacity: 1 },
+    { type: "capsule", layer: 13, x1: 121, y1: 122, x2: 96, y2: 166, stroke: skin, stroke_width: 14, opacity: 1 },
+    { type: "capsule", layer: 13, x1: 179, y1: 122, x2: 205, y2: 166, stroke: skin, stroke_width: 14, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 138, y1: 174, x2: 120, y2: 238, stroke: pants, stroke_width: 17, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 162, y1: 174, x2: 181, y2: 238, stroke: pants, stroke_width: 17, opacity: 1 },
+    { type: "line", layer: 15, x1: 108, y1: 241, x2: 133, y2: 241, stroke: "#111827", stroke_width: 8, opacity: 1 },
+    { type: "line", layer: 15, x1: 169, y1: 241, x2: 193, y2: 241, stroke: "#111827", stroke_width: 8, opacity: 1 },
+    { type: "highlight", layer: 16, x1: 135, y1: 120, x2: 162, y2: 112, stroke: "#FFFFFF", stroke_width: 5, opacity: 0.24 },
+    { type: "noise", layer: 30, opacity: 0.045 }
+  ];
+}
+
+function buildHorseRiderTacoPixelPainterTemplate(prompt, palette) {
+  const bg = buildPixelPainterSceneBackground(prompt, palette);
+  const horse = "#8B5A35";
+  const horseDark = "#4B2F1F";
+  const skin = "#D59B72";
+  const shirt = "#2F6FD6";
+  return [
+    ...bg,
+    { type: "shadow", layer: 5, cx: 154, cy: 240, rx: 96, ry: 18, fill: "#1F2937", opacity: 0.18, blur: 12 },
+    { type: "ellipse", layer: 10, cx: 148, cy: 174, rx: 78, ry: 34, fill: horse, stroke: horseDark, stroke_width: 5, opacity: 1 },
+    { type: "capsule", layer: 11, x1: 202, y1: 153, x2: 230, y2: 130, stroke: horse, stroke_width: 28, opacity: 1 },
+    { type: "ellipse", layer: 12, cx: 239, cy: 126, rx: 25, ry: 18, fill: horse, stroke: horseDark, stroke_width: 4, opacity: 1 },
+    { type: "polygon", layer: 13, points: [[229, 111], [235, 86], [244, 113]], fill: horseDark, stroke: horseDark, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 98, y1: 192, x2: 88, y2: 247, stroke: horseDark, stroke_width: 11, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 133, y1: 198, x2: 125, y2: 249, stroke: horseDark, stroke_width: 11, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 179, y1: 197, x2: 191, y2: 248, stroke: horseDark, stroke_width: 11, opacity: 1 },
+    { type: "capsule", layer: 14, x1: 212, y1: 185, x2: 223, y2: 244, stroke: horseDark, stroke_width: 11, opacity: 1 },
+    { type: "bezier", layer: 15, x1: 75, y1: 164, cx1: 38, cy1: 130, cx2: 63, cy2: 204, x2: 93, y2: 188, stroke: horseDark, stroke_width: 12, opacity: 1 },
+    { type: "circle", layer: 20, cx: 143, cy: 98, r: 19, fill: skin, stroke: "#5C3827", stroke_width: 3, opacity: 1 },
+    { type: "capsule", layer: 21, x1: 144, y1: 119, x2: 150, y2: 159, stroke: shirt, stroke_width: 25, opacity: 1 },
+    { type: "capsule", layer: 22, x1: 131, y1: 145, x2: 111, y2: 180, stroke: "#253858", stroke_width: 12, opacity: 1 },
+    { type: "capsule", layer: 22, x1: 160, y1: 145, x2: 182, y2: 178, stroke: "#253858", stroke_width: 12, opacity: 1 },
+    { type: "capsule", layer: 23, x1: 158, y1: 120, x2: 197, y2: 126, stroke: skin, stroke_width: 10, opacity: 1 },
+    { type: "ellipse", layer: 24, cx: 210, cy: 120, rx: 21, ry: 12, fill: "#F4C04D", stroke: "#A85F1D", stroke_width: 4, opacity: 1 },
+    { type: "line", layer: 25, x1: 195, y1: 116, x2: 222, y2: 126, stroke: "#65A641", stroke_width: 4, opacity: 1 },
+    { type: "noise", layer: 30, opacity: 0.05 }
+  ];
+}
+
+function buildPromptAwarePixelPainterTemplate(promptText, palette, promptProfile) {
+  const prompt = String(promptText || "").toLowerCase();
+  if (/\b(horse|riding|ride|rider)\b/.test(prompt)) {
+    return buildHorseRiderTacoPixelPainterTemplate(prompt, palette);
+  }
+  if (/\b(apple)\b/.test(prompt)) {
+    return buildApplePixelPainterTemplate(prompt, palette);
+  }
+  if (/\b(man|woman|person|boy|girl|human|character|portrait)\b/.test(prompt)) {
+    return buildPersonPixelPainterTemplate(prompt, palette);
+  }
+  if (/\b(sunset|sunrise)\b/.test(prompt)) {
+    return [
+      ...buildPixelPainterSceneBackground(prompt, palette),
+      { type: "shadow", layer: 5, cx: 150, cy: 230, rx: 85, ry: 16, fill: "#1F2937", opacity: 0.14, blur: 14 },
+      { type: "line", layer: 10, x1: 28, y1: 206, x2: 106, y2: 178, stroke: "#664B3A", stroke_width: 12, opacity: 0.9 },
+      { type: "line", layer: 10, x1: 192, y1: 178, x2: 270, y2: 210, stroke: "#664B3A", stroke_width: 12, opacity: 0.9 },
+      { type: "noise", layer: 30, opacity: 0.04 }
+    ];
+  }
+  return null;
+}
+
 function buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile) {
   const palette = getPixelPainterPlanPalette(imagePlan);
   const profileName = String(promptProfile && promptProfile.name || "medium");
   const prompt = String(promptText || "").toLowerCase();
+  const promptTemplate = buildPromptAwarePixelPainterTemplate(prompt, palette, promptProfile);
+  if (promptTemplate && promptTemplate.length >= 3) {
+    return promptTemplate;
+  }
   const isIcon = /\b(icon|logo|badge|sticker|symbol|emblem|item|asset)\b/.test(prompt) || profileName === "simple";
   const mainFill = palette[2] || "#D33A32";
   const accent = palette[3] || "#F1B84B";
@@ -17340,6 +17464,23 @@ function buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, prompt
   ];
 }
 
+function isGenericPixelPainterFallbackPrimitiveSet(primitives) {
+  if (!Array.isArray(primitives) || primitives.length === 0 || primitives.length > 7) {
+    return false;
+  }
+  const types = new Set(primitives.map((primitive) => primitive.type));
+  const hasGenericStack = types.has("background_gradient") &&
+    types.has("shadow") &&
+    types.has("blob") &&
+    types.has("capsule") &&
+    types.has("highlight");
+  if (!hasGenericStack) {
+    return false;
+  }
+  const labels = primitives.map((primitive) => String(primitive.label || "")).join(" ").trim();
+  return labels.length === 0;
+}
+
 function getPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile) {
   const palette = getPixelPainterPlanPalette(imagePlan);
   const rawPrimitives = Array.isArray(imagePlan && imagePlan.render_primitives) ? imagePlan.render_primitives : [];
@@ -17347,7 +17488,10 @@ function getPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile) {
     .map((primitive, index) => normalizePixelPainterPrimitive(primitive, index, palette))
     .filter(Boolean)
     .sort((a, b) => a.layer - b.layer);
-  return primitives.length >= 3 ? primitives : buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile);
+  if (primitives.length >= 3 && !isGenericPixelPainterFallbackPrimitiveSet(primitives)) {
+    return primitives;
+  }
+  return buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile);
 }
 
 function createPixelPainterFillStyle(ctx, primitive, palette) {
@@ -18339,7 +18483,6 @@ async function handleImagineCommand(prompt) {
   let imagePlan = null;
 
   async function requestPixelPainterImagePlan(promptProfile) {
-    const fallbackPlan = buildPixelPainterFallbackImagePlan(prompt, promptProfile);
     progressBar.style.width = "4%";
     statusText.textContent = "Planning scene...";
     try {
@@ -18361,16 +18504,20 @@ async function handleImagineCommand(prompt) {
         setPixelPainterApiKey("");
         throw new Error((data && data.error) || "Your Ollama API key was rejected.");
       }
+      if (!response.ok) {
+        throw new Error((data && data.error) || `Ollama image planner failed (${response.status}).`);
+      }
       if (response.ok && data && data.ok && data.image_plan && typeof data.image_plan === "object") {
+        if (String(data.image_plan.plan_source || "").toLowerCase() === "local_fallback") {
+          throw new Error("Ollama image planner failed and returned the local fallback plan.");
+        }
         return data.image_plan;
       }
+      throw new Error("Ollama image planner returned an unusable plan.");
     } catch (error) {
-      if (/api key|rejected/i.test(String(error && error.message || ""))) {
-        throw error;
-      }
-      console.warn("Pixel Painter planner fallback:", error);
+      console.warn("Pixel Painter planner failed:", error);
+      throw error;
     }
-    return fallbackPlan;
   }
   
   // Helper to make API call with retries
