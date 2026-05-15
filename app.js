@@ -258,6 +258,7 @@ const LOCAL_DAEDALUS_LOCK_UNTIL_KEY = "rok.daedalusLockUntil.v1";
 const LOCAL_DAEDALUS_OLLAMA_API_KEY = "rok.daedalusOllamaApiKey.v1";
 const LOCAL_CUSTOM_OLLAMA_API_KEY = "rok.customOllamaApiKey.v1";
 const LOCAL_CUSTOM_OLLAMA_MODEL_ID = "rok.customOllamaModelId.v1";
+const LOCAL_BROWSER_PILOT_SELF_EMAIL_KEY = "rok.browserPilotSelfEmail.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
 const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
 const LOCAL_MEMORY_KEY = "rok.localMemory.v1";
@@ -2773,6 +2774,41 @@ function parseBrowserPilotCommand(text) {
   return String(match[1] || "").trim();
 }
 
+const BROWSER_PILOT_EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+function normalizeBrowserPilotEmail(rawEmail) {
+  const value = String(rawEmail || "").trim();
+  const match = value.match(BROWSER_PILOT_EMAIL_PATTERN);
+  return match ? match[0].toLowerCase() : "";
+}
+
+function getBrowserPilotSelfEmail() {
+  try {
+    return normalizeBrowserPilotEmail(localStorage.getItem(LOCAL_BROWSER_PILOT_SELF_EMAIL_KEY));
+  } catch {
+    return "";
+  }
+}
+
+function setBrowserPilotSelfEmail(email) {
+  const normalized = normalizeBrowserPilotEmail(email);
+  if (!normalized) return "";
+  try {
+    localStorage.setItem(LOCAL_BROWSER_PILOT_SELF_EMAIL_KEY, normalized);
+  } catch {
+    
+  }
+  return normalized;
+}
+
+function parseBrowserPilotSelfEmailCommand(task) {
+  const text = String(task || "").trim();
+  const explicit = text.match(/^(?:set|save|remember|use)?\s*(?:my\s+)?(?:self\s+)?(?:email|gmail|email address)\s*(?:is|as|to)?\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})$/i);
+  if (explicit && explicit[1]) return normalizeBrowserPilotEmail(explicit[1]);
+  const natural = text.match(/\bmy\s+(?:email|gmail|email address)\s+is\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i);
+  return natural && natural[1] ? normalizeBrowserPilotEmail(natural[1]) : "";
+}
+
 function formatBrowserPilotGuardrails(guardrails) {
   const items = Array.isArray(guardrails) && guardrails.length
     ? guardrails
@@ -2796,6 +2832,65 @@ function normalizeBrowserPilotTaskText(task) {
     .trim();
 }
 
+function extractBrowserPilotQuotedValue(text, keywordPattern) {
+  const source = String(text || "");
+  const quoted = source.match(new RegExp(`${keywordPattern}\\s*(?:is|:|to|as)?\\s*["']([\\s\\S]*?)["']`, "i"));
+  if (quoted && quoted[1]) return quoted[1].trim();
+  return "";
+}
+
+function extractBrowserPilotTrailingValue(text, keywordPattern) {
+  const source = String(text || "");
+  const match = source.match(new RegExp(`${keywordPattern}\\s*(?:is|:|to|as)?\\s+([\\s\\S]+)$`, "i"));
+  if (!match || !match[1]) return "";
+  return match[1]
+    .replace(/\s+(?:and\s+)?(?:subject|title)\s+["'][\s\S]*$/i, "")
+    .replace(/\s+(?:and\s+)?(?:to)\s+[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}[\s\S]*$/i, "")
+    .trim();
+}
+
+function parseBrowserPilotGmailDraftTask(task) {
+  const original = String(task || "").trim();
+  const lowered = original.toLowerCase();
+  const looksLikeEmailTask =
+    lowered.includes("gmail") ||
+    /\b(?:send|compose|draft|write|create)\b[\s\S]*\b(?:email|mail)\b/i.test(original) ||
+    /\b(?:email|mail)\b[\s\S]*\b(?:to|saying|content|body|message)\b/i.test(original);
+  if (!looksLikeEmailTask) return null;
+
+  const explicitEmail = normalizeBrowserPilotEmail(original);
+  const selfRequested = /\bto\s+(?:me|myself|my email|self)\b/i.test(original);
+  const selfEmail = getBrowserPilotSelfEmail();
+  const recipient = explicitEmail || (selfRequested ? selfEmail : "");
+  const subject =
+    extractBrowserPilotQuotedValue(original, "\\b(?:subject|title)\\b") ||
+    extractBrowserPilotTrailingValue(original, "\\b(?:subject|title)\\b") ||
+    "From ROK";
+  const body =
+    extractBrowserPilotQuotedValue(original, "\\b(?:content|body|message|saying|text|that says|with the content)\\b") ||
+    extractBrowserPilotTrailingValue(original, "\\b(?:content|body|message|saying|text|that says|with the content)\\b") ||
+    "";
+
+  const params = new URLSearchParams();
+  params.set("view", "cm");
+  params.set("fs", "1");
+  if (recipient) params.set("to", recipient);
+  if (subject) params.set("su", subject);
+  if (body) params.set("body", body);
+
+  return {
+    url: `https://mail.google.com/mail/?${params.toString()}`,
+    label: recipient ? `Gmail draft to ${recipient}` : "Gmail draft",
+    mode: "gmail-draft",
+    draftOnly: true,
+    blockedFinalAction: "sending the email",
+    missingSelfEmail: Boolean(selfRequested && !recipient),
+    recipient,
+    subject,
+    body
+  };
+}
+
 function normalizeBrowserPilotClientUrl(rawUrl) {
   const value = String(rawUrl || "").trim();
   if (!value) return "";
@@ -2809,6 +2904,10 @@ function normalizeBrowserPilotClientUrl(rawUrl) {
 function resolveBrowserPilotClientTarget(task) {
   const normalized = normalizeBrowserPilotTaskText(task);
   const lowered = normalized.toLowerCase();
+  const gmailDraft = parseBrowserPilotGmailDraftTask(normalized);
+  if (gmailDraft) {
+    return gmailDraft;
+  }
   const directUrl = normalizeBrowserPilotClientUrl(normalized);
   if (directUrl) {
     return { url: directUrl, label: "Requested URL", mode: "url" };
@@ -2835,22 +2934,55 @@ function resolveBrowserPilotClientTarget(task) {
 function openBrowserPilotClientTab(task) {
   const target = resolveBrowserPilotClientTarget(task);
   let opened = null;
+  let linkAttempted = false;
   try {
-    opened = window.open(target.url, "_blank", "noopener,noreferrer");
+    opened = window.open(target.url, "_blank");
   } catch {
     opened = null;
   }
-  return { ...target, opened: Boolean(opened) };
+  if (!opened && typeof document !== "undefined") {
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = target.url;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      linkAttempted = true;
+    } catch {
+      linkAttempted = false;
+    }
+  }
+  return { ...target, opened: Boolean(opened), linkAttempted };
 }
 
 function buildBrowserPilotHostedReply(target) {
-  const openedText = target.opened
+  if (target.mode === "gmail-draft") {
+    const recipientLine = target.missingSelfEmail
+      ? "\nI do not know your email yet, so I left the To field blank. Save it once with `/browser my email is you@example.com`."
+      : "";
+    return [
+      "**Gmail draft opened.**",
+      "",
+      `ROK prepared ${target.label}. It will not press Send for you yet.${recipientLine}`,
+      "",
+      `Direct link: [Open Gmail draft](${target.url})`,
+      "",
+      "**Hard stops:**",
+      formatBrowserPilotGuardrails()
+    ].join("\n");
+  }
+  const openedText = target.opened || target.linkAttempted
     ? `Opened a new tab: ${target.label}.`
-    : `ROK tried to open ${target.label}, but the browser blocked the popup. Allow popups for ROK and run /browser again.`;
+    : `ROK could not open ${target.label} automatically. Use this link: [Open ${target.label}](${target.url})`;
   return [
     "**Browser tab opened.**",
     "",
     openedText,
+    "",
+    `Direct link: [Open ${target.label}](${target.url})`,
     "",
     "Hosted ROK can open tabs directly. Full click/type control still needs the local ROK backend on localhost so the browser runs on your computer.",
     "",
@@ -2889,12 +3021,20 @@ function buildBrowserPilotReply(data, task) {
   const loginLine = payload.manual_login_required
     ? "\n\nGoogle wants login or 2FA. Use the visible browser window manually; ROK will not touch passwords or verification codes."
     : "";
+  const draftLine = payload.browser_action === "gmail_draft" || payload.draft_only
+    ? `\n\nROK prepared the Gmail draft and stopped before ${payload.blocked_final_action || "the final send"}.`
+    : "";
+  const missingSelfEmailLine = payload.missing_self_email
+    ? "\nSave your email once with `/browser my email is you@example.com`, or fill the To field manually."
+    : "";
   return [
     "**Browser Pilot is open.**",
     "",
     "Visible Chromium launched with ROK's persistent local browser profile.",
     `Target: ${target}${urlLine}`,
     loginLine,
+    draftLine,
+    missingSelfEmailLine,
     "",
     "**Hard stops:**",
     guardrails
@@ -2917,6 +3057,22 @@ async function handleBrowserPilotCommand(task = "") {
   trimHistoryToLimit();
   syncCurrentSessionFromHistory();
 
+  const selfEmail = parseBrowserPilotSelfEmailCommand(normalizedTask);
+  if (selfEmail) {
+    const savedEmail = setBrowserPilotSelfEmail(selfEmail);
+    const reply = savedEmail
+      ? `**Browser Pilot email saved.**\n\nWhen you say "to myself", ROK will use ${savedEmail}.`
+      : "**Browser Pilot could not save that email.**";
+    addMessage("bot", reply, { markdown: true });
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+    return;
+  }
+
   if (!isLocalBrowserHost()) {
     const target = openBrowserPilotClientTab(normalizedTask);
     const reply = buildBrowserPilotHostedReply(target);
@@ -2935,7 +3091,7 @@ async function handleBrowserPilotCommand(task = "") {
     const response = await fetchWithBanGuard(BROWSER_PILOT_START_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
-      body: JSON.stringify({ task: normalizedTask })
+      body: JSON.stringify({ task: normalizedTask, self_email: getBrowserPilotSelfEmail() })
     });
     let payload = {};
     try {
@@ -16560,9 +16716,6 @@ const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
-const PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY = "rok_pixel_painter_comfyui_api_key";
-const PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY = "rok_pixel_painter_comfyui_url";
-const PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY = "rok_pixel_painter_comfyui_checkpoint";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
@@ -16632,6 +16785,11 @@ class PixelCanvas {
     }
     this.data.set(snapshot);
     this.updateCanvas();
+  }
+
+  syncFromCanvas() {
+    this.imageData = this.ctx.getImageData(0, 0, this.size, this.size);
+    this.data = this.imageData.data;
   }
 
   measureDifference(snapshot) {
@@ -16888,6 +17046,32 @@ class PixelCanvas {
     return scaledCanvas.toDataURL("image/png").split(",")[1];
   }
 
+  getRegionBase64(region, workSize = 96) {
+    const normalizedWorkSize = Number.isFinite(workSize)
+      ? Math.max(32, Math.min(this.size, Math.round(workSize)))
+      : 96;
+    const safeRegion = normalizePixelPainterRepairRegion(region, this.size);
+    const regionCanvas = document.createElement("canvas");
+    regionCanvas.width = normalizedWorkSize;
+    regionCanvas.height = normalizedWorkSize;
+    const regionCtx = regionCanvas.getContext("2d");
+    regionCtx.imageSmoothingEnabled = true;
+    regionCtx.fillStyle = "#ffffff";
+    regionCtx.fillRect(0, 0, normalizedWorkSize, normalizedWorkSize);
+    regionCtx.drawImage(
+      this.canvas,
+      safeRegion.x,
+      safeRegion.y,
+      safeRegion.w,
+      safeRegion.h,
+      0,
+      0,
+      normalizedWorkSize,
+      normalizedWorkSize
+    );
+    return regionCanvas.toDataURL("image/png").split(",")[1];
+  }
+
   // Get display URL (original size)
   getDisplayUrl() {
     return this.canvas.toDataURL("image/png");
@@ -16920,20 +17104,20 @@ function getPixelPainterPromptProfile(promptText) {
   if (relationHeavy || wordCount >= 7) {
     return {
       name: "complex",
-      minPassesBeforeStop: 5,
+      minPassesBeforeStop: 4,
       targetConfidence: 0.86
     };
   }
   if (!multiSubject && wordCount <= 3) {
     return {
       name: "simple",
-      minPassesBeforeStop: 3,
+      minPassesBeforeStop: 2,
       targetConfidence: 0.74
     };
   }
   return {
     name: "medium",
-    minPassesBeforeStop: 4,
+    minPassesBeforeStop: 3,
     targetConfidence: 0.80
   };
 }
@@ -16941,29 +17125,531 @@ function getPixelPainterPromptProfile(promptText) {
 function buildAdaptivePixelPasses(promptProfile) {
   if (promptProfile && promptProfile.name === "simple") {
     return [
-      { passNum: 1, progress: 18, label: "Blocking silhouette", maxPixels: 92, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 0.92 },
-      { passNum: 2, progress: 40, label: "Laying major colors", maxPixels: 110, guideMode: "coarse_color", workSize: 160, scaleFactor: 4, maxChangedRatio: 0.56 },
-      { passNum: 3, progress: 68, label: "Refining structure", maxPixels: 92, guideMode: "mid_refine", workSize: 236, scaleFactor: 4, maxChangedRatio: 0.22 },
-      { passNum: 4, progress: 96, label: "Final cleanup", maxPixels: 34, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.06 }
+      { passNum: 1, progress: 18, label: "Blocking silhouette", maxPixels: 70, guideMode: "coarse_block", workSize: 64, scaleFactor: 1, maxChangedRatio: 0.96 },
+      { passNum: 2, progress: 52, label: "Laying major colors", maxPixels: 92, guideMode: "coarse_color", workSize: 160, scaleFactor: 1, maxChangedRatio: 0.52 },
+      { passNum: 3, progress: 96, label: "Final cleanup", maxPixels: 34, guideMode: "final_cleanup", workSize: 300, scaleFactor: 1, maxChangedRatio: 0.07 }
     ];
   }
   if (promptProfile && promptProfile.name === "medium") {
     return [
-      { passNum: 1, progress: 16, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 0.96 },
-      { passNum: 2, progress: 32, label: "Separating big shapes", maxPixels: 108, guideMode: "coarse_shape", workSize: 136, scaleFactor: 5, maxChangedRatio: 0.68 },
-      { passNum: 3, progress: 50, label: "Laying major colors", maxPixels: 118, guideMode: "coarse_color", workSize: 188, scaleFactor: 4, maxChangedRatio: 0.46 },
-      { passNum: 4, progress: 72, label: "Refining structure", maxPixels: 102, guideMode: "mid_refine", workSize: 244, scaleFactor: 4, maxChangedRatio: 0.20 },
-      { passNum: 5, progress: 96, label: "Final cleanup", maxPixels: 36, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.07 }
+      { passNum: 1, progress: 16, label: "Blocking silhouette", maxPixels: 76, guideMode: "coarse_block", workSize: 64, scaleFactor: 1, maxChangedRatio: 0.98 },
+      { passNum: 2, progress: 38, label: "Separating big shapes", maxPixels: 96, guideMode: "coarse_shape", workSize: 96, scaleFactor: 1, maxChangedRatio: 0.74 },
+      { passNum: 3, progress: 64, label: "Laying major colors", maxPixels: 104, guideMode: "coarse_color", workSize: 160, scaleFactor: 1, maxChangedRatio: 0.44 },
+      { passNum: 4, progress: 96, label: "Final cleanup", maxPixels: 38, guideMode: "final_cleanup", workSize: 300, scaleFactor: 1, maxChangedRatio: 0.08 }
     ];
   }
   return [
-    { passNum: 1, progress: 14, label: "Blocking silhouette", maxPixels: 96, guideMode: "coarse_block", workSize: 96, scaleFactor: 5, maxChangedRatio: 1.0 },
-    { passNum: 2, progress: 28, label: "Separating big shapes", maxPixels: 112, guideMode: "coarse_shape", workSize: 128, scaleFactor: 5, maxChangedRatio: 0.72 },
-    { passNum: 3, progress: 44, label: "Laying major colors", maxPixels: 124, guideMode: "coarse_color", workSize: 176, scaleFactor: 4, maxChangedRatio: 0.54 },
-    { passNum: 4, progress: 62, label: "Refining structure", maxPixels: 120, guideMode: "mid_refine", workSize: 224, scaleFactor: 4, maxChangedRatio: 0.28 },
-    { passNum: 5, progress: 80, label: "Sharpening features", maxPixels: 82, guideMode: "detail_refine", workSize: 272, scaleFactor: 4, maxChangedRatio: 0.15 },
-    { passNum: 6, progress: 96, label: "Final cleanup", maxPixels: 42, guideMode: "final_cleanup", workSize: 300, scaleFactor: 4, maxChangedRatio: 0.08 }
+    { passNum: 1, progress: 14, label: "Blocking silhouette", maxPixels: 88, guideMode: "coarse_block", workSize: 96, scaleFactor: 1, maxChangedRatio: 1.0 },
+    { passNum: 2, progress: 34, label: "Separating big shapes", maxPixels: 104, guideMode: "coarse_shape", workSize: 96, scaleFactor: 1, maxChangedRatio: 0.76 },
+    { passNum: 3, progress: 54, label: "Laying major colors", maxPixels: 112, guideMode: "coarse_color", workSize: 160, scaleFactor: 1, maxChangedRatio: 0.52 },
+    { passNum: 4, progress: 76, label: "Refining structure", maxPixels: 92, guideMode: "mid_refine", workSize: 160, scaleFactor: 1, maxChangedRatio: 0.30 },
+    { passNum: 5, progress: 96, label: "Final cleanup", maxPixels: 44, guideMode: "final_cleanup", workSize: 300, scaleFactor: 1, maxChangedRatio: 0.08 }
   ];
+}
+
+function buildPixelPainterFallbackImagePlan(promptText, promptProfile) {
+  const prompt = String(promptText || "").trim();
+  const words = (prompt.match(/[A-Za-z0-9']+/g) || []).slice(0, 10);
+  const profileName = String(promptProfile && promptProfile.name || "medium");
+  return {
+    scene_layout: profileName === "simple"
+      ? "One centered subject with a clean connected silhouette and minimal background clutter."
+      : "Clear foreground subject, separated background, and readable subject/prop spacing.",
+    subjects: [
+      {
+        id: "main_subject",
+        role: "primary",
+        description: words.length ? words.join(" ") : "main subject",
+        placement: "centered foreground",
+        silhouette: "large clean connected shape"
+      }
+    ],
+    color_palette: ["#F7FAFC", "#1F2937", "#D33A32", "#F1B84B", "#FFFFFF"],
+    background: "simple backdrop that does not compete with the subject",
+    style: "bold readable local pixel painting",
+    important_details: ["large silhouette first", "clean subject edges", "recognizable key feature"],
+    avoid: ["tiny scattered pixels", "duplicate hidden parts", "muddy stacked colors", "old fragments behind the subject"],
+    repair_priorities: ["keep the good parts", "paint over stale fragments with matching background", "fix only the weakest silhouette, face, subject, or background area"],
+    render_primitives: [
+      { type: "background_gradient", layer: 0, colors: ["#F7FAFC", "#DDE8F0"], x: 0, y: 0, w: 300, h: 300, opacity: 1 },
+      { type: "shadow", layer: 1, cx: 150, cy: 236, rx: 76, ry: 17, fill: "#1F2937", opacity: 0.16, blur: 12 },
+      { type: "blob", layer: 2, points: [[104, 196], [92, 126], [130, 78], [184, 82], [210, 132], [196, 196], [150, 224]], fill: "#D33A32", stroke: "#8B1E1A", stroke_width: 5, opacity: 1 },
+      { type: "capsule", layer: 3, x1: 122, y1: 126, x2: 178, y2: 168, stroke: "#F1B84B", stroke_width: 18, opacity: 0.86 },
+      { type: "highlight", layer: 4, x1: 122, y1: 96, x2: 166, y2: 112, stroke: "#FFFFFF", stroke_width: 7, opacity: 0.32 },
+      { type: "noise", layer: 20, opacity: 0.08 }
+    ]
+  };
+}
+
+function clampPixelPainterNumber(value, min, max, fallback = min) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, n));
+}
+
+function parsePixelPainterHexColor(rawValue, fallback = "#FFFFFF") {
+  const value = String(rawValue || "").trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+    return value.toUpperCase();
+  }
+  return fallback;
+}
+
+function pixelPainterHexToRgb(hex) {
+  const color = parsePixelPainterHexColor(hex, "#000000");
+  return {
+    r: parseInt(color.slice(1, 3), 16),
+    g: parseInt(color.slice(3, 5), 16),
+    b: parseInt(color.slice(5, 7), 16)
+  };
+}
+
+function pixelPainterRgbToHex(r, g, b) {
+  const part = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+  return `#${part(r)}${part(g)}${part(b)}`.toUpperCase();
+}
+
+function adjustPixelPainterColor(hex, amount = 0) {
+  const rgb = pixelPainterHexToRgb(hex);
+  return pixelPainterRgbToHex(rgb.r + amount, rgb.g + amount, rgb.b + amount);
+}
+
+function mixPixelPainterColors(a, b, amount = 0.5) {
+  const first = pixelPainterHexToRgb(a);
+  const second = pixelPainterHexToRgb(b);
+  const t = Math.max(0, Math.min(1, Number(amount) || 0));
+  return pixelPainterRgbToHex(
+    first.r + (second.r - first.r) * t,
+    first.g + (second.g - first.g) * t,
+    first.b + (second.b - first.b) * t
+  );
+}
+
+function getPixelPainterPlanPalette(imagePlan) {
+  const palette = Array.isArray(imagePlan && imagePlan.color_palette)
+    ? imagePlan.color_palette.map((color) => parsePixelPainterHexColor(color, "")).filter(Boolean)
+    : [];
+  while (palette.length < 5) {
+    palette.push(["#F7FAFC", "#1F2937", "#D33A32", "#F1B84B", "#FFFFFF"][palette.length]);
+  }
+  return palette.slice(0, 8);
+}
+
+function normalizePixelPainterPoint(point, size = PIXEL_PAINTER_CANVAS_SIZE) {
+  if (Array.isArray(point) && point.length >= 2) {
+    return [
+      clampPixelPainterNumber(point[0], 0, size, 0),
+      clampPixelPainterNumber(point[1], 0, size, 0)
+    ];
+  }
+  if (point && typeof point === "object") {
+    return [
+      clampPixelPainterNumber(point.x, 0, size, 0),
+      clampPixelPainterNumber(point.y, 0, size, 0)
+    ];
+  }
+  return null;
+}
+
+function normalizePixelPainterRepairRegion(region, size = PIXEL_PAINTER_CANVAS_SIZE) {
+  const raw = region && typeof region === "object" ? region : {};
+  let w = Math.round(clampPixelPainterNumber(raw.w, 32, size, 128));
+  let h = Math.round(clampPixelPainterNumber(raw.h, 32, size, 128));
+  let x = Math.round(clampPixelPainterNumber(raw.x, 0, size - 1, Math.round((size - w) / 2)));
+  let y = Math.round(clampPixelPainterNumber(raw.y, 0, size - 1, Math.round((size - h) / 2)));
+  if (x + w > size) x = Math.max(0, size - w);
+  if (y + h > size) y = Math.max(0, size - h);
+  return { x, y, w, h };
+}
+
+function normalizePixelPainterPrimitive(rawPrimitive, index, palette) {
+  if (!rawPrimitive || typeof rawPrimitive !== "object") {
+    return null;
+  }
+  const type = String(rawPrimitive.type || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const allowed = new Set(["background_gradient", "gradient", "shadow", "capsule", "blob", "bezier", "polygon", "ellipse", "circle", "rect", "line", "outline", "noise", "highlight"]);
+  if (!allowed.has(type)) {
+    return null;
+  }
+  const primitive = {
+    ...rawPrimitive,
+    type,
+    layer: Math.round(clampPixelPainterNumber(rawPrimitive.layer, -20, 80, index)),
+    opacity: clampPixelPainterNumber(rawPrimitive.opacity, 0, 1, type === "shadow" ? 0.18 : 1),
+    fill: parsePixelPainterHexColor(rawPrimitive.fill || rawPrimitive.color, palette[2] || "#D33A32"),
+    stroke: parsePixelPainterHexColor(rawPrimitive.stroke, palette[1] || "#1F2937"),
+    stroke_width: clampPixelPainterNumber(rawPrimitive.stroke_width, 0, 64, type === "line" || type === "capsule" ? 12 : 0),
+    blur: clampPixelPainterNumber(rawPrimitive.blur, 0, 40, type === "shadow" ? 10 : 0),
+    rotation: clampPixelPainterNumber(rawPrimitive.rotation, -360, 360, 0)
+  };
+  const numericKeys = ["x", "y", "w", "h", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "cx1", "cy1", "cx2", "cy2"];
+  for (const key of numericKeys) {
+    if (Object.prototype.hasOwnProperty.call(rawPrimitive, key)) {
+      primitive[key] = clampPixelPainterNumber(rawPrimitive[key], 0, PIXEL_PAINTER_CANVAS_SIZE, 0);
+    }
+  }
+  if (Array.isArray(rawPrimitive.colors)) {
+    primitive.colors = rawPrimitive.colors.map((color) => parsePixelPainterHexColor(color, "")).filter(Boolean).slice(0, 6);
+  }
+  if (Array.isArray(rawPrimitive.points)) {
+    primitive.points = rawPrimitive.points.map((point) => normalizePixelPainterPoint(point)).filter(Boolean).slice(0, 20);
+  }
+  return primitive;
+}
+
+function buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile) {
+  const palette = getPixelPainterPlanPalette(imagePlan);
+  const profileName = String(promptProfile && promptProfile.name || "medium");
+  const prompt = String(promptText || "").toLowerCase();
+  const isIcon = /\b(icon|logo|badge|sticker|symbol|emblem|item|asset)\b/.test(prompt) || profileName === "simple";
+  const mainFill = palette[2] || "#D33A32";
+  const accent = palette[3] || "#F1B84B";
+  const outline = palette[1] || "#1F2937";
+  const bgA = palette[0] || "#F7FAFC";
+  const bgB = mixPixelPainterColors(bgA, outline, 0.12);
+  const subjectW = isIcon ? 132 : 154;
+  const subjectH = isIcon ? 144 : 168;
+  const left = 150 - subjectW / 2;
+  const top = isIcon ? 80 : 62;
+  return [
+    { type: "background_gradient", layer: 0, x: 0, y: 0, w: 300, h: 300, colors: [bgA, bgB], opacity: 1 },
+    { type: "shadow", layer: 1, cx: 150, cy: top + subjectH + 24, rx: subjectW * 0.48, ry: 17, fill: outline, opacity: 0.16, blur: 12 },
+    {
+      type: "blob",
+      layer: 2,
+      points: [
+        [left + subjectW * 0.18, top + subjectH * 0.72],
+        [left + subjectW * 0.10, top + subjectH * 0.30],
+        [left + subjectW * 0.38, top + subjectH * 0.05],
+        [left + subjectW * 0.72, top + subjectH * 0.08],
+        [left + subjectW * 0.92, top + subjectH * 0.42],
+        [left + subjectW * 0.78, top + subjectH * 0.84],
+        [left + subjectW * 0.44, top + subjectH * 0.96]
+      ],
+      fill: mainFill,
+      stroke: outline,
+      stroke_width: 5,
+      opacity: 1
+    },
+    { type: "capsule", layer: 3, x1: left + subjectW * 0.34, y1: top + subjectH * 0.38, x2: left + subjectW * 0.70, y2: top + subjectH * 0.58, stroke: accent, stroke_width: Math.max(12, subjectW * 0.12), opacity: 0.84 },
+    { type: "ellipse", layer: 4, cx: left + subjectW * 0.60, cy: top + subjectH * 0.24, rx: subjectW * 0.16, ry: subjectH * 0.10, fill: adjustPixelPainterColor(mainFill, 30), stroke: outline, stroke_width: 3, opacity: 0.98 },
+    { type: "highlight", layer: 5, x1: left + subjectW * 0.30, y1: top + subjectH * 0.15, x2: left + subjectW * 0.58, y2: top + subjectH * 0.20, stroke: "#FFFFFF", stroke_width: 7, opacity: 0.34 },
+    { type: "noise", layer: 20, opacity: 0.07 }
+  ];
+}
+
+function getPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile) {
+  const palette = getPixelPainterPlanPalette(imagePlan);
+  const rawPrimitives = Array.isArray(imagePlan && imagePlan.render_primitives) ? imagePlan.render_primitives : [];
+  const primitives = rawPrimitives
+    .map((primitive, index) => normalizePixelPainterPrimitive(primitive, index, palette))
+    .filter(Boolean)
+    .sort((a, b) => a.layer - b.layer);
+  return primitives.length >= 3 ? primitives : buildFallbackPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile);
+}
+
+function createPixelPainterFillStyle(ctx, primitive, palette) {
+  const colors = Array.isArray(primitive.colors) && primitive.colors.length
+    ? primitive.colors
+    : [primitive.fill || palette[2] || "#D33A32", adjustPixelPainterColor(primitive.fill || palette[2] || "#D33A32", 24)];
+  if (primitive.type === "background_gradient" || primitive.type === "gradient") {
+    const x = clampPixelPainterNumber(primitive.x, 0, PIXEL_PAINTER_CANVAS_SIZE, 0);
+    const y = clampPixelPainterNumber(primitive.y, 0, PIXEL_PAINTER_CANVAS_SIZE, 0);
+    const w = clampPixelPainterNumber(primitive.w, 1, PIXEL_PAINTER_CANVAS_SIZE, PIXEL_PAINTER_CANVAS_SIZE);
+    const h = clampPixelPainterNumber(primitive.h, 1, PIXEL_PAINTER_CANVAS_SIZE, PIXEL_PAINTER_CANVAS_SIZE);
+    const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+    colors.forEach((color, index) => gradient.addColorStop(colors.length <= 1 ? 0 : index / (colors.length - 1), color));
+    return gradient;
+  }
+  return primitive.fill || colors[0] || palette[2] || "#D33A32";
+}
+
+function drawPixelPainterSmoothPath(ctx, points) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    const current = points[i];
+    const next = points[(i + 1) % points.length];
+    const midX = (current[0] + next[0]) / 2;
+    const midY = (current[1] + next[1]) / 2;
+    ctx.quadraticCurveTo(current[0], current[1], midX, midY);
+  }
+  ctx.closePath();
+}
+
+function drawPixelPainterPrimitive(ctx, primitive, palette) {
+  const size = PIXEL_PAINTER_CANVAS_SIZE;
+  const fill = createPixelPainterFillStyle(ctx, primitive, palette);
+  const stroke = primitive.stroke || palette[1] || "#1F2937";
+  const strokeWidth = clampPixelPainterNumber(primitive.stroke_width, 0, 64, 0);
+  ctx.save();
+  ctx.globalAlpha = clampPixelPainterNumber(primitive.opacity, 0, 1, 1);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (primitive.blur > 0 && "filter" in ctx) {
+    ctx.filter = `blur(${clampPixelPainterNumber(primitive.blur, 0, 40, 0)}px)`;
+  }
+  if (primitive.rotation) {
+    const cx = clampPixelPainterNumber(primitive.cx ?? (primitive.x || 0) + (primitive.w || 0) / 2, 0, size, size / 2);
+    const cy = clampPixelPainterNumber(primitive.cy ?? (primitive.y || 0) + (primitive.h || 0) / 2, 0, size, size / 2);
+    ctx.translate(cx, cy);
+    ctx.rotate((primitive.rotation * Math.PI) / 180);
+    ctx.translate(-cx, -cy);
+  }
+
+  if (primitive.type === "background_gradient" || primitive.type === "gradient") {
+    ctx.fillStyle = fill;
+    ctx.fillRect(
+      clampPixelPainterNumber(primitive.x, 0, size, 0),
+      clampPixelPainterNumber(primitive.y, 0, size, 0),
+      clampPixelPainterNumber(primitive.w, 1, size, size),
+      clampPixelPainterNumber(primitive.h, 1, size, size)
+    );
+  } else if (primitive.type === "rect" || primitive.type === "outline") {
+    const x = clampPixelPainterNumber(primitive.x, 0, size, 0);
+    const y = clampPixelPainterNumber(primitive.y, 0, size, 0);
+    const w = clampPixelPainterNumber(primitive.w, 1, size, 60);
+    const h = clampPixelPainterNumber(primitive.h, 1, size, 60);
+    ctx.beginPath();
+    const radius = Math.min(24, w / 3, h / 3);
+    if (typeof ctx.roundRect === "function") {
+      ctx.roundRect(x, y, w, h, radius);
+    } else {
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+    }
+    if (primitive.type !== "outline") {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (strokeWidth > 0 || primitive.type === "outline") {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(2, strokeWidth || 4);
+      ctx.stroke();
+    }
+  } else if (primitive.type === "circle" || primitive.type === "ellipse" || primitive.type === "shadow") {
+    ctx.beginPath();
+    ctx.ellipse(
+      clampPixelPainterNumber(primitive.cx, 0, size, 150),
+      clampPixelPainterNumber(primitive.cy, 0, size, 150),
+      clampPixelPainterNumber(primitive.rx ?? primitive.r, 1, size, 32),
+      clampPixelPainterNumber(primitive.ry ?? primitive.r, 1, size, 32),
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (strokeWidth > 0 && primitive.type !== "shadow") {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth;
+      ctx.stroke();
+    }
+  } else if (primitive.type === "capsule" || primitive.type === "line" || primitive.type === "highlight") {
+    ctx.beginPath();
+    ctx.moveTo(clampPixelPainterNumber(primitive.x1, 0, size, 80), clampPixelPainterNumber(primitive.y1, 0, size, 150));
+    ctx.lineTo(clampPixelPainterNumber(primitive.x2, 0, size, 220), clampPixelPainterNumber(primitive.y2, 0, size, 150));
+    ctx.strokeStyle = primitive.stroke || primitive.fill || palette[3] || "#F1B84B";
+    ctx.lineWidth = Math.max(1, strokeWidth || (primitive.type === "highlight" ? 6 : 12));
+    ctx.stroke();
+  } else if (primitive.type === "polygon" || primitive.type === "blob") {
+    const points = Array.isArray(primitive.points) && primitive.points.length >= 3
+      ? primitive.points
+      : [[105, 190], [118, 105], [174, 82], [210, 150], [178, 220]];
+    if (primitive.type === "blob") {
+      drawPixelPainterSmoothPath(ctx, points);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      points.slice(1).forEach((point) => ctx.lineTo(point[0], point[1]));
+      ctx.closePath();
+    }
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (strokeWidth > 0) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth;
+      ctx.stroke();
+    }
+  } else if (primitive.type === "bezier") {
+    ctx.beginPath();
+    ctx.moveTo(clampPixelPainterNumber(primitive.x1, 0, size, 80), clampPixelPainterNumber(primitive.y1, 0, size, 150));
+    ctx.bezierCurveTo(
+      clampPixelPainterNumber(primitive.cx1, 0, size, 120),
+      clampPixelPainterNumber(primitive.cy1, 0, size, 90),
+      clampPixelPainterNumber(primitive.cx2, 0, size, 190),
+      clampPixelPainterNumber(primitive.cy2, 0, size, 210),
+      clampPixelPainterNumber(primitive.x2, 0, size, 220),
+      clampPixelPainterNumber(primitive.y2, 0, size, 150)
+    );
+    ctx.strokeStyle = primitive.stroke || primitive.fill || palette[3] || "#F1B84B";
+    ctx.lineWidth = Math.max(1, strokeWidth || 8);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function applyPixelPainterNoise(pixelCanvas, amount = 0.06) {
+  const data = pixelCanvas.data;
+  const strength = Math.round(20 * Math.max(0, Math.min(0.18, amount)));
+  if (strength <= 0) {
+    return;
+  }
+  for (let y = 0; y < pixelCanvas.size; y++) {
+    for (let x = 0; x < pixelCanvas.size; x++) {
+      const idx = (y * pixelCanvas.size + x) * 4;
+      const hash = ((x * 73856093) ^ (y * 19349663)) & 255;
+      const delta = Math.round(((hash / 255) - 0.5) * strength);
+      data[idx] = Math.max(0, Math.min(255, data[idx] + delta));
+      data[idx + 1] = Math.max(0, Math.min(255, data[idx + 1] + delta));
+      data[idx + 2] = Math.max(0, Math.min(255, data[idx + 2] + delta));
+    }
+  }
+}
+
+function polishPixelPainterLocalCanvas(pixelCanvas) {
+  const data = pixelCanvas.data;
+  const size = pixelCanvas.size;
+  const copy = new Uint8ClampedArray(data);
+  for (let y = 1; y < size - 1; y++) {
+    for (let x = 1; x < size - 1; x++) {
+      const idx = (y * size + x) * 4;
+      const left = idx - 4;
+      const right = idx + 4;
+      const up = idx - size * 4;
+      const down = idx + size * 4;
+      for (let c = 0; c < 3; c++) {
+        const neighborAverage = (copy[left + c] + copy[right + c] + copy[up + c] + copy[down + c]) / 4;
+        const sharpened = copy[idx + c] + (copy[idx + c] - neighborAverage) * 0.10;
+        const contrasted = (sharpened - 128) * 1.045 + 128;
+        data[idx + c] = Math.max(0, Math.min(255, contrasted));
+      }
+    }
+  }
+  applyPixelPainterNoise(pixelCanvas, 0.045);
+  pixelCanvas.updateCanvas();
+}
+
+function renderPixelPainterPlanLocally(pixelCanvas, imagePlan, promptText, promptProfile) {
+  const palette = getPixelPainterPlanPalette(imagePlan);
+  const primitives = getPixelPainterRenderPrimitives(imagePlan, promptText, promptProfile);
+  const ctx = pixelCanvas.ctx;
+  ctx.save();
+  ctx.clearRect(0, 0, pixelCanvas.size, pixelCanvas.size);
+  ctx.imageSmoothingEnabled = true;
+  const baseGradient = ctx.createLinearGradient(0, 0, pixelCanvas.size, pixelCanvas.size);
+  baseGradient.addColorStop(0, palette[0] || "#F7FAFC");
+  baseGradient.addColorStop(1, mixPixelPainterColors(palette[0] || "#F7FAFC", palette[1] || "#1F2937", 0.12));
+  ctx.fillStyle = baseGradient;
+  ctx.fillRect(0, 0, pixelCanvas.size, pixelCanvas.size);
+  ctx.restore();
+
+  const noisePrimitives = [];
+  for (const primitive of primitives) {
+    if (primitive.type === "noise") {
+      noisePrimitives.push(primitive);
+      continue;
+    }
+    drawPixelPainterPrimitive(ctx, primitive, palette);
+  }
+  pixelCanvas.syncFromCanvas();
+  for (const primitive of noisePrimitives) {
+    applyPixelPainterNoise(pixelCanvas, primitive.opacity || 0.06);
+  }
+  polishPixelPainterLocalCanvas(pixelCanvas);
+  return { primitiveCount: primitives.length };
+}
+
+function analyzePixelPainterLocalImage(pixelCanvas, imagePlan) {
+  const data = pixelCanvas.data;
+  const size = pixelCanvas.size;
+  const cornerIndexes = [
+    0,
+    (size - 1) * 4,
+    ((size - 1) * size) * 4,
+    ((size * size) - 1) * 4
+  ];
+  const bg = cornerIndexes.reduce((acc, idx) => {
+    acc.r += data[idx];
+    acc.g += data[idx + 1];
+    acc.b += data[idx + 2];
+    return acc;
+  }, { r: 0, g: 0, b: 0 });
+  bg.r /= cornerIndexes.length;
+  bg.g /= cornerIndexes.length;
+  bg.b /= cornerIndexes.length;
+
+  let foreground = 0;
+  let minX = size;
+  let minY = size;
+  let maxX = 0;
+  let maxY = 0;
+  let lumaMin = 255;
+  let lumaMax = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const dr = data[idx] - bg.r;
+      const dg = data[idx + 1] - bg.g;
+      const db = data[idx + 2] - bg.b;
+      const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+      const luma = data[idx] * 0.2126 + data[idx + 1] * 0.7152 + data[idx + 2] * 0.0722;
+      lumaMin = Math.min(lumaMin, luma);
+      lumaMax = Math.max(lumaMax, luma);
+      if (dist > 42) {
+        foreground++;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  const foregroundRatio = foreground / (size * size);
+  const hasSubject = foregroundRatio > 0.035 && maxX > minX && maxY > minY;
+  const bboxW = hasSubject ? maxX - minX + 1 : 0;
+  const bboxH = hasSubject ? maxY - minY + 1 : 0;
+  const bboxAreaRatio = hasSubject ? (bboxW * bboxH) / (size * size) : 0;
+  const contrast = lumaMax - lumaMin;
+  const score = Math.max(0, Math.min(1,
+    (hasSubject ? 0.34 : 0) +
+    Math.min(0.28, foregroundRatio * 1.7) +
+    Math.min(0.22, bboxAreaRatio * 0.9) +
+    Math.min(0.16, contrast / 500)
+  ));
+  const needsRepair = score < 0.58 || foregroundRatio < 0.045 || contrast < 42;
+  const centerX = hasSubject ? (minX + maxX) / 2 : size / 2;
+  const centerY = hasSubject ? (minY + maxY) / 2 : size / 2;
+  const repairSize = Math.max(88, Math.min(156, Math.max(bboxW, bboxH) * 0.78 || 128));
+  const repairRegion = normalizePixelPainterRepairRegion({
+    x: centerX - repairSize / 2,
+    y: centerY - repairSize / 2,
+    w: repairSize,
+    h: repairSize
+  }, size);
+  const repairPriorities = Array.isArray(imagePlan && imagePlan.repair_priorities)
+    ? imagePlan.repair_priorities.slice(0, 4).join("; ")
+    : "keep good parts; clean only the weak region";
+  return {
+    score,
+    needsRepair,
+    foregroundRatio,
+    contrast,
+    repairRegion,
+    repairFocus: `Cropped local repair. ${repairPriorities}. Preserve the existing local layout, remove stale fragments by painting matching background first, and only improve the weakest patch.`
+  };
 }
 
 function getPixelPainterApiKey() {
@@ -16988,81 +17674,12 @@ function setPixelPainterApiKey(value) {
 }
 
 function getPixelPainterProvider() {
-  try {
-    const value = String(localStorage.getItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY) || "comfyui").trim().toLowerCase();
-    return value === "ollama" ? "ollama" : "comfyui";
-  } catch (e) {
-    return "comfyui";
-  }
+  return "ollama";
 }
 
 function setPixelPainterProvider(value) {
   try {
-    const normalized = String(value || "").trim().toLowerCase();
-    localStorage.setItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY, normalized === "ollama" ? "ollama" : "comfyui");
-  } catch (e) {
-    // Ignore storage errors
-  }
-}
-
-function getPixelPainterComfyUiApiKey() {
-  try {
-    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY) || "").trim();
-  } catch (e) {
-    return "";
-  }
-}
-
-function setPixelPainterComfyUiApiKey(value) {
-  try {
-    const normalized = String(value || "").trim();
-    if (normalized) {
-      localStorage.setItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY, normalized);
-    } else {
-      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_API_KEY_STORAGE_KEY);
-    }
-  } catch (e) {
-    // Ignore storage errors
-  }
-}
-
-function getPixelPainterComfyUiUrl() {
-  try {
-    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY) || "").trim();
-  } catch (e) {
-    return "";
-  }
-}
-
-function setPixelPainterComfyUiUrl(value) {
-  try {
-    const normalized = String(value || "").trim();
-    if (normalized) {
-      localStorage.setItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY, normalized);
-    } else {
-      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_URL_STORAGE_KEY);
-    }
-  } catch (e) {
-    // Ignore storage errors
-  }
-}
-
-function getPixelPainterComfyUiCheckpoint() {
-  try {
-    return String(localStorage.getItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY) || "").trim();
-  } catch (e) {
-    return "";
-  }
-}
-
-function setPixelPainterComfyUiCheckpoint(value) {
-  try {
-    const normalized = String(value || "").trim();
-    if (normalized) {
-      localStorage.setItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY, normalized);
-    } else {
-      localStorage.removeItem(PIXEL_PAINTER_COMFYUI_CHECKPOINT_STORAGE_KEY);
-    }
+    localStorage.setItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY, "ollama");
   } catch (e) {
     // Ignore storage errors
   }
@@ -17201,22 +17818,16 @@ function requestPixelPainterSettings() {
 
   const providerOptions = [
     {
-      value: "comfyui",
-      badge: "RI",
-      title: "ROK IMAGE",
-      description: "Direct image generation for the best overall quality."
-    },
-    {
       value: "ollama",
       badge: "OL",
-      title: "Ollama Legacy",
-      description: "Old vector and pixel generator."
+      title: "Ollama",
+      description: "ROK IMAGE uses only Ollama-guided vector and pixel painting."
     }
   ];
 
   const modeLabel = document.createElement("div");
   modeLabel.className = "pixel-painting-settings-label";
-  modeLabel.textContent = "Legacy Ollama style";
+  modeLabel.textContent = "Ollama style";
 
   const modeGrid = document.createElement("div");
   modeGrid.className = "pixel-painting-mode-grid";
@@ -17281,9 +17892,7 @@ function requestPixelPainterSettings() {
       `;
       button.addEventListener("click", () => {
         selectedProvider = option.value;
-        if (selectedProvider === "comfyui") {
-          selectedMode = "best";
-        }
+        selectedProvider = "ollama";
         renderProviderOptions();
         renderModeOptions();
         syncProviderFields();
@@ -17470,7 +18079,7 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Save and Continue";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE uses the pixel painter. Optionally add a reference image, then enter your own Ollama API key. The key stays only in this browser on this device, and ROK's server key cannot be used for /imagine.";
+    hint.textContent = "ROK IMAGE is Ollama-only. It uses your Ollama key for vector/pixel painting and rejects every outside image provider.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
     modeLabel.style.display = "none";
@@ -17503,8 +18112,6 @@ function requestPixelPainterSettings() {
     closePixelPainterApiKeyModal({
       provider: "ollama",
       apiKey: normalizedKey,
-      providerUrl: "",
-      providerCheckpoint: "",
       mode: "pixel",
       referenceImageBase64,
       referenceImageName
@@ -17625,9 +18232,6 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const imageProvider = "ollama";
-  const providerUrl = String(imagineSettings.providerUrl || "").trim();
-  const providerCheckpoint = String(imagineSettings.providerCheckpoint || "").trim();
   const renderMode = "pixel";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
@@ -17732,6 +18336,42 @@ async function handleImagineCommand(prompt) {
   
   const startTime = Date.now();
   const RATE_LIMIT_DELAY_MS = 3000;
+  let imagePlan = null;
+
+  async function requestPixelPainterImagePlan(promptProfile) {
+    const fallbackPlan = buildPixelPainterFallbackImagePlan(prompt, promptProfile);
+    progressBar.style.width = "4%";
+    statusText.textContent = "Planning scene...";
+    try {
+      const response = await fetch(PIXEL_PAINTER_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [PIXEL_PAINTER_USER_KEY_HEADER]: userPixelPainterApiKey
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          reference_image_base64: referenceImageBase64,
+          mode: "plan",
+          quality_profile: "budget"
+        })
+      });
+      const data = await response.json().catch(() => null);
+      if (response.status === 401 || response.status === 403) {
+        setPixelPainterApiKey("");
+        throw new Error((data && data.error) || "Your Ollama API key was rejected.");
+      }
+      if (response.ok && data && data.ok && data.image_plan && typeof data.image_plan === "object") {
+        return data.image_plan;
+      }
+    } catch (error) {
+      if (/api key|rejected/i.test(String(error && error.message || ""))) {
+        throw error;
+      }
+      console.warn("Pixel Painter planner fallback:", error);
+    }
+    return fallbackPlan;
+  }
   
   // Helper to make API call with retries
   async function paintPass(passNum, passName, options = {}) {
@@ -17749,6 +18389,10 @@ async function handleImagineCommand(prompt) {
       : 4;
     const guideMode = String(options.guideMode || "").trim().toLowerCase();
     const qualityProfile = String(options.qualityProfile || "standard").trim().toLowerCase();
+    const repairRegion = options.repairRegion ? normalizePixelPainterRepairRegion(options.repairRegion, canvas.size) : null;
+    const canvasBase64 = repairRegion
+      ? canvas.getRegionBase64(repairRegion, workSize)
+      : canvas.getBase64(visionScaleFactor, workSize);
     progressBar.style.width = `${progress}%`;
     const draftTag = workSize < PIXEL_PAINTER_CANVAS_SIZE ? ` (${workSize}x${workSize} draft)` : "";
     statusText.textContent = `${passName}${draftTag}...`;
@@ -17765,13 +18409,16 @@ async function handleImagineCommand(prompt) {
         },
         body: JSON.stringify({
           prompt: prompt,
-          canvas_base64: canvas.getBase64(visionScaleFactor, workSize),
+          canvas_base64: canvasBase64,
           reference_image_base64: referenceImageBase64,
           pass_num: passNum,
           max_pixels: maxPixels,
           work_size: workSize,
           guide_mode: guideMode,
           quality_profile: qualityProfile,
+          image_plan: imagePlan || null,
+          repair_focus: String(options.repairFocus || ""),
+          repair_region: repairRegion,
           mode: "pixel"
         })
       });
@@ -17826,6 +18473,20 @@ async function handleImagineCommand(prompt) {
     const targetConfidence = Number.isFinite(options.targetConfidence)
       ? Math.max(0.5, Math.min(0.98, Number(options.targetConfidence)))
       : 0.8;
+    let repairAttempted = false;
+
+    function buildRepairFocus(pixelPass, progressAssessment) {
+      const passLabel = String(pixelPass && pixelPass.label || "the weak area").trim();
+      const assessment = String(progressAssessment || "").trim();
+      return [
+        "Keep the good parts of the current image exactly where they are.",
+        "Only fix the weakest visible issue: silhouette, face, subject, prop attachment, or background.",
+        "Do not restart from white and do not redraw the whole subject.",
+        "If old shapes or wrong colors remain behind the subject, remove them by repainting that area with the surrounding background color before adding any detail.",
+        "Avoid stacking new colors on top of muddy leftovers; replace the bad patch cleanly.",
+        `Repair context: ${passLabel}${assessment ? `; model note: ${assessment}` : ""}.`
+      ].join("\n");
+    }
 
     for (let index = 0; index < passList.length && !stopped; index++) {
       const pixelPass = passList[index];
@@ -17884,7 +18545,52 @@ async function handleImagineCommand(prompt) {
         previewImg.src = canvas.getDisplayUrl();
         previewDiv.style.display = "block";
         completedPasses = Math.max(completedPasses, Math.max(1, pixelPass.passNum - 1));
-        statusText.textContent = "Keeping stronger earlier pass";
+        if (!repairAttempted && !stopped) {
+          repairAttempted = true;
+          const repairBeforeSnapshot = canvas.captureSnapshot();
+          const repairPass = {
+            passNum: Math.max(pixelPass.passNum, completedPasses + 1),
+            progress: Math.min(98, Number(pixelPass.progress || 92) + 2),
+            label: "Repairing weak area",
+            maxPixels: 72,
+            guideMode: "repair_cleanup",
+            workSize: PIXEL_PAINTER_CANVAS_SIZE,
+            scaleFactor: 1,
+            maxChangedRatio: 0.14,
+            qualityProfile: pixelPass.qualityProfile || "standard",
+            repairFocus: buildRepairFocus(pixelPass, progressAssessment)
+          };
+          try {
+            const repairResult = await paintPass(repairPass.passNum, repairPass.label, repairPass);
+            const repairDiffStats = canvas.measureDifference(repairBeforeSnapshot);
+            const repairConfidence = clampPixelPainterConfidence(repairResult && repairResult.confidence);
+            const repairChangedTooMuch = repairDiffStats.changedRatio > 0.16 || repairDiffStats.strongChangedRatio > 0.10;
+            if (repairChangedTooMuch) {
+              canvas.restoreSnapshot(strongestSnapshot);
+              statusText.textContent = "Keeping stronger earlier pass";
+            } else {
+              completedPasses = Math.max(completedPasses, repairPass.passNum);
+              lastAcceptedConfidence = repairConfidence > 0 ? repairConfidence : lastAcceptedConfidence;
+              strongestSnapshot = canvas.captureSnapshot();
+              strongestConfidence = Math.max(strongestConfidence, repairConfidence);
+              strongestScore = Math.max(
+                strongestScore,
+                repairConfidence * 1.04 - repairDiffStats.changedRatio * 0.65 - repairDiffStats.strongChangedRatio * 0.85 + 0.02
+              );
+              statusText.textContent = "Repaired weak area";
+            }
+            previewImg.src = canvas.getDisplayUrl();
+            previewDiv.style.display = "block";
+          } catch (repairError) {
+            canvas.restoreSnapshot(strongestSnapshot);
+            previewImg.src = canvas.getDisplayUrl();
+            previewDiv.style.display = "block";
+            statusText.textContent = "Keeping stronger earlier pass";
+            console.warn("Pixel Painter repair fallback:", repairError);
+          }
+        } else {
+          statusText.textContent = "Keeping stronger earlier pass";
+        }
         break;
       }
 
@@ -18009,44 +18715,6 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
-  async function requestComfyUiArtwork() {
-    progressBar.style.width = "18%";
-    statusText.textContent = "Sending prompt to ROK IMAGE...";
-
-    const headers = {
-      "Content-Type": "application/json"
-    };
-    if (userPixelPainterApiKey) {
-      headers[PIXEL_PAINTER_USER_KEY_HEADER] = userPixelPainterApiKey;
-    }
-
-    const response = await fetch(PIXEL_PAINTER_API_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        prompt,
-        provider: "comfyui",
-        provider_url: providerUrl,
-        provider_checkpoint: providerCheckpoint,
-        reference_image_base64: referenceImageBase64,
-        mode: "image"
-      })
-    });
-    const responseData = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error((responseData && responseData.error) || `API error: ${response.status}`);
-    }
-    const data = responseData || {};
-    const imageUrl = getPixelPainterImageUrl(data);
-    if (!data.ok || !imageUrl) {
-      throw new Error((data && data.error) || "ROK IMAGE did not return an image.");
-    }
-    return {
-      imageUrl,
-      provider: String(data.provider || "comfyui")
-    };
-  }
-  
   const useVectorPipeline = false;
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
@@ -18099,13 +18767,9 @@ async function handleImagineCommand(prompt) {
   let generationSummary = `${directPixelPasses.length}-pass adaptive coarse-to-fine ROK IMAGE painting`;
 
   try {
-    if (!stopped && imageProvider === "comfyui") {
-      const comfyResult = await requestComfyUiArtwork();
-      finalUrl = comfyResult.imageUrl;
-      previewImg.src = finalUrl;
-      previewDiv.style.display = "block";
-      progressBar.style.width = "100%";
-      statusText.textContent = "Complete";
+    if (!stopped) {
+      imagePlan = await requestPixelPainterImagePlan(pixelPromptProfile);
+      generationSummary = `${directPixelPasses.length}-pass planned draft-to-cleanup ROK IMAGE painting`;
     }
 
     let seedVectorResult = null;
@@ -18253,15 +18917,70 @@ async function handleImagineCommand(prompt) {
     }
 
     if (!stopped && renderMode === "pixel" && !finalUrl) {
-      const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
-        allowPartialResult: false,
-        minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
-        targetConfidence: pixelPromptProfile.targetConfidence
-      });
-      generationSummary = `${pixelRun.completedPasses}-pass protected adaptive ROK IMAGE painting`;
-      finalUrl = canvas.getDisplayUrl();
-      progressBar.style.width = "100%";
-      statusText.textContent = "Complete";
+      try {
+        previewImg.style.imageRendering = "auto";
+        progressBar.style.width = "24%";
+        statusText.textContent = "Rendering locally from plan...";
+        const localRender = renderPixelPainterPlanLocally(canvas, imagePlan || buildPixelPainterFallbackImagePlan(prompt, pixelPromptProfile), prompt, pixelPromptProfile);
+        previewImg.src = canvas.getDisplayUrl();
+        previewDiv.style.display = "block";
+
+        progressBar.style.width = "74%";
+        statusText.textContent = "Checking local render...";
+        let localCritic = analyzePixelPainterLocalImage(canvas, imagePlan || {}, prompt);
+        let usedCroppedRepair = false;
+        if (!stopped && localCritic.needsRepair) {
+          const repairBeforeSnapshot = canvas.captureSnapshot();
+          try {
+            const repairPass = {
+              passNum: 2,
+              progress: 88,
+              label: "Tiny cropped repair",
+              maxPixels: 48,
+              guideMode: "repair_cleanup",
+              workSize: 96,
+              scaleFactor: 1,
+              qualityProfile: "budget",
+              maxChangedRatio: 0.18,
+              repairFocus: localCritic.repairFocus,
+              repairRegion: localCritic.repairRegion
+            };
+            const repairResult = await paintPass(repairPass.passNum, repairPass.label, repairPass);
+            const repairDiff = canvas.measureDifference(repairBeforeSnapshot);
+            const repairConfidence = clampPixelPainterConfidence(repairResult && repairResult.confidence);
+            if (repairDiff.changedRatio > 0.16 || (repairConfidence > 0 && repairConfidence < 0.42)) {
+              canvas.restoreSnapshot(repairBeforeSnapshot);
+              statusText.textContent = "Kept local render";
+            } else {
+              polishPixelPainterLocalCanvas(canvas);
+              usedCroppedRepair = true;
+              previewImg.src = canvas.getDisplayUrl();
+              previewDiv.style.display = "block";
+              localCritic = analyzePixelPainterLocalImage(canvas, imagePlan || {}, prompt);
+            }
+          } catch (repairError) {
+            canvas.restoreSnapshot(repairBeforeSnapshot);
+            console.warn("Cropped image repair skipped:", repairError);
+            statusText.textContent = "Kept local render";
+          }
+        }
+
+        generationSummary = `1-plan local renderer, ${localRender.primitiveCount} primitives${usedCroppedRepair ? ", 1 cropped repair" : ""}`;
+        finalUrl = canvas.getDisplayUrl();
+        progressBar.style.width = "100%";
+        statusText.textContent = "Complete";
+      } catch (localRenderError) {
+        console.warn("Local image renderer fallback:", localRenderError);
+        const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
+          allowPartialResult: false,
+          minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
+          targetConfidence: pixelPromptProfile.targetConfidence
+        });
+        generationSummary = `${pixelRun.completedPasses}-pass protected adaptive ROK IMAGE painting`;
+        finalUrl = canvas.getDisplayUrl();
+        progressBar.style.width = "100%";
+        statusText.textContent = "Complete";
+      }
     }
   } catch (error) {
     statusText.textContent = `Error: ${error.message}`;
@@ -18269,7 +18988,7 @@ async function handleImagineCommand(prompt) {
   }
   
   // Show final result
-  if (!finalUrl && imageProvider === "ollama" && renderMode !== "vector") {
+  if (!finalUrl && renderMode !== "vector") {
     finalUrl = canvas.getDisplayUrl();
   }
   if (!finalUrl) {
@@ -18294,7 +19013,7 @@ async function handleImagineCommand(prompt) {
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
       <span>Time: ${duration}s</span>
-      <span>${generationSummary}</span>
+      <span>${escapeHtml(generationSummary)}</span>
     </div>
     <button class="pixel-painting-save" type="button">Save to Gallery</button>
   `;
