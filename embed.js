@@ -15,11 +15,86 @@
   }
   if (!script) return;
 
+  function getBuiltInFontStack(rawName) {
+    var name = String(rawName || "").trim().toLowerCase();
+    if (name === "serif" || name === "classic") {
+      return 'Georgia, "Times New Roman", Times, serif';
+    }
+    if (name === "mono" || name === "code") {
+      return 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+    }
+    if (name === "rounded" || name === "soft") {
+      return '"Arial Rounded MT Bold", "Trebuchet MS", Verdana, Arial, sans-serif';
+    }
+    if (name === "game" || name === "arcade") {
+      return '"Trebuchet MS", Verdana, Arial, sans-serif';
+    }
+    if (name === "plain" || name === "arial") {
+      return 'Arial, Helvetica, sans-serif';
+    }
+    return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  }
+
+  function getBuiltInColorTheme(rawName) {
+    var name = String(rawName || "").trim().toLowerCase();
+    var themes = {
+      blue: {
+        accent: "#3f55ff",
+        background: "linear-gradient(135deg, #4d45ff 0%, #1200a8 48%, #07838e 100%)",
+        panel: "#1b1b2d",
+        topbar: "rgba(0,0,120,.62)",
+        form: "rgba(0,0,130,.7)",
+        button: "rgba(0,0,145,.86)",
+        link: "#91b8ff"
+      },
+      red: {
+        accent: "#e23b3b",
+        background: "linear-gradient(135deg, #ff4a4a 0%, #8f0615 48%, #2b070b 100%)",
+        panel: "#211517",
+        topbar: "rgba(105,0,14,.72)",
+        form: "rgba(125,0,16,.78)",
+        button: "linear-gradient(180deg, #f04444, #b81424)",
+        link: "#ff9b9b"
+      },
+      purple: {
+        accent: "#8b5cf6",
+        background: "linear-gradient(135deg, #7c3cff 0%, #2b0c8f 48%, #080a38 100%)",
+        panel: "#1c1930",
+        topbar: "rgba(44,14,126,.72)",
+        form: "rgba(48,16,139,.78)",
+        button: "linear-gradient(180deg, #8b5cf6, #5b21b6)",
+        link: "#c4b5fd"
+      },
+      green: {
+        accent: "#22c55e",
+        background: "linear-gradient(135deg, #22c55e 0%, #086b3a 48%, #052e24 100%)",
+        panel: "#14231c",
+        topbar: "rgba(4,91,50,.72)",
+        form: "rgba(5,105,57,.78)",
+        button: "linear-gradient(180deg, #22c55e, #15803d)",
+        link: "#86efac"
+      },
+      dark: {
+        accent: "#d83b3b",
+        background: "linear-gradient(135deg, #1a1114 0%, #0b0d12 58%, #121827 100%)",
+        panel: "#11151d",
+        topbar: "rgba(12,15,22,.86)",
+        form: "rgba(10,13,19,.88)",
+        button: "linear-gradient(180deg, #d83b3b, #a51f2a)",
+        link: "#ff9b9b"
+      }
+    };
+    return themes[name] || themes.blue;
+  }
+
   var embedKey = String(script.getAttribute("data-rok-embed-key") || "").trim();
   var apiBase = String(script.getAttribute("data-rok-api") || "").trim();
   var titleText = String(script.getAttribute("data-rok-title") || "ROK").trim() || "ROK";
   var welcomeText = String(script.getAttribute("data-rok-welcome") || "Ask ROK anything.").trim();
-  var accent = String(script.getAttribute("data-rok-accent") || "#d83b3b").trim();
+  var colorTheme = getBuiltInColorTheme(script.getAttribute("data-rok-color") || script.getAttribute("data-rok-colour") || script.getAttribute("data-rok-theme") || "blue");
+  var accent = String(script.getAttribute("data-rok-accent") || colorTheme.accent).trim();
+  var fontStack = getBuiltInFontStack(script.getAttribute("data-rok-font") || "system");
+  var titleFontStack = getBuiltInFontStack(script.getAttribute("data-rok-title-font") || script.getAttribute("data-rok-font") || "system");
   var mode = String(script.getAttribute("data-rok-mode") || script.getAttribute("data-rok-layout") || "widget").trim().toLowerCase();
   var pageMode = /^(?:page|full|fullscreen|app)$/.test(mode);
   var placeholderText = String(script.getAttribute("data-rok-placeholder") || "Ask ROK...").trim() || "Ask ROK...";
@@ -27,9 +102,13 @@
   var footerText = String(script.getAttribute("data-rok-footer") || "").trim();
   var pageBackground = String(
     script.getAttribute("data-rok-background")
-    || "linear-gradient(135deg, #4d45ff 0%, #1200a8 48%, #07838e 100%)"
+    || colorTheme.background
   ).trim();
-  var panelBackground = String(script.getAttribute("data-rok-panel") || "#1b1b2d").trim();
+  var panelBackground = String(script.getAttribute("data-rok-panel") || colorTheme.panel).trim();
+  var topbarBackground = String(script.getAttribute("data-rok-topbar") || colorTheme.topbar).trim();
+  var formBackground = String(script.getAttribute("data-rok-form") || colorTheme.form).trim();
+  var buttonBackground = String(script.getAttribute("data-rok-button-color") || script.getAttribute("data-rok-send-color") || colorTheme.button).trim();
+  var linkColor = String(script.getAttribute("data-rok-link-color") || colorTheme.link).trim();
 
   try {
     if (!apiBase && script.src) {
@@ -64,27 +143,27 @@
 
   var style = document.createElement("style");
   style.textContent = [
-    ":host{all:initial;color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}",
+    ":host{all:initial;color-scheme:dark;font-family:" + fontStack + "}",
     ".wrap{position:fixed;right:18px;bottom:18px;z-index:2147483000}",
     ":host([data-rok-mode='page']){position:fixed;inset:0;width:100vw;height:100vh;display:block;overflow:hidden;background:" + pageBackground + ";z-index:2147483000}",
     ".wrap.is-page{position:fixed;inset:0;right:auto;bottom:auto;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:50px 22px;background:" + pageBackground + ";overflow:hidden}",
-    ".launcher{width:56px;height:56px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:#11151d;color:#fff;box-shadow:0 16px 48px rgba(0,0,0,.35);cursor:pointer;font:800 28px/1 system-ui;display:grid;place-items:center}",
+    ".launcher{width:56px;height:56px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:#11151d;color:#fff;box-shadow:0 16px 48px rgba(0,0,0,.35);cursor:pointer;font:800 28px/1 " + fontStack + ";display:grid;place-items:center}",
     ".wrap.is-page .launcher{display:none}",
     ".launcher span{color:" + accent + ";transform:translateY(-1px)}",
     ".panel{position:absolute;right:0;bottom:70px;width:min(370px,calc(100vw - 28px));height:min(560px,calc(100vh - 105px));border:1px solid rgba(255,255,255,.14);border-radius:14px;background:#0d1017;color:#f8eded;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;display:flex;flex-direction:column}",
     ".wrap.is-page .panel{position:relative;right:auto;bottom:auto;width:min(900px,calc(100vw - 44px));height:min(900px,calc(100vh - 96px));border-radius:10px;background:" + panelBackground + ";box-shadow:0 24px 70px rgba(0,0,0,.38);border-color:rgba(255,255,255,.18)}",
     ".panel[hidden]{display:none}",
     ".top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1);background:#11151d}",
-    ".wrap.is-page .top{height:54px;justify-content:center;background:rgba(0,0,120,.62);border-bottom-color:rgba(255,255,255,.24)}",
-    ".brand{display:flex;gap:10px;align-items:center;font:800 14px/1 system-ui;letter-spacing:0}",
+    ".wrap.is-page .top{height:54px;justify-content:center;background:" + topbarBackground + ";border-bottom-color:rgba(255,255,255,.24)}",
+    ".brand{display:flex;gap:10px;align-items:center;font:800 14px/1 " + titleFontStack + ";letter-spacing:0}",
     ".wrap.is-page .brand{font-size:23px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}",
-    ".dot{width:24px;height:24px;border-radius:9px;background:rgba(216,59,59,.16);color:" + accent + ";display:grid;place-items:center;font:900 18px/1 system-ui}",
+    ".dot{width:24px;height:24px;border-radius:9px;background:rgba(216,59,59,.16);color:" + accent + ";display:grid;place-items:center;font:900 18px/1 " + titleFontStack + "}",
     ".wrap.is-page .dot{display:none}",
-    ".close{border:0;background:transparent;color:#bcaeae;font:700 22px/1 system-ui;cursor:pointer;padding:4px 8px}",
+    ".close{border:0;background:transparent;color:#bcaeae;font:700 22px/1 " + fontStack + ";cursor:pointer;padding:4px 8px}",
     ".wrap.is-page .close{display:none}",
     ".log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-color:rgba(255,255,255,.24) transparent}",
     ".wrap.is-page .log{padding:18px 16px;gap:12px;background:" + panelBackground + "}",
-    ".msg{max-width:88%;word-break:break-word;border-radius:12px;padding:10px 11px;font:500 14px/1.42 system-ui}",
+    ".msg{max-width:88%;word-break:break-word;border-radius:12px;padding:10px 11px;font:500 14px/1.42 " + fontStack + "}",
     ".user{align-self:flex-end;background:" + accent + ";color:#130808;white-space:pre-wrap}",
     ".bot{align-self:flex-start;background:#171b24;color:#f3eeee;border:1px solid rgba(255,255,255,.08);white-space:normal}",
     ".bot p{margin:0 0 8px}.bot p:last-child{margin-bottom:0}",
@@ -95,18 +174,18 @@
     ".bot pre code{display:block;background:transparent;border:0;border-radius:0;padding:0;color:#f4eeee;white-space:pre}",
     ".bot ul,.bot ol{margin:6px 0 9px;padding-left:20px}.bot li{margin:3px 0}",
     ".bot blockquote{margin:7px 0;padding:6px 9px;border-left:3px solid " + accent + ";background:rgba(255,255,255,.04);border-radius:7px}",
-    ".bot a{color:#ff8c8c;text-decoration:underline;text-underline-offset:2px}",
+    ".bot a{color:" + linkColor + ";text-decoration:underline;text-underline-offset:2px}",
     ".status{align-self:flex-start;color:#ac9d9d;font:600 12px/1.3 system-ui;padding:0 2px}",
     ".form{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.1);background:#10141b}",
-    ".wrap.is-page .form{gap:14px;padding:16px;border-top:1px solid rgba(255,255,255,.24);background:rgba(0,0,130,.7)}",
-    ".input{flex:1;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:11px;background:#080b10;color:#fff;padding:11px 12px;font:500 14px/1.2 system-ui;outline:none}",
+    ".wrap.is-page .form{gap:14px;padding:16px;border-top:1px solid rgba(255,255,255,.24);background:" + formBackground + "}",
+    ".input{flex:1;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:11px;background:#080b10;color:#fff;padding:11px 12px;font:500 14px/1.2 " + fontStack + ";outline:none}",
     ".wrap.is-page .input{height:49px;border-radius:7px;background:#f4f8ff;color:#111827;font-size:17px;padding:0 14px;border-color:rgba(255,255,255,.42)}",
     ".input:focus{border-color:" + accent + ";box-shadow:0 0 0 3px rgba(216,59,59,.18)}",
-    ".send{border:0;border-radius:11px;background:" + accent + ";color:#150707;padding:0 14px;font:800 13px/1 system-ui;cursor:pointer}",
-    ".wrap.is-page .send{min-width:105px;height:49px;border-radius:7px;background:rgba(0,0,145,.86);color:#fff;font-size:18px;letter-spacing:.04em;text-transform:uppercase}",
+    ".send{border:0;border-radius:11px;background:" + accent + ";color:#150707;padding:0 14px;font:800 13px/1 " + fontStack + ";cursor:pointer}",
+    ".wrap.is-page .send{min-width:105px;height:49px;border-radius:7px;background:" + buttonBackground + ";color:#fff;font-size:18px;letter-spacing:.04em;text-transform:uppercase}",
     ".send:disabled,.input:disabled{opacity:.62;cursor:not-allowed}",
     ".footer{display:none}",
-    ".wrap.is-page .footer{display:block;height:18px;padding:0 0 0 0;color:#fff;font:500 16px/18px system-ui;text-shadow:0 1px 2px rgba(0,0,0,.5)}",
+    ".wrap.is-page .footer{display:block;height:18px;padding:0 0 0 0;color:#fff;font:500 16px/18px " + fontStack + ";text-shadow:0 1px 2px rgba(0,0,0,.5)}",
     "@media (max-width:700px){.wrap.is-page{padding:0}.wrap.is-page .panel{width:100vw;height:100vh;border-radius:0;border-left:0;border-right:0}.wrap.is-page .top{height:52px}.wrap.is-page .brand{font-size:18px}.wrap.is-page .form{padding:12px;gap:8px}.wrap.is-page .send{min-width:76px;font-size:14px}.wrap.is-page .footer{display:none}}",
     ".small{font-size:12px;color:#ae9f9f}"
   ].join("");
