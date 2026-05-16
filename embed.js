@@ -44,6 +44,21 @@
   var host = document.createElement("div");
   host.id = "rok-embed";
   host.setAttribute("data-rok-mode", pageMode ? "page" : "widget");
+  if (pageMode) {
+    document.documentElement.style.margin = "0";
+    document.documentElement.style.width = "100%";
+    document.documentElement.style.minWidth = "100%";
+    document.documentElement.style.height = "100%";
+    document.documentElement.style.minHeight = "100%";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.margin = "0";
+    document.body.style.width = "100%";
+    document.body.style.minWidth = "100%";
+    document.body.style.height = "100vh";
+    document.body.style.minHeight = "100vh";
+    document.body.style.overflow = "hidden";
+    document.body.style.background = pageBackground;
+  }
   document.body.appendChild(host);
   var root = host.attachShadow ? host.attachShadow({ mode: "open" }) : host;
 
@@ -51,7 +66,8 @@
   style.textContent = [
     ":host{all:initial;color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}",
     ".wrap{position:fixed;right:18px;bottom:18px;z-index:2147483000}",
-    ".wrap.is-page{inset:0;right:auto;bottom:auto;display:flex;align-items:center;justify-content:center;padding:50px 22px;background:" + pageBackground + ";overflow:hidden}",
+    ":host([data-rok-mode='page']){position:fixed;inset:0;width:100vw;height:100vh;display:block;overflow:hidden;background:" + pageBackground + ";z-index:2147483000}",
+    ".wrap.is-page{position:fixed;inset:0;right:auto;bottom:auto;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:50px 22px;background:" + pageBackground + ";overflow:hidden}",
     ".launcher{width:56px;height:56px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:#11151d;color:#fff;box-shadow:0 16px 48px rgba(0,0,0,.35);cursor:pointer;font:800 28px/1 system-ui;display:grid;place-items:center}",
     ".wrap.is-page .launcher{display:none}",
     ".launcher span{color:" + accent + ";transform:translateY(-1px)}",
