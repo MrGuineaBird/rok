@@ -269,6 +269,35 @@ const LOCAL_MEMORY_MAX_ENTRIES = 80;
 const LOCAL_MEMORY_PROMPT_LIMIT = 10;
 const LOCAL_PROJECT_MEMORY_PROMPT_LIMIT = 8;
 const LOCAL_MEMORY_MAX_FACT_CHARS = 320;
+const DEFAULT_TASTE_MEMORY_ENTRIES = [
+  {
+    id: "rok-taste-no-corporate-ideas",
+    fact: "User hates corporate-sounding or LinkedIn-style ideas. Give sharper, more concrete ideas with no buzzword filler.",
+    kind: "preference",
+    scope: "global",
+    source: "rok-taste-default",
+    createdAt: "2026-05-16T00:00:00.000Z",
+    updatedAt: "2026-05-16T00:00:00.000Z"
+  },
+  {
+    id: "rok-taste-blunt-direct",
+    fact: "User wants blunt, direct answers. When they ask to fix or change something, prioritize action over a long explanation.",
+    kind: "rule",
+    scope: "global",
+    source: "rok-taste-default",
+    createdAt: "2026-05-16T00:00:00.000Z",
+    updatedAt: "2026-05-16T00:00:00.000Z"
+  },
+  {
+    id: "rok-taste-main-ai",
+    fact: "User is building ROK as their main AI, so feature ideas should improve daily usefulness, trust, speed, and personality.",
+    kind: "decision",
+    scope: "global",
+    source: "rok-taste-default",
+    createdAt: "2026-05-16T00:00:00.000Z",
+    updatedAt: "2026-05-16T00:00:00.000Z"
+  }
+];
 const EVIDENCE_HISTORY_PREVIEW_LIMIT = 6;
 const EVIDENCE_ENTRY_PREVIEW_LIMIT = 8;
 const EVIDENCE_TEXT_PREVIEW_CHARS = 220;
@@ -394,7 +423,8 @@ const SUPPORTED_MODEL_IDS = new Set();
 const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-4.7:cloud";
-const HYPERION_MODEL_ID = "qwen3-coder:480b-cloud";
+const HYPERION_LEGACY_MODEL_ID = "qwen3-coder:480b-cloud";
+const HYPERION_MODEL_ID = "cogito-2.1:671b-cloud";
 const DAEDALUS_LEGACY_MODEL_ID = "deepseek-v3.2:cloud";
 const DAEDALUS_LEGACY_MODEL_ID_ALT = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
@@ -407,7 +437,7 @@ const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.0";
 const DAEDALUS_PROVIDER_NAME = "GLM 4.7 Cloud";
 const HYPERION_LABEL = "Hyperion";
-const HYPERION_PROVIDER_NAME = "Qwen3 Coder 480B";
+const HYPERION_PROVIDER_NAME = "Cogito 2.1 671B";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
   { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL }
@@ -419,6 +449,7 @@ const KNOWN_MODEL_LABELS = {
   [CHESS_MODEL_ID]: HERMES_LABEL,
   [DAEDALUS_MODEL_ID]: DAEDALUS_LABEL,
   [HYPERION_MODEL_ID]: HYPERION_LABEL,
+  [HYPERION_LEGACY_MODEL_ID]: HYPERION_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_LABEL,
   "gemma4:31b-cloud": HERMES_LABEL,
@@ -430,6 +461,7 @@ const MODEL_DESCRIPTIONS = {
   [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Qwen3-VL vision.`,
   [DAEDALUS_MODEL_ID]: `${DAEDALUS_LABEL} - ${DAEDALUS_PROVIDER_NAME} with a rolling token limit unless you add your own Ollama API key.`,
   [HYPERION_MODEL_ID]: `${HYPERION_LABEL} - ${HYPERION_PROVIDER_NAME} for advanced coding and cybersecurity work using your own Ollama Cloud key.`,
+  [HYPERION_LEGACY_MODEL_ID]: `${HYPERION_LABEL} - legacy alias now routed to ${HYPERION_PROVIDER_NAME}.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
@@ -776,6 +808,7 @@ function sanitizeModelId(rawModel) {
 }
 
 const MODEL_ID_ALIASES = {
+  [HYPERION_LEGACY_MODEL_ID]: HYPERION_MODEL_ID,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_MODEL_ID,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_MODEL_ID
 };
@@ -959,14 +992,25 @@ function getCustomIdentityHeaderValue() {
   }
 }
 
+function getRokTasteSystemPrompt() {
+  return [
+    "ROK response taste rules: match the user's pace and do the useful thing first.",
+    "When the user says fix it, add this, change this, make it work, or similar, prioritize the actual patch, command, result, or next concrete action before explanation.",
+    "Do not explain obvious steps unless the user asks, the risk is non-obvious, or the explanation prevents a bad outcome.",
+    "When the user asks for ideas, avoid corporate, LinkedIn, pitch-deck, or generic productivity wording. Give concrete, opinionated ideas that fit ROK as a main daily AI.",
+    "When the user is blunt or frustrated, do not sanitize the tone into mush. Acknowledge the point, correct course, and keep moving."
+  ].join(" ");
+}
+
 function getModelSpecificSystemPrompt() {
   const activeModel = normalizeSessionModel(getCurrentSessionModel());
   if (activeModel !== HYPERION_MODEL_ID) {
     return "";
   }
   return [
-    "You are Hyperion, ROK's advanced defensive cybersecurity and secure-code-review mode. Be calm, precise, and threat-model oriented.",
+    "You are Hyperion, ROK's Cogito-backed defensive cybersecurity and secure-code-review mode. Be calm, precise, and threat-model oriented.",
     "Optimize for vulnerability analysis, secure code review, authentication and session design, CORS, rate limiting, SSRF, XSS, SQL injection, path traversal, access control, secrets handling, dependency risk, logging, and safe deployment hardening.",
+    "When the user asks for a fix, prefer actionable patches, exact config changes, and tests over broad lecture-mode explanation.",
     "For security or code-review requests, start by identifying assets, trust boundaries, entry points, attacker capabilities, and likely impact. Then provide prioritized findings with severity, affected component, exploitability, evidence, fix, and regression tests.",
     "Use CWE, OWASP, CVSS-style severity language, or MITRE ATT&CK concepts when they clarify the risk, but do not pad answers with labels when the code evidence is weak.",
     "For auth/session/CORS/rate-limit issues, explicitly check cookie flags, token lifetime, origin/referrer validation, credentialed CORS, CSRF exposure, replay risk, bypass paths, quota scope, shared-IP behavior, and fail-open cases.",
@@ -989,16 +1033,17 @@ function getModelSpecificSystemPrompt() {
 
 function getMergedSystemPromptForApi() {
   const custom = getCustomSystemPromptHeaderValue();
+  const taste = getRokTasteSystemPrompt();
   const modelSpecific = getModelSpecificSystemPrompt();
   if (isIncognitoModeEnabled()) {
-    return [custom, modelSpecific].filter(Boolean).join("\n\n");
+    return [custom, taste, modelSpecific].filter(Boolean).join("\n\n");
   }
   const parsed = { ...loadUserSettingsFromStorage(), ...userSettings };
   const name = sanitizeShortUserSettingText(parsed.preferredName);
   const identity = name
     ? `User context: The user goes by "${name}". Address them by this name when it feels natural in conversation.`
     : "";
-  return [custom, modelSpecific, identity].filter(Boolean).join("\n\n");
+  return [custom, taste, modelSpecific, identity].filter(Boolean).join("\n\n");
 }
 
 function getCustomPromptOverridesForApi() {
@@ -5815,6 +5860,12 @@ function normalizeMemoryEntry(rawEntry, scope = "global") {
   };
 }
 
+function getDefaultTasteMemoryEntries() {
+  return DEFAULT_TASTE_MEMORY_ENTRIES
+    .map((entry) => normalizeMemoryEntry(entry, "global"))
+    .filter(Boolean);
+}
+
 function createDefaultSessionMemory() {
   return {
     projectEntries: []
@@ -9867,6 +9918,43 @@ function buildRequestHistory(messages = []) {
     .filter(Boolean);
 }
 
+function compactClientHistoryExcerpt(text, maxChars = 650) {
+  const collapsed = String(text || "").replace(/\s+/g, " ").trim();
+  if (!collapsed) return "";
+  const limit = Math.max(120, Math.round(Number(maxChars) || 650));
+  if (collapsed.length <= limit) return collapsed;
+  const headLength = Math.max(70, Math.round(limit * 0.68));
+  const tailLength = Math.max(45, limit - headLength - 5);
+  return `${collapsed.slice(0, headLength).trimEnd()} ... ${collapsed.slice(-tailLength).trimStart()}`;
+}
+
+function buildClientHistoryCompactionSummary(messages = []) {
+  const safeHistory = buildRequestHistory(messages);
+  if (!safeHistory.length) return "";
+  const maxChars = 6000;
+  const lines = [
+    `Earlier conversation context compacted from ${safeHistory.length} older message${safeHistory.length === 1 ? "" : "s"}. Use this as continuity memory; newer exact messages are more authoritative.`
+  ];
+  let usedChars = lines[0].length;
+  let omitted = 0;
+  for (const item of safeHistory) {
+    const role = item.role === "assistant" ? "Assistant" : "User";
+    const content = compactClientHistoryExcerpt(item.content);
+    if (!content) continue;
+    const line = `- ${role}: ${content}`;
+    if (usedChars + line.length + 1 > maxChars) {
+      omitted++;
+      continue;
+    }
+    lines.push(line);
+    usedChars += line.length + 1;
+  }
+  if (omitted) {
+    lines.push(`- ${omitted} additional older message${omitted === 1 ? "" : "s"} omitted from compacted context.`);
+  }
+  return lines.join("\n").trim();
+}
+
 function sanitizeEvidenceMessageHistory(messages = []) {
   const safeHistory = buildRequestHistory(messages);
   return safeHistory
@@ -10868,6 +10956,22 @@ function maybeCaptureMemoryFromUserTurn(rawText = "", options = {}) {
       scope: projectScoped ? "project" : "global",
       kind: inferMemoryKindFromText(text, projectScoped ? "rule" : "preference"),
       source: "preference"
+    });
+  }
+
+  if (/\b(?:ideas?|suggestions?)\b/i.test(text) && /\b(?:generic|corporate|linkedin|pitch[- ]?deck|buzzword|boring|soulless|trash|garbage|ass|mush)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, "User dislikes generic or corporate-sounding ideas. Future idea responses should be blunt, concrete, and specific to the product.", {
+      scope: projectScoped ? "project" : "global",
+      kind: "preference",
+      source: "style-preference"
+    });
+  }
+
+  if (/\b(?:too long|essay|lecture|over[- ]?explain|explaining obvious|obvious shit|yapping|yap)\b/i.test(text)) {
+    pushAutoMemoryCandidate(candidates, "User prefers action-first responses with minimal explanation when the request already implies what needs doing.", {
+      scope: projectScoped ? "project" : "global",
+      kind: "preference",
+      source: "style-preference"
     });
   }
 
@@ -12656,6 +12760,7 @@ async function send() {
   const requestHistoryLimit = Math.max(1, Math.min(getHistoryLimitValue(), requestBudget.historyLimit || getHistoryLimitValue()));
   const intentHistory = buildRequestHistory(history.slice(-Math.min(requestHistoryLimit, INTENT_HISTORY_CONTEXT_LIMIT)));
   const recentHistory = buildRequestHistory(history.slice(-requestHistoryLimit));
+  const compactedHistorySummary = buildClientHistoryCompactionSummary(history.slice(0, Math.max(0, history.length - requestHistoryLimit)));
   const priorHistoryLength = history.length;
   let baseRequestBody;
   if (sandboxActive) {
@@ -12704,6 +12809,9 @@ async function send() {
     if (toolsEnabled) {
       baseRequestBody.tools = BUILTIN_TOOLS;
     }
+  }
+  if (compactedHistorySummary) {
+    baseRequestBody.history_compaction_summary = compactedHistorySummary;
   }
   const sendEvidencePreview = buildAssistantEvidenceSnapshot({
     requestBody: baseRequestBody,
@@ -15395,6 +15503,7 @@ function getRelevantLocalMemory(options = {}) {
   ).toLowerCase();
   const queryWords = new Set(tokenizeMemoryText(queryText));
   const candidateEntries = [
+    ...getDefaultTasteMemoryEntries(),
     ...loadLocalMemory(),
     ...(isProjectMemoryEnabled() ? getCurrentProjectMemoryEntries(session) : []),
     ...buildDerivedProjectMemoryEntries(session)
@@ -18911,12 +19020,12 @@ async function handleImagineCommand(prompt) {
         { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
         { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
       ];
-  let generationSummary = `${directPixelPasses.length}-pass adaptive coarse-to-fine ROK IMAGE painting`;
+  let generationSummary = `${directPixelPasses.length}-pass Ollama vision-guided ROK IMAGE painting`;
 
   try {
     if (!stopped) {
       imagePlan = await requestPixelPainterImagePlan(pixelPromptProfile);
-      generationSummary = `${directPixelPasses.length}-pass planned draft-to-cleanup ROK IMAGE painting`;
+      generationSummary = `${directPixelPasses.length}-pass planned Ollama vision painting`;
     }
 
     let seedVectorResult = null;
@@ -19064,70 +19173,16 @@ async function handleImagineCommand(prompt) {
     }
 
     if (!stopped && renderMode === "pixel" && !finalUrl) {
-      try {
-        previewImg.style.imageRendering = "auto";
-        progressBar.style.width = "24%";
-        statusText.textContent = "Rendering locally from plan...";
-        const localRender = renderPixelPainterPlanLocally(canvas, imagePlan || buildPixelPainterFallbackImagePlan(prompt, pixelPromptProfile), prompt, pixelPromptProfile);
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
-
-        progressBar.style.width = "74%";
-        statusText.textContent = "Checking local render...";
-        let localCritic = analyzePixelPainterLocalImage(canvas, imagePlan || {}, prompt);
-        let usedCroppedRepair = false;
-        if (!stopped && localCritic.needsRepair) {
-          const repairBeforeSnapshot = canvas.captureSnapshot();
-          try {
-            const repairPass = {
-              passNum: 2,
-              progress: 88,
-              label: "Tiny cropped repair",
-              maxPixels: 48,
-              guideMode: "repair_cleanup",
-              workSize: 96,
-              scaleFactor: 1,
-              qualityProfile: "budget",
-              maxChangedRatio: 0.18,
-              repairFocus: localCritic.repairFocus,
-              repairRegion: localCritic.repairRegion
-            };
-            const repairResult = await paintPass(repairPass.passNum, repairPass.label, repairPass);
-            const repairDiff = canvas.measureDifference(repairBeforeSnapshot);
-            const repairConfidence = clampPixelPainterConfidence(repairResult && repairResult.confidence);
-            if (repairDiff.changedRatio > 0.16 || (repairConfidence > 0 && repairConfidence < 0.42)) {
-              canvas.restoreSnapshot(repairBeforeSnapshot);
-              statusText.textContent = "Kept local render";
-            } else {
-              polishPixelPainterLocalCanvas(canvas);
-              usedCroppedRepair = true;
-              previewImg.src = canvas.getDisplayUrl();
-              previewDiv.style.display = "block";
-              localCritic = analyzePixelPainterLocalImage(canvas, imagePlan || {}, prompt);
-            }
-          } catch (repairError) {
-            canvas.restoreSnapshot(repairBeforeSnapshot);
-            console.warn("Cropped image repair skipped:", repairError);
-            statusText.textContent = "Kept local render";
-          }
-        }
-
-        generationSummary = `1-plan local renderer, ${localRender.primitiveCount} primitives${usedCroppedRepair ? ", 1 cropped repair" : ""}`;
-        finalUrl = canvas.getDisplayUrl();
-        progressBar.style.width = "100%";
-        statusText.textContent = "Complete";
-      } catch (localRenderError) {
-        console.warn("Local image renderer fallback:", localRenderError);
-        const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
-          allowPartialResult: false,
-          minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
-          targetConfidence: pixelPromptProfile.targetConfidence
-        });
-        generationSummary = `${pixelRun.completedPasses}-pass protected adaptive ROK IMAGE painting`;
-        finalUrl = canvas.getDisplayUrl();
-        progressBar.style.width = "100%";
-        statusText.textContent = "Complete";
-      }
+      previewImg.style.imageRendering = "pixelated";
+      const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
+        allowPartialResult: false,
+        minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
+        targetConfidence: pixelPromptProfile.targetConfidence
+      });
+      generationSummary = `${pixelRun.completedPasses}-pass Ollama vision pixel painting`;
+      finalUrl = canvas.getDisplayUrl();
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
     }
   } catch (error) {
     statusText.textContent = `Error: ${error.message}`;
