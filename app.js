@@ -231,6 +231,7 @@ const MODELS_URL = buildApiUrl("/api/models");
 const CLIENT_CONFIG_URL = buildApiUrl("/api/client-config");
 const AUTH_SESSION_URL = buildApiUrl("/api/auth/session");
 const BROWSER_PILOT_START_URL = buildApiUrl("/api/browser/start");
+const BROWSER_PILOT_AGENT_URL = buildApiUrl("/api/browser/agent");
 const BROWSER_PILOT_STOP_URL = buildApiUrl("/api/browser/stop");
 const BROWSER_PILOT_STATUS_URL = buildApiUrl("/api/browser/status");
 const BAN_GUARD_PATHS = new Set(["/api/chat", "/api/sandbox", "/api/intent", "/api/status", "/api/models"]);
@@ -2823,29 +2824,6 @@ function parseBrowserPilotCommand(text) {
   return String(match[1] || "").trim();
 }
 
-function parseNaturalBrowserPilotTask(text) {
-  const trimmed = String(text || "").trim();
-  if (!trimmed || trimmed.startsWith("/")) return null;
-  const lowered = trimmed.toLowerCase();
-  if (parseBrowserPilotGmailDraftTask(trimmed)) return trimmed;
-  if (/^(?:open|go to|visit|navigate to)\s+\S+/i.test(trimmed)) return trimmed;
-  if (/^(?:click|tap|select|fill|type|write|enter|press|hit)\s+[\s\S]+/i.test(trimmed)) return trimmed;
-  if (/^(?:read|inspect|summarize)\s+(?:this\s+)?(?:page|tab|website|site)\b/i.test(trimmed)) return "read";
-  if (/^(?:show|list)\s+(?:browser\s+)?tabs\b/i.test(trimmed)) return "tabs";
-  if (/^(?:go\s+)?back$|^(?:go\s+)?forward$|^(?:reload|refresh)(?:\s+(?:page|tab))?$|^close\s+(?:this\s+)?tab$/i.test(trimmed)) return trimmed;
-  if (/^(?:send it|send the email|send this email|send the message|send this message)$/i.test(trimmed)) {
-    return "click Send";
-  }
-  if (/\b(?:gmail|google docs|google doc|docs\.new|browser|new tab|current tab)\b/i.test(trimmed) &&
-      /\b(?:open|create|write|draft|email|compose|read|click|type|fill|send)\b/i.test(trimmed)) {
-    return trimmed;
-  }
-  if (/https?:\/\/|^[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(trimmed)) {
-    return trimmed;
-  }
-  return null;
-}
-
 const BROWSER_PILOT_EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
 function normalizeBrowserPilotEmail(rawEmail) {
@@ -3076,6 +3054,19 @@ function formatBrowserPilotTabs(tabs) {
   }).join("\n");
 }
 
+function formatBrowserPilotAgentSteps(steps) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return "- Planned with JSON; no browser action was needed.";
+  }
+  return steps.map((step, index) => {
+    const action = step && typeof step.action === "object" ? step.action : {};
+    const actionName = action.action || "action";
+    const target = action.target || action.field || action.url || action.query || action.key || "";
+    const result = step && step.result ? ` - ${step.result}` : "";
+    return `- ${index + 1}. ${actionName}${target ? `: ${target}` : ""}${result}`;
+  }).join("\n");
+}
+
 function confirmBrowserPilotPermission(payload, task) {
   const reason = payload && payload.pause_reason ? payload.pause_reason : "a sensitive browser action";
   const targetTask = task ? `/browser ${task}` : "/browser";
@@ -3156,6 +3147,26 @@ function buildBrowserPilotReply(data, task) {
       guardrails
     ].filter((line, index, arr) => line || arr[index - 1]).join("\n").replace(/\n{3,}/g, "\n\n");
   }
+  if (payload.browser_action === "agent_done" || payload.browser_action === "agent_progress") {
+    const page = payload.page || {};
+    const heading = payload.browser_action === "agent_done"
+      ? "**Browser Pilot finished.**"
+      : "**Browser Pilot made progress.**";
+    return [
+      heading,
+      "",
+      payload.answer || payload.message || "ROK controlled the browser with JSON actions.",
+      "",
+      page.title ? `Title: ${page.title}` : "",
+      page.url ? `Current page: ${page.url}` : "",
+      "",
+      "**JSON actions:**",
+      formatBrowserPilotAgentSteps(payload.steps),
+      "",
+      "**Hard stops:**",
+      guardrails
+    ].filter((line, index, arr) => line || arr[index - 1]).join("\n").replace(/\n{3,}/g, "\n\n");
+  }
   if (payload.browser_action && payload.action_result) {
     const urlLine = payload.last_url ? `\nCurrent page: ${payload.last_url}` : "";
     return [
@@ -3209,6 +3220,88 @@ async function postBrowserPilotTask(normalizedTask, approved = false) {
     payload = {};
   }
   return { response, payload };
+}
+
+async function postBrowserPilotAgentTask(task, approved = false) {
+  const response = await fetchWithBanGuard(BROWSER_PILOT_AGENT_URL, {
+    method: "POST",
+    headers: buildApiHeaders(true, { modelId: getCurrentSessionModel() }),
+    body: JSON.stringify({
+      task,
+      approved
+    })
+  });
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+  return { response, payload };
+}
+
+async function tryHandleNaturalBrowserPilotAgent(task, attachmentList = []) {
+  const normalizedTask = String(task || "").trim();
+  if (!normalizedTask || normalizedTask.startsWith("/")) return false;
+  if (Array.isArray(attachmentList) && attachmentList.length > 0) return false;
+  if (!isLocalBrowserHost()) return false;
+  if (browserPilotLaunching || isSending || isIntentClassificationLoading || isWorkspaceSuggestionLoading) return false;
+
+  browserPilotLaunching = true;
+  refreshSendState();
+  try {
+    let { response, payload } = await postBrowserPilotAgentTask(normalizedTask, false);
+    if (payload && payload.not_browser_task) {
+      return false;
+    }
+    if (!payload || (!payload.browser_agent && !payload.ok)) {
+      return false;
+    }
+
+    input.value = "";
+    autoResizeInput();
+    input.focus();
+    addMessage("user", normalizedTask);
+    history.push({ role: "user", content: normalizedTask });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+
+    const bot = addMessage("bot", "Browser Pilot is running the JSON plan...", { markdown: true });
+    if (payload && payload.approval_required && payload.can_approve !== false) {
+      const approved = confirmBrowserPilotPermission(payload, normalizedTask);
+      if (approved) {
+        setBubbleContent(bot.bubble, "Permission approved. Browser Pilot is continuing the JSON plan...", true);
+        ({ response, payload } = await postBrowserPilotAgentTask(normalizedTask, true));
+      } else {
+        payload = {
+          ok: true,
+          browser_agent: true,
+          paused: true,
+          pause_reason: payload.pause_reason || "a sensitive browser action",
+          message: "You did not approve that browser action.",
+          steps: payload.steps || [],
+          guardrails: payload.guardrails
+        };
+      }
+    }
+
+    if (!response.ok && !payload.paused) {
+      payload.ok = false;
+      payload.error = payload.error || `Browser Pilot failed (${response.status || "unknown"}).`;
+    }
+    const reply = buildBrowserPilotReply(payload, normalizedTask);
+    setBubbleContent(bot.bubble, reply, true);
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    browserPilotLaunching = false;
+    refreshSendState();
+    scrollToBottom();
+  }
 }
 
 async function handleBrowserPilotCommand(task = "", options = {}) {
@@ -13035,11 +13128,7 @@ async function send() {
     return;
   }
 
-  const naturalBrowserPilotTask = parseNaturalBrowserPilotTask(text);
-  if (naturalBrowserPilotTask !== null && attachments.length === 0) {
-    input.value = "";
-    autoResizeInput();
-    void handleBrowserPilotCommand(naturalBrowserPilotTask, { displayText: text, natural: true });
+  if (await tryHandleNaturalBrowserPilotAgent(text, attachments)) {
     return;
   }
 
