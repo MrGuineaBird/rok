@@ -2951,9 +2951,78 @@ function normalizeBrowserPilotClientUrl(rawUrl) {
   return "";
 }
 
+function cleanBrowserPilotRequestText(task) {
+  return String(task || "")
+    .trim()
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[?!]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^(?:hey\s+rok[, ]*|rok[, ]*)?(?:can|could|would|will)\s+you\s+/i, "")
+    .replace(/^(?:please\s+|pls\s+|just\s+)+/i, "")
+    .trim();
+}
+
+function detectBrowserPilotSite(task) {
+  const text = String(task || "").toLowerCase();
+  if (text.includes("youtube") || text.includes("youtu.be")) return "youtube";
+  if (text.includes("gmail") || /\bemail\b|\bmail\b/i.test(text)) return "gmail";
+  if (text.includes("docs.new") || text.includes("google docs") || text.includes("google doc")) return "docs";
+  if (text.includes("google") || text.includes("search") || text.includes("look up") || text.includes("lookup")) return "google";
+  return "";
+}
+
+function cleanBrowserPilotSearchQuery(query, site = "") {
+  let text = String(query || "")
+    .trim()
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[?!]+/g, " ")
+    .replace(/\b(?:on|in|using|with)\s+(?:youtube|google|gmail|google docs?|docs)\b/gi, " ")
+    .replace(/\b(?:youtube|google|gmail|google docs?|docs\.new|docs)\b/gi, " ")
+    .replace(/^(?:and\s+then\s+|then\s+|and\s+)+/i, "")
+    .replace(/^(?:open|go to|visit|navigate to)\b/i, "")
+    .trim()
+    .replace(/^(?:find|search(?:\s+for)?|look\s+up|lookup)\s+(?:me\s+)?/i, "")
+    .trim()
+    .replace(/^(?:a|an|the|some)\s+/i, "")
+    .trim();
+  if (site === "youtube") {
+    text = text.replace(/\b(?:to watch|for me)\b/gi, " ");
+  }
+  return text.replace(/\s+/g, " ").replace(/^[ .,:;"']+|[ .,:;"']+$/g, "").trim();
+}
+
+function extractBrowserPilotSearchQuery(task, site = "") {
+  const cleaned = cleanBrowserPilotRequestText(task);
+  const patterns = [
+    /\b(?:find|search(?:\s+for)?|look\s+up|lookup)\s+(?:me\s+)?(?:a\s+|an\s+|the\s+|some\s+)?([\s\S]+)$/i,
+    /\b(?:open|go to|visit|navigate to)\s+(?:youtube|google|gmail|google docs?|docs\.new|docs)\s+(?:and\s+then\s+|then\s+|and\s+)?(?:find|search(?:\s+for)?|look\s+up|lookup)\s+(?:me\s+)?(?:a\s+|an\s+|the\s+|some\s+)?([\s\S]+)$/i,
+    /\b(?:youtube|google)\s+(?:for|about)\s+([\s\S]+)$/i
+  ];
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[1]) {
+      const query = cleanBrowserPilotSearchQuery(match[1], site);
+      if (query) return query;
+    }
+  }
+  const fallback = cleaned
+    .replace(/\b(?:youtube|google|gmail|google docs?|docs\.new|docs)\b/gi, " ")
+    .replace(/\b(?:open|go to|visit|navigate to)\b/gi, " ")
+    .replace(/\b(?:and then|then|and)\b/gi, " ");
+  const query = cleanBrowserPilotSearchQuery(fallback, site);
+  return query && !/^(?:find|search|look up|lookup)$/i.test(query) ? query : "";
+}
+
+function parseBrowserPilotSiteTask(task) {
+  const site = detectBrowserPilotSite(task);
+  const query = site ? extractBrowserPilotSearchQuery(task, site) : "";
+  return { site, query };
+}
+
 function resolveBrowserPilotClientTarget(task) {
   const normalized = normalizeBrowserPilotTaskText(task);
   const lowered = normalized.toLowerCase();
+  const siteTask = parseBrowserPilotSiteTask(task);
   const gmailDraft = parseBrowserPilotGmailDraftTask(normalized);
   if (gmailDraft) {
     return gmailDraft;
@@ -2965,17 +3034,14 @@ function resolveBrowserPilotClientTarget(task) {
   if (!normalized || /^(?:start|open|new tab|blank)$/i.test(normalized)) {
     return { url: "about:blank", label: "Blank browser tab", mode: "blank" };
   }
-  if (lowered.includes("google doc") || lowered.includes("google docs") || lowered.includes("docs.new")) {
+  if (siteTask.site === "docs" || lowered.includes("google doc") || lowered.includes("google docs") || lowered.includes("docs.new")) {
     return { url: "https://docs.new", label: "Google Docs", mode: "docs" };
   }
-  if (lowered.includes("gmail")) {
+  if (siteTask.site === "gmail" || lowered.includes("gmail")) {
     return { url: "https://mail.google.com", label: "Gmail", mode: "gmail" };
   }
-  if (lowered.includes("youtube") || lowered.includes("youtu.be")) {
-    let query = normalized
-      .replace(/\b(?:open|go to|visit|find|search|youtube|youtu\.be|video|videos|good|me|a|an|the|for|on|and|just)\b/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  if (siteTask.site === "youtube") {
+    let query = siteTask.query;
     if (!query && /\b(?:find|search|good|video|videos)\b/i.test(normalized)) {
       query = "interesting video";
     }
@@ -2988,7 +3054,14 @@ function resolveBrowserPilotClientTarget(task) {
     }
     return { url: "https://www.youtube.com", label: "YouTube", mode: "youtube" };
   }
-  if (/^google(?:\.com)?$/i.test(lowered)) {
+  if (siteTask.site === "google") {
+    if (siteTask.query) {
+      return {
+        url: `https://www.google.com/search?q=${encodeURIComponent(siteTask.query)}`,
+        label: `Google search for "${siteTask.query}"`,
+        mode: "google-search"
+      };
+    }
     return { url: "https://www.google.com", label: "Google", mode: "google" };
   }
   return {
