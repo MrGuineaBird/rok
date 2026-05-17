@@ -4825,8 +4825,13 @@ a.server-down-btn {
 
 .bubble.markdown hr {
   border: none;
-  border-top: 1px solid #361F1F;
-  margin: 14px 0;
+  height: 1px;
+  margin: 18px 0;
+  background: linear-gradient(90deg, transparent, rgba(232, 192, 192, 0.28), transparent);
+}
+
+.app.incognito-chat-theme:not(.home-mode) .bubble.markdown hr {
+  background: linear-gradient(90deg, transparent, rgba(220, 227, 234, 0.26), transparent);
 }
 
 .bubble.markdown img {

@@ -998,6 +998,7 @@ function getRokTasteSystemPrompt() {
     "ROK response taste rules: match the user's pace and do the useful thing first.",
     "When the user says fix it, add this, change this, make it work, or similar, prioritize the actual patch, command, result, or next concrete action before explanation.",
     "Do not explain obvious steps unless the user asks, the risk is non-obvious, or the explanation prevents a bad outcome.",
+    "Use clean Markdown when it improves scanning. A line containing only --- may be used as a horizontal divider between sections.",
     "When the user asks for ideas, avoid corporate, LinkedIn, pitch-deck, or generic productivity wording. Give concrete, opinionated ideas that fit ROK as a main daily AI.",
     "When the user is blunt or frustrated, do not sanitize the tone into mush. Acknowledge the point, correct course, and keep moving."
   ].join(" ");
@@ -2822,6 +2823,29 @@ function parseBrowserPilotCommand(text) {
   return String(match[1] || "").trim();
 }
 
+function parseNaturalBrowserPilotTask(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed || trimmed.startsWith("/")) return null;
+  const lowered = trimmed.toLowerCase();
+  if (parseBrowserPilotGmailDraftTask(trimmed)) return trimmed;
+  if (/^(?:open|go to|visit|navigate to)\s+\S+/i.test(trimmed)) return trimmed;
+  if (/^(?:click|tap|select|fill|type|write|enter|press|hit)\s+[\s\S]+/i.test(trimmed)) return trimmed;
+  if (/^(?:read|inspect|summarize)\s+(?:this\s+)?(?:page|tab|website|site)\b/i.test(trimmed)) return "read";
+  if (/^(?:show|list)\s+(?:browser\s+)?tabs\b/i.test(trimmed)) return "tabs";
+  if (/^(?:go\s+)?back$|^(?:go\s+)?forward$|^(?:reload|refresh)(?:\s+(?:page|tab))?$|^close\s+(?:this\s+)?tab$/i.test(trimmed)) return trimmed;
+  if (/^(?:send it|send the email|send this email|send the message|send this message)$/i.test(trimmed)) {
+    return "click Send";
+  }
+  if (/\b(?:gmail|google docs|google doc|docs\.new|browser|new tab|current tab)\b/i.test(trimmed) &&
+      /\b(?:open|create|write|draft|email|compose|read|click|type|fill|send)\b/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/https?:\/\/|^[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
+
 const BROWSER_PILOT_EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
 function normalizeBrowserPilotEmail(rawEmail) {
@@ -3039,15 +3063,50 @@ function buildBrowserPilotHostedReply(target) {
   ].join("\n");
 }
 
+function formatBrowserPilotTabs(tabs) {
+  if (!Array.isArray(tabs) || !tabs.length) {
+    return "No browser tabs are open in Browser Pilot.";
+  }
+  return tabs.map((tab) => {
+    const marker = tab && tab.active ? "*" : "-";
+    const index = tab && tab.index ? tab.index : "?";
+    const title = tab && tab.title ? tab.title : "Untitled";
+    const url = tab && tab.url ? ` - ${tab.url}` : "";
+    return `${marker} ${index}. ${title}${url}`;
+  }).join("\n");
+}
+
+function confirmBrowserPilotPermission(payload, task) {
+  const reason = payload && payload.pause_reason ? payload.pause_reason : "a sensitive browser action";
+  const targetTask = task ? `/browser ${task}` : "/browser";
+  return window.confirm(
+    [
+      `ROK wants permission before ${reason}.`,
+      "",
+      `Command: ${targetTask}`,
+      "",
+      "Only approve if you can see the browser and this is what you intended."
+    ].join("\n")
+  );
+}
+
+function browserPilotTaskWantsFinalSend(task) {
+  const text = String(task || "").toLowerCase();
+  return /\bsend\b/.test(text) && /\b(?:gmail|email|mail|message|to\s+(?:me|myself|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}))\b/i.test(text);
+}
+
 function buildBrowserPilotReply(data, task) {
   const payload = data && typeof data === "object" ? data : {};
   const guardrails = formatBrowserPilotGuardrails(payload.guardrails);
   if (payload.paused) {
     const reason = payload.pause_reason || "a sensitive action";
+    const permissionLine = payload.approval_required
+      ? "ROK asked for permission before continuing."
+      : "Handle that step manually in your browser, then ask ROK for the next safe step.";
     return [
       "**Browser Pilot paused.**",
       "",
-      `ROK will not automate ${reason}. Handle that step manually in your browser, then ask ROK for the next safe step.`,
+      payload.message || `ROK paused before ${reason}. ${permissionLine}`,
       "",
       "**Hard stops:**",
       guardrails
@@ -3055,6 +3114,15 @@ function buildBrowserPilotReply(data, task) {
   }
   if (!payload.ok) {
     const errorText = payload.error || "Browser Pilot could not start.";
+    if (payload.code === "browser_pilot_action_failed") {
+      return [
+        "**Browser Pilot action failed.**",
+        "",
+        errorText,
+        "",
+        "Try `/browser read` or `/browser tabs` to check what ROK can see in the controlled browser."
+      ].join("\n");
+    }
     return [
       "**Browser Pilot could not start.**",
       "",
@@ -3063,6 +3131,41 @@ function buildBrowserPilotReply(data, task) {
       "For local setup, install Playwright and Chromium for the backend:",
       "`pip install playwright && python -m playwright install chromium`"
     ].join("\n");
+  }
+  if (payload.browser_action === "tabs") {
+    return [
+      "**Browser Pilot tabs.**",
+      "",
+      formatBrowserPilotTabs(payload.tabs),
+      "",
+      "**Hard stops:**",
+      guardrails
+    ].join("\n");
+  }
+  if (payload.browser_action === "read_page") {
+    const page = payload.page || {};
+    return [
+      "**Browser Pilot read the current page.**",
+      "",
+      page.title ? `Title: ${page.title}` : "",
+      page.url ? `URL: ${page.url}` : "",
+      "",
+      page.text || "No readable page text found.",
+      "",
+      "**Hard stops:**",
+      guardrails
+    ].filter((line, index, arr) => line || arr[index - 1]).join("\n").replace(/\n{3,}/g, "\n\n");
+  }
+  if (payload.browser_action && payload.action_result) {
+    const urlLine = payload.last_url ? `\nCurrent page: ${payload.last_url}` : "";
+    return [
+      "**Browser Pilot action completed.**",
+      "",
+      payload.action_result + urlLine,
+      "",
+      "**Hard stops:**",
+      guardrails
+    ].join("\n").replace(/\n{3,}/g, "\n\n");
   }
   const target = payload.target || (task ? "Requested task" : "Blank browser tab");
   const urlLine = payload.last_url ? `\nCurrent page: ${payload.last_url}` : "";
@@ -3089,7 +3192,26 @@ function buildBrowserPilotReply(data, task) {
   ].join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
-async function handleBrowserPilotCommand(task = "") {
+async function postBrowserPilotTask(normalizedTask, approved = false) {
+  const response = await fetchWithBanGuard(BROWSER_PILOT_START_URL, {
+    method: "POST",
+    headers: buildApiHeaders(true),
+    body: JSON.stringify({
+      task: normalizedTask,
+      self_email: getBrowserPilotSelfEmail(),
+      approved
+    })
+  });
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+  return { response, payload };
+}
+
+async function handleBrowserPilotCommand(task = "", options = {}) {
   if (browserPilotLaunching) return;
   if (isSending || isIntentClassificationLoading || isWorkspaceSuggestionLoading) {
     addMessage("system", "Wait for the current ROK action to finish before starting Browser Pilot.");
@@ -3099,7 +3221,8 @@ async function handleBrowserPilotCommand(task = "") {
   browserPilotLaunching = true;
   refreshSendState();
   const normalizedTask = String(task || "").trim();
-  const commandText = normalizedTask ? `/browser ${normalizedTask}` : "/browser";
+  const displayText = String(options && options.displayText ? options.displayText : "").trim();
+  const commandText = displayText || (normalizedTask ? `/browser ${normalizedTask}` : "/browser");
   addMessage("user", commandText);
   history.push({ role: "user", content: commandText });
   trimHistoryToLimit();
@@ -3136,16 +3259,42 @@ async function handleBrowserPilotCommand(task = "") {
 
   const bot = addMessage("bot", "Starting Browser Pilot...", { markdown: true });
   try {
-    const response = await fetchWithBanGuard(BROWSER_PILOT_START_URL, {
-      method: "POST",
-      headers: buildApiHeaders(true),
-      body: JSON.stringify({ task: normalizedTask, self_email: getBrowserPilotSelfEmail() })
-    });
-    let payload = {};
-    try {
-      payload = await response.json();
-    } catch {
-      payload = {};
+    let { response, payload } = await postBrowserPilotTask(normalizedTask, false);
+    if (payload && payload.approval_required && payload.can_approve !== false) {
+      const approved = confirmBrowserPilotPermission(payload, normalizedTask);
+      if (approved) {
+        ({ response, payload } = await postBrowserPilotTask(normalizedTask, true));
+      } else {
+        payload = {
+          ok: true,
+          paused: true,
+          pause_reason: payload.pause_reason || "a sensitive browser action",
+          message: "You did not approve that browser action.",
+          guardrails: payload.guardrails
+        };
+      }
+    }
+    if (
+      response.ok &&
+      payload &&
+      payload.ok &&
+      (payload.browser_action === "gmail_draft" || payload.draft_only) &&
+      browserPilotTaskWantsFinalSend(commandText) &&
+      !payload.missing_self_email
+    ) {
+      const approvedFinalSend = window.confirm(
+        [
+          "ROK prepared the email draft.",
+          "",
+          "Approve clicking Send in the visible Gmail window?",
+          "",
+          "Only approve if the recipient and body look right."
+        ].join("\n")
+      );
+      if (approvedFinalSend) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        ({ response, payload } = await postBrowserPilotTask("click Send", true));
+      }
     }
     if (!response.ok && !payload.paused) {
       payload.ok = false;
@@ -11989,13 +12138,45 @@ function normalizeBareLanguageParagraphs(text) {
   return paragraphs.map(normalizeAssistantParagraph).join("\n\n");
 }
 
+function isMarkdownHorizontalRuleLine(line) {
+  return /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(String(line || ""));
+}
+
+function normalizeMarkdownHorizontalRules(text) {
+  var lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  var output = [];
+  var inFence = false;
+  for (var i = 0; i < lines.length; i += 1) {
+    var line = lines[i];
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      output.push(line);
+      continue;
+    }
+    if (!inFence && isMarkdownHorizontalRuleLine(line)) {
+      if (output.length && output[output.length - 1].trim()) {
+        output.push("");
+      }
+      output.push("---");
+      if (i + 1 < lines.length && String(lines[i + 1] || "").trim()) {
+        output.push("");
+      }
+      continue;
+    }
+    output.push(line);
+  }
+  return output.join("\n");
+}
+
 function normalizeAssistantMarkdown(text) {
-  return normalizeBareLanguageParagraphs(
-    normalizeStructuredLanguageLines(
-      normalizeStructuredLanguageParagraphs(
-        normalizeFenceWrapperQuoteLines(
-          normalizeQuotedFenceBlocks(
-            normalizeLooseMarkdownCodeFences(text)
+  return normalizeMarkdownHorizontalRules(
+    normalizeBareLanguageParagraphs(
+      normalizeStructuredLanguageLines(
+        normalizeStructuredLanguageParagraphs(
+          normalizeFenceWrapperQuoteLines(
+            normalizeQuotedFenceBlocks(
+              normalizeLooseMarkdownCodeFences(text)
+            )
           )
         )
       )
@@ -12055,6 +12236,10 @@ function renderMarkdownFallback(text) {
   return blocks.map(function (block) {
     if (/^@@ROKCODEBLOCK\d+@@$/.test(block)) {
       return renderCodeBlock(block);
+    }
+
+    if (isMarkdownHorizontalRuleLine(block)) {
+      return "<hr>";
     }
 
     var lines = block.split("\n");
@@ -12847,6 +13032,14 @@ async function send() {
     input.value = "";
     autoResizeInput();
     handlePictionaryCommand();
+    return;
+  }
+
+  const naturalBrowserPilotTask = parseNaturalBrowserPilotTask(text);
+  if (naturalBrowserPilotTask !== null && attachments.length === 0) {
+    input.value = "";
+    autoResizeInput();
+    void handleBrowserPilotCommand(naturalBrowserPilotTask, { displayText: text, natural: true });
     return;
   }
 
