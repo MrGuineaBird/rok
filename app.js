@@ -2971,6 +2971,23 @@ function resolveBrowserPilotClientTarget(task) {
   if (lowered.includes("gmail")) {
     return { url: "https://mail.google.com", label: "Gmail", mode: "gmail" };
   }
+  if (lowered.includes("youtube") || lowered.includes("youtu.be")) {
+    let query = normalized
+      .replace(/\b(?:open|go to|visit|find|search|youtube|youtu\.be|video|videos|good|me|a|an|the|for|on|and|just)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!query && /\b(?:find|search|good|video|videos)\b/i.test(normalized)) {
+      query = "interesting video";
+    }
+    if (query) {
+      return {
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+        label: `YouTube search for "${query}"`,
+        mode: "youtube-search"
+      };
+    }
+    return { url: "https://www.youtube.com", label: "YouTube", mode: "youtube" };
+  }
   if (/^google(?:\.com)?$/i.test(lowered)) {
     return { url: "https://www.google.com", label: "Google", mode: "google" };
   }
@@ -3061,7 +3078,7 @@ function formatBrowserPilotAgentSteps(steps) {
   return steps.map((step, index) => {
     const action = step && typeof step.action === "object" ? step.action : {};
     const actionName = action.action || "action";
-    const target = action.target || action.field || action.url || action.query || action.key || "";
+    const target = action.target || action.field || action.url || action.query || action.site || action.key || "";
     const result = step && step.result ? ` - ${step.result}` : "";
     return `- ${index + 1}. ${actionName}${target ? `: ${target}` : ""}${result}`;
   }).join("\n");
@@ -3084,6 +3101,16 @@ function confirmBrowserPilotPermission(payload, task) {
 function browserPilotTaskWantsFinalSend(task) {
   const text = String(task || "").toLowerCase();
   return /\bsend\b/.test(text) && /\b(?:gmail|email|mail|message|to\s+(?:me|myself|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}))\b/i.test(text);
+}
+
+function looksLikeBrowserPilotRequest(text) {
+  const source = String(text || "").trim();
+  if (!source || source.startsWith("/")) return false;
+  return (
+    /\b(?:browser|tab|website|web page|page|youtube|gmail|google docs|google doc|docs\.new|google search|chrome|chromium)\b/i.test(source) ||
+    /\b(?:open|go to|visit|navigate|click|tap|type|fill|press|search|find)\b[\s\S]{0,80}\b(?:site|page|youtube|gmail|google|docs|video|tab)\b/i.test(source) ||
+    /https?:\/\/|^[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(source)
+  );
 }
 
 function buildBrowserPilotReply(data, task) {
@@ -3244,7 +3271,24 @@ async function tryHandleNaturalBrowserPilotAgent(task, attachmentList = []) {
   const normalizedTask = String(task || "").trim();
   if (!normalizedTask || normalizedTask.startsWith("/")) return false;
   if (Array.isArray(attachmentList) && attachmentList.length > 0) return false;
-  if (!isLocalBrowserHost()) return false;
+  if (!isLocalBrowserHost()) {
+    if (!looksLikeBrowserPilotRequest(normalizedTask)) return false;
+    input.value = "";
+    autoResizeInput();
+    input.focus();
+    addMessage("user", normalizedTask);
+    history.push({ role: "user", content: normalizedTask });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+    const target = openBrowserPilotClientTab(normalizedTask);
+    const reply = buildBrowserPilotHostedReply(target);
+    addMessage("bot", reply, { markdown: true });
+    history.push({ role: "assistant", content: reply });
+    trimHistoryToLimit();
+    syncCurrentSessionFromHistory();
+    scrollToBottom();
+    return true;
+  }
   if (browserPilotLaunching || isSending || isIntentClassificationLoading || isWorkspaceSuggestionLoading) return false;
 
   browserPilotLaunching = true;
@@ -3255,6 +3299,40 @@ async function tryHandleNaturalBrowserPilotAgent(task, attachmentList = []) {
       return false;
     }
     if (!payload || (!payload.browser_agent && !payload.ok)) {
+      if (looksLikeBrowserPilotRequest(normalizedTask)) {
+        try {
+          const fallback = await postBrowserPilotTask(normalizedTask, false);
+          if (fallback && fallback.payload && (fallback.payload.ok || fallback.payload.paused || fallback.payload.code)) {
+            response = fallback.response;
+            payload = fallback.payload;
+          }
+        } catch {
+          
+        }
+        input.value = "";
+        autoResizeInput();
+        input.focus();
+        addMessage("user", normalizedTask);
+        history.push({ role: "user", content: normalizedTask });
+        trimHistoryToLimit();
+        syncCurrentSessionFromHistory();
+        const reply = buildBrowserPilotReply(
+          payload && (payload.ok || payload.paused || payload.code)
+            ? payload
+            : {
+                ok: false,
+                browser_agent: true,
+                error: payload && payload.error ? payload.error : "Browser Pilot planner could not decide what browser action to take.",
+                code: payload && payload.code ? payload.code : "browser_agent_planner_failed"
+              },
+          normalizedTask
+        );
+        addMessage("bot", reply, { markdown: true });
+        history.push({ role: "assistant", content: reply });
+        trimHistoryToLimit();
+        syncCurrentSessionFromHistory();
+        return true;
+      }
       return false;
     }
 
