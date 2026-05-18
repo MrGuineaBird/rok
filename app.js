@@ -403,7 +403,7 @@ const DEFAULT_USER_SETTINGS = {
   projectMemoryEnabled: true,
   autoLearn: true,
   incognitoMode: false,
-  askBeforeSensitiveSend: true,
+  askBeforeSensitiveSend: false,
   showEvidenceButtons: true,
   workspaceTabLabels: {},
   customWorkspaceTabs: [],
@@ -5005,8 +5005,8 @@ function openCustomizeRokModal() {
           <label class="customize-rok-toggle">
             <input data-customize-field="askBeforeSensitiveSend" type="checkbox" />
             <span class="customize-rok-toggle-copy">
-              <strong>Ask before sensitive sends</strong>
-              <span>Preview files, memory, and extra context before it leaves this device.</span>
+              <strong>Ask before large context sends</strong>
+              <span>Only pause for attached files or big workspace context, not normal memory or web search.</span>
             </span>
           </label>
           <label class="customize-rok-toggle">
@@ -8665,8 +8665,8 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
 
   if (!prompt && workspaceValue) {
     return {
-      type: "document",
-      label: "Document",
+      type: "quick_answer",
+      label: "Quick answer",
       routeToWorkspace: false,
       outputType: inferWorkspaceOutputType(workspaceValue, "")
     };
@@ -8679,11 +8679,70 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
     LONGFORM_PROMPT_PATTERN.test(source) ||
     /\b(write|draft|compose|revise|rewrite|continue|expand)\b/.test(source);
   const codeHint = CODE_PROMPT_PATTERN.test(source) || hasCodeAttachments;
+  const imageHint =
+    hasAttachments &&
+    attachedFiles.some((item) => /^image\//i.test(String(item && item.type || item && item.mimeType || "")) || /\.(?:png|jpe?g|webp|gif|bmp|avif)$/i.test(String(item && item.name || "")));
+  const cybersecurityHint =
+    /\b(vulnerab|security|secure|exploit|xss|csrf|ssrf|sqli|sql injection|path traversal|auth|session|cors|rate limit|threat model|cve|cwe|owasp|pentest|ctf|audit|secrets?|token|cookie flags?)\b/.test(source);
+  const browserActionVerb = /\b(open|go to|browse|new tab|click|type|fill|submit)\b/.test(source);
+  const browserTarget = /\b(browser|tab|youtube|gmail|google docs?|docs|email|website|site|url|link|page)\b/.test(source) || /https?:\/\//.test(source);
+  const browserHint =
+    (browserActionVerb && browserTarget) ||
+    /\b(send an email|email .+ to|open youtube|open gmail|open google docs?)\b/.test(source);
+  const webHint =
+    /\b(search|look up|google|web|internet|latest|current|today|tonight|tomorrow|news|weather|price|stock|score|recent|right now|sources|cite|citation|fact check|who won|when is)\b/.test(source);
+  const studyHint =
+    /\b(homework|study|quiz|flashcards?|teach me|explain|practice|learn|school|assignment|worksheet|test prep|exam|notes?)\b/.test(source);
+
+  if (imageHint) {
+    return {
+      type: "image_vision",
+      label: "Image / vision",
+      routeToWorkspace: false,
+      outputType: "Other"
+    };
+  }
+
+  if (browserHint) {
+    return {
+      type: "browser_action",
+      label: "Browser action",
+      routeToWorkspace: false,
+      outputType: "Other"
+    };
+  }
+
+  if (cybersecurityHint) {
+    return {
+      type: "cybersecurity",
+      label: "Cybersecurity",
+      routeToWorkspace: false,
+      outputType: "Code"
+    };
+  }
+
+  if (webHint) {
+    return {
+      type: "web_current_info",
+      label: "Web / current info",
+      routeToWorkspace: false,
+      outputType: inferWorkspaceOutputType("", prompt)
+    };
+  }
+
+  if (studyHint && !codeHint) {
+    return {
+      type: "homework_study",
+      label: "Homework / study",
+      routeToWorkspace: false,
+      outputType: inferWorkspaceOutputType("", prompt)
+    };
+  }
 
   if (storyHint && !codeHint) {
     return {
-      type: "story",
-      label: "Story",
+      type: "creative_story",
+      label: "Creative / story",
       routeToWorkspace: false,
       outputType: "Story"
     };
@@ -8692,8 +8751,8 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
   if (documentHint && !codeHint) {
     const inferred = inferWorkspaceOutputType("", prompt);
     return {
-      type: "document",
-      label: "Document",
+      type: "homework_study",
+      label: "Homework / study",
       routeToWorkspace: false,
       outputType: inferred === "Code" ? "Essay" : inferred
     };
@@ -8701,16 +8760,16 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
 
   if (codeHint) {
     return {
-      type: "code",
-      label: "Code",
+      type: "coding_debugging",
+      label: "Coding / debugging",
       routeToWorkspace: false,
       outputType: "Code"
     };
   }
 
   return {
-    type: "general_chat",
-    label: "General chat",
+    type: "quick_answer",
+    label: "Quick answer",
     routeToWorkspace: false,
     outputType: inferWorkspaceOutputType("", prompt)
   };
@@ -8719,20 +8778,47 @@ function classifyPromptIntentFallback(promptText = "", workspaceText = "", attac
 function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "") {
   const fallback = fallbackIntent || classifyPromptIntentFallback(promptText, "", []);
   const typeAliases = {
-    story: "story",
-    fiction: "story",
-    roleplay: "story",
-    creative_writing: "story",
-    document: "document",
-    workspace: "document",
-    draft: "document",
-    code: "code",
-    coding: "code",
-    programming: "code",
-    general_chat: "general_chat",
-    general: "general_chat",
-    chat: "general_chat",
-    conversation: "general_chat"
+    quick_answer: "quick_answer",
+    quick: "quick_answer",
+    answer: "quick_answer",
+    general_chat: "quick_answer",
+    general: "quick_answer",
+    chat: "quick_answer",
+    conversation: "quick_answer",
+    other: "quick_answer",
+    coding_debugging: "coding_debugging",
+    code: "coding_debugging",
+    coding: "coding_debugging",
+    programming: "coding_debugging",
+    debugging: "coding_debugging",
+    cybersecurity: "cybersecurity",
+    security: "cybersecurity",
+    secure_code_review: "cybersecurity",
+    code_security: "cybersecurity",
+    threat_modeling: "cybersecurity",
+    creative_story: "creative_story",
+    story: "creative_story",
+    fiction: "creative_story",
+    roleplay: "creative_story",
+    creative_writing: "creative_story",
+    document: "homework_study",
+    workspace: "homework_study",
+    draft: "homework_study",
+    homework_study: "homework_study",
+    homework: "homework_study",
+    study: "homework_study",
+    school: "homework_study",
+    web_current_info: "web_current_info",
+    web: "web_current_info",
+    web_search: "web_current_info",
+    current_info: "web_current_info",
+    research: "web_current_info",
+    browser_action: "browser_action",
+    browser: "browser_action",
+    browsing: "browser_action",
+    image_vision: "image_vision",
+    image: "image_vision",
+    vision: "image_vision"
   };
   const outputAliases = {
     story: "Story",
@@ -8757,10 +8843,14 @@ function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "
     other: "Other"
   };
   const labelMap = {
-    story: "Story",
-    document: "Document",
-    code: "Code",
-    general_chat: "General chat"
+    quick_answer: "Quick answer",
+    coding_debugging: "Coding / debugging",
+    cybersecurity: "Cybersecurity",
+    creative_story: "Creative / story",
+    homework_study: "Homework / study",
+    web_current_info: "Web / current info",
+    browser_action: "Browser action",
+    image_vision: "Image / vision"
   };
 
   const rawType = String(rawIntent && (rawIntent.type || rawIntent.intent || rawIntent.label) || "")
@@ -8775,9 +8865,9 @@ function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
   let outputType = outputAliases[rawOutput] || fallback.outputType || inferWorkspaceOutputType("", promptText);
-  if (type === "story") {
+  if (type === "creative_story") {
     outputType = "Story";
-  } else if (type === "code") {
+  } else if (type === "coding_debugging" || type === "cybersecurity") {
     outputType = "Code";
   }
 
@@ -8788,7 +8878,7 @@ function normalizeIntentClassification(rawIntent, fallbackIntent, promptText = "
 
   return {
     type,
-    label: labelMap[type] || fallback.label || "General chat",
+    label: labelMap[type] || fallback.label || "Quick answer",
     routeToWorkspace,
     outputType,
     confidence,
@@ -8846,6 +8936,92 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
     console.warn("intent classification failed", error);
     return fallbackIntent;
   }
+}
+
+function shouldAutoEnableWebSearchForIntent(intent) {
+  return Boolean(intent && intent.type === "web_current_info" && !isIncognitoModeEnabled());
+}
+
+function getFastStartStatusForIntent(intent, options = {}) {
+  const type = String(intent && intent.type || "quick_answer");
+  const imageCount = Number(options.imageAttachmentCount) || 0;
+  const modelId = normalizeSessionModel(options.modelId || "");
+  if (imageCount > 0 || type === "image_vision") {
+    return `Analyzing image${imageCount === 1 ? "" : "s"}...`;
+  }
+  if (type === "web_current_info" || options.webSearchActive) {
+    return "Searching the web...";
+  }
+  if (type === "cybersecurity") {
+    return modelId === HYPERION_MODEL_ID ? "Routing to Hyperion..." : "Checking security...";
+  }
+  if (type === "coding_debugging") {
+    return "Checking code...";
+  }
+  if (type === "browser_action") {
+    return "Preparing browser...";
+  }
+  if (type === "creative_story") {
+    return "Shaping the story...";
+  }
+  if (type === "homework_study") {
+    return "Building study answer...";
+  }
+  return "Reading your request...";
+}
+
+function getIntentRoutingSystemPrompt(intent) {
+  const type = String(intent && intent.type || "quick_answer");
+  const label = String(intent && intent.label || "Quick answer");
+  const shared = [
+    `ROK intent router selected: ${label}.`,
+    "Match the answer shape to the user's intent. Avoid padding, corporate wording, and obvious explanations."
+  ];
+  const byType = {
+    quick_answer: [
+      "Answer directly. Keep it short unless the user asks for depth."
+    ],
+    coding_debugging: [
+      "Act like a practical coding assistant. Identify the likely cause, make or propose the concrete fix first, then explain briefly.",
+      "Prefer patches, commands, tests, exact file/function references, and concise reasoning over lecture-mode explanation."
+    ],
+    cybersecurity: [
+      "Act as a defensive cybersecurity reviewer. Prioritize vulnerability analysis, secure code review, threat modeling, auth/session/CORS/rate-limit issues, SSRF/XSS/SQLi/path traversal, and safe exploit explanation.",
+      "Give actionable fixes and tests. Keep exploit details bounded to authorized labs and defensive understanding."
+    ],
+    creative_story: [
+      "Be vivid and specific. Avoid generic prompts, bland plot advice, and filler.",
+      "If writing creative text, produce the actual piece instead of only describing how to write it."
+    ],
+    homework_study: [
+      "Help the user learn. Give clear answers, then show the key idea or method without turning it into a huge lecture.",
+      "For schoolwork, avoid doing dishonest full-submission cheating when the user needs learning support; offer explanation, outlines, examples, checks, and practice."
+    ],
+    web_current_info: [
+      "Use current/web context when available. Be date-aware, separate confirmed facts from inference, and avoid giant source dumps.",
+      "Summarize the useful answer first, then cite or mention source context only when it helps."
+    ],
+    browser_action: [
+      "Treat this as a browser-control request. Describe or execute the next browser step clearly, and pause before sensitive actions like passwords, 2FA, payments, sending messages, sharing, deleting, downloads, or account settings."
+    ],
+    image_vision: [
+      "Treat this as a vision request. State visual observations and conclusions clearly. Do not loop, double-check out loud, or repeat phrases."
+    ]
+  };
+  return [...shared, ...(byType[type] || byType.quick_answer)].join(" ");
+}
+
+function applyIntentRoutingToRequestBody(requestBody, intent) {
+  if (!requestBody || typeof requestBody !== "object") return requestBody;
+  const prompt = getIntentRoutingSystemPrompt(intent);
+  requestBody.rok_intent = {
+    type: String(intent && intent.type || "quick_answer"),
+    label: String(intent && intent.label || "Quick answer"),
+    confidence: intent && typeof intent.confidence === "number" ? intent.confidence : null,
+    source: String(intent && intent.source || "fallback")
+  };
+  requestBody.custom_system_prompt = [requestBody.custom_system_prompt, prompt].filter(Boolean).join("\n\n");
+  return requestBody;
 }
 
 function countWords(text) {
@@ -10356,7 +10532,7 @@ async function appendAssistantReplyToWorkspace(replyText, options = {}) {
 }
 
 function shouldUseStoryCanvasForIntent(intent) {
-  return Boolean(intent && intent.type === "story");
+  return Boolean(intent && (intent.type === "creative_story" || intent.type === "story"));
 }
 
 function looksLikeStoryText(text) {
@@ -13345,6 +13521,7 @@ async function send() {
   const recentHistory = buildRequestHistory(history.slice(-requestHistoryLimit));
   const compactedHistorySummary = buildClientHistoryCompactionSummary(history.slice(0, Math.max(0, history.length - requestHistoryLimit)));
   const priorHistoryLength = history.length;
+  const fallbackIntent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
   let baseRequestBody;
   if (sandboxActive) {
     const sandboxPreviewPayload = buildSandboxRequestPayload(
@@ -13400,6 +13577,8 @@ async function send() {
     requestBody: baseRequestBody,
     model: sessionModel
   });
+  const initialAttachmentsPayload = Array.isArray(baseRequestBody.attachments) ? baseRequestBody.attachments : [];
+  const initialImageAttachmentCount = initialAttachmentsPayload.filter((item) => item && item.type === "image").length;
   if (shouldPromptBeforeSendForEvidence(sendEvidencePreview)) {
     const approved = await openAskBeforeSendModal(sendEvidencePreview);
     if (!approved) {
@@ -13504,6 +13683,8 @@ async function send() {
   let pendingAnswerText = "";
   let answerRenderTimer = null;
   let answerRenderResolve = null;
+  let intentWebSearchActive = shouldAutoEnableWebSearchForIntent(fallbackIntent);
+  let lastAssistantStatusText = "";
   let writeBackToWorkspace = false;
   let useStoryCanvas = false;
   let workspaceContext = "";
@@ -13616,6 +13797,8 @@ async function send() {
     const value = String(status || "").trim();
     if (!value) return;
     if (writeBackToWorkspace) return;
+    if (!answerStarted && value === lastAssistantStatusText) return;
+    lastAssistantStatusText = value;
     convertTypingRowToBotMessage();
     const statusKind = getAssistantStatusKind(value);
     if (!answerStarted) {
@@ -13624,6 +13807,8 @@ async function send() {
         showSearchingAvatar();
       } else if (statusKind === "image") {
         showAnalyzingAvatar();
+      } else if (statusKind !== "default") {
+        showGeneratingAvatar();
       }
     }
 
@@ -13658,7 +13843,7 @@ async function send() {
     if (bubble && !isRetryStatus && !answerStarted && !String(partialText || "").trim()) {
       bubble.classList.remove("markdown");
       bubble.classList.add("plain");
-      if (statusKind === "web" || statusKind === "image") {
+      if (isRichAssistantStatusKind(statusKind)) {
         bubble.classList.add("assistant-status-bubble");
         bubble.innerHTML = renderAssistantStatusBubble(value, statusKind);
       } else {
@@ -13673,13 +13858,31 @@ async function send() {
     const lower = String(value || "").toLowerCase();
     if (lower.includes("searching the web")) return "web";
     if (lower.includes("analyzing image")) return "image";
+    if (lower.includes("routing to hyperion")) return "routing";
+    if (lower.includes("checking security")) return "security";
+    if (lower.includes("checking code")) return "code";
+    if (lower.includes("preparing browser")) return "browser";
+    if (lower.includes("shaping the story")) return "creative";
+    if (lower.includes("building study answer")) return "study";
+    if (lower.includes("reading your request")) return "quick";
     return "default";
   };
+  const isRichAssistantStatusKind = (kind) => {
+    return ["web", "image", "routing", "security", "code", "browser", "creative", "study", "quick"].includes(kind);
+  };
   const renderAssistantStatusBubble = (value, kind) => {
-    const label = kind === "web" ? "Searching the web" : "Analyzing image";
-    const detail = kind === "web"
-      ? "Checking sources and pulling the useful bits"
-      : "Reading the visual details";
+    const statusCopy = {
+      web: ["Searching the web", "Checking sources and pulling the useful bits"],
+      image: ["Analyzing image", "Reading the visual details"],
+      routing: ["Routing to Hyperion", "Using ROK's security brain"],
+      security: ["Checking security", "Reviewing risk, exploitability, and fixes"],
+      code: ["Checking code", "Finding the bug path before answering"],
+      browser: ["Preparing browser", "Planning the next visible step"],
+      creative: ["Shaping the story", "Turning the idea into something less bland"],
+      study: ["Building study answer", "Keeping it clear without the wall of mush"],
+      quick: ["Reading your request", "Getting straight to the point"]
+    };
+    const [label, detail] = statusCopy[kind] || [String(value || "Working").replace(/\.+$/, ""), "Getting the answer ready"];
     const safeLabel = escapeHtml(label);
     const safeDetail = escapeHtml(detail);
     const safeValue = escapeHtml(String(value || label).replace(/\.+$/, ""));
@@ -13749,7 +13952,7 @@ async function send() {
       consumeTaggedTokenChunk(visibleAssistantContent);
     }
   };
-  const isWebSearchActiveForRequest = () => webSearchEnabled || forceWebSearchForRetry;
+  const isWebSearchActiveForRequest = () => webSearchEnabled || forceWebSearchForRetry || intentWebSearchActive;
   const shouldAutoRetryWithWebSearch = () => {
     if (writeBackToWorkspace || sandboxActive) return false;
     if (isWebSearchActiveForRequest() || autoWebRetryAttempted || stopRequested) return false;
@@ -13831,6 +14034,7 @@ async function send() {
     assistantStreamStarted = false;
     pendingToolCalls = [];
     webSearchVisualActive = false;
+    lastAssistantStatusText = "";
     smoothAnswerStream = false;
     visibleAnswerText = "";
     pendingAnswerText = "";
@@ -13947,6 +14151,14 @@ async function send() {
     }
     thinkTagCarry = "";
   };
+  const initialFastStatus = getFastStartStatusForIntent(fallbackIntent, {
+    imageAttachmentCount: initialImageAttachmentCount,
+    modelId: sessionModel,
+    webSearchActive: isWebSearchActiveForRequest()
+  });
+  if (initialFastStatus) {
+    handleStatusUpdate(initialFastStatus);
+  }
 
   try {
     if (sandboxActive) {
@@ -13970,7 +14182,7 @@ async function send() {
       return;
     }
 
-    let intent = classifyPromptIntentFallback(text, sessionWorkspaceContext, attachments);
+    let intent = fallbackIntent;
     isIntentClassificationLoading = true;
     refreshSendState();
     try {
@@ -14000,6 +14212,15 @@ async function send() {
     workspaceContext = "";
     hasWorkspaceContext = false;
     requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
+    intentWebSearchActive = shouldAutoEnableWebSearchForIntent(intent);
+    applyIntentRoutingToRequestBody(baseRequestBody, intent);
+    if (intentWebSearchActive) {
+      baseRequestBody.enable_web_search = true;
+    }
+    assistantEvidence = buildAssistantEvidenceSnapshot({
+      requestBody: baseRequestBody,
+      model: sessionModel
+    });
 
     const maxHistoryMessages = getMaxHistoryMessagesValue();
     if (maxHistoryMessages > 0 && priorHistoryLength > maxHistoryMessages * 0.8) {
@@ -14221,6 +14442,7 @@ async function send() {
               enable_thinking: requestShouldThink,
               tools: BUILTIN_TOOLS
             });
+            applyIntentRoutingToRequestBody(followupBody, intent);
             if (isWebSearchActiveForRequest()) {
               followupBody.enable_web_search = true;
             }
@@ -14593,6 +14815,7 @@ async function send() {
             enable_thinking: requestShouldThink,
             tools: BUILTIN_TOOLS
           });
+          applyIntentRoutingToRequestBody(followupBody, intent);
           if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
           incrementEvidenceFollowupCount(assistantEvidence);
 
@@ -16599,16 +16822,12 @@ function finalizeAssistantEvidence(evidence, options = {}) {
 function getSensitiveSendReasons(evidence) {
   if (!evidence) return [];
   const reasons = [];
-  const memoryCount =
-    (Array.isArray(evidence.localMemory) ? evidence.localMemory.length : 0) +
-    (Array.isArray(evidence.localKnowledge) ? evidence.localKnowledge.length : 0);
-  if (evidence.incognito) reasons.push("incognito");
-  if (Array.isArray(evidence.attachments) && evidence.attachments.length) reasons.push("attachments");
-  if (memoryCount >= 3) reasons.push("memory");
-  if (evidence.webSearchEnabled) reasons.push("web");
-  if (evidence.toolsEnabled) reasons.push("tools");
-  if (evidence.workspaceContext && evidence.workspaceContext.chars > 0) reasons.push("workspace");
-  if (Number(evidence.messageHistoryCount) >= 12) reasons.push("history");
+  if (Array.isArray(evidence.attachments) && evidence.attachments.length) {
+    reasons.push("attachments");
+  }
+  if (evidence.workspaceContext && Number(evidence.workspaceContext.chars) >= 6000) {
+    reasons.push("large workspace context");
+  }
   return reasons;
 }
 
@@ -16925,7 +17144,7 @@ function openAskBeforeSendModal(evidence) {
 
     const hint = document.createElement("div");
     hint.className = "correction-modal-hint";
-    hint.textContent = "This looks like a more sensitive request, so ROK is pausing to show the context that is about to be sent.";
+    hint.textContent = "ROK is only pausing because this includes attached files or a large workspace context.";
 
     const body = document.createElement("div");
     body.className = "evidence-modal-body";
