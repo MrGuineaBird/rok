@@ -13446,13 +13446,19 @@ async function send() {
   const setBotAvatarGif = (src, variant = "") => {
     if (!botAvatar) return;
     const variantClass = variant ? ` is-${variant}` : "";
-    botAvatar.innerHTML = `<img src="${src}" class="avatar-gif${variantClass}" alt="">`;
+    botAvatar.innerHTML = `<img src="${escapeHtml(src)}" class="avatar-gif${variantClass}" alt="">`;
   };
   const showThinkingAvatar = () => {
-    setBotAvatarGif("rokthinking.gif", "thinking");
+    setBotAvatarGif("gifs/rokthinking.gif", "thinking");
   };
   const showGeneratingAvatar = () => {
-    setBotAvatarGif("rokgenerating.gif", "generating");
+    setBotAvatarGif("gifs/rokgenerating.gif", "generating");
+  };
+  const showAnalyzingAvatar = () => {
+    setBotAvatarGif("gifs/rokgenerating.gif", "analyzing");
+  };
+  const showSearchingAvatar = () => {
+    setBotAvatarGif("gifs/rokgenerating.gif", "searching");
   };
   const restoreBotAvatar = () => {
     if (!botAvatar) return;
@@ -13492,6 +13498,12 @@ async function send() {
   let answerStarted = false;
   let assistantStreamStarted = false;
   let pendingToolCalls = [];
+  let webSearchVisualActive = false;
+  let smoothAnswerStream = false;
+  let visibleAnswerText = "";
+  let pendingAnswerText = "";
+  let answerRenderTimer = null;
+  let answerRenderResolve = null;
   let writeBackToWorkspace = false;
   let useStoryCanvas = false;
   let workspaceContext = "";
@@ -13605,6 +13617,15 @@ async function send() {
     if (!value) return;
     if (writeBackToWorkspace) return;
     convertTypingRowToBotMessage();
+    const statusKind = getAssistantStatusKind(value);
+    if (!answerStarted) {
+      if (statusKind === "web") {
+        webSearchVisualActive = true;
+        showSearchingAvatar();
+      } else if (statusKind === "image") {
+        showAnalyzingAvatar();
+      }
+    }
 
     // Show retry / status text in the thinking panel label
     if (thinkingPanel) {
@@ -13637,10 +13658,41 @@ async function send() {
     if (bubble && !isRetryStatus && !answerStarted && !String(partialText || "").trim()) {
       bubble.classList.remove("markdown");
       bubble.classList.add("plain");
-      bubble.textContent = value;
+      if (statusKind === "web" || statusKind === "image") {
+        bubble.classList.add("assistant-status-bubble");
+        bubble.innerHTML = renderAssistantStatusBubble(value, statusKind);
+      } else {
+        bubble.classList.remove("assistant-status-bubble");
+        bubble.textContent = value;
+      }
     }
 
     scrollToBottom();
+  };
+  const getAssistantStatusKind = (value) => {
+    const lower = String(value || "").toLowerCase();
+    if (lower.includes("searching the web")) return "web";
+    if (lower.includes("analyzing image")) return "image";
+    return "default";
+  };
+  const renderAssistantStatusBubble = (value, kind) => {
+    const label = kind === "web" ? "Searching the web" : "Analyzing image";
+    const detail = kind === "web"
+      ? "Checking sources and pulling the useful bits"
+      : "Reading the visual details";
+    const safeLabel = escapeHtml(label);
+    const safeDetail = escapeHtml(detail);
+    const safeValue = escapeHtml(String(value || label).replace(/\.+$/, ""));
+    return `
+      <div class="assistant-status is-${kind}" aria-label="${safeValue}">
+        <span class="assistant-status-pulse" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="assistant-status-copy">
+          <strong>${safeLabel}</strong>
+          <em>${safeDetail}</em>
+        </span>
+        <span class="assistant-status-scan" aria-hidden="true"></span>
+      </div>
+    `;
   };
   const getToolCallName = (toolCall) => {
     const fn = toolCall && (toolCall.function || toolCall);
@@ -13703,6 +13755,73 @@ async function send() {
     if (isWebSearchActiveForRequest() || autoWebRetryAttempted || stopRequested) return false;
     return isSlashToolDraft(partialText);
   };
+  const shouldSmoothAnswerTokens = () => {
+    return !writeBackToWorkspace && !storyCanvas && (webSearchVisualActive || isWebSearchActiveForRequest());
+  };
+  const clearAnswerRenderTimer = () => {
+    if (answerRenderTimer) {
+      clearInterval(answerRenderTimer);
+      answerRenderTimer = null;
+    }
+  };
+  const resolveAnswerRenderWaiter = () => {
+    if (!answerRenderResolve) return;
+    const resolve = answerRenderResolve;
+    answerRenderResolve = null;
+    resolve();
+  };
+  const drainAnswerRenderQueue = (force = false) => {
+    if (!smoothAnswerStream) return;
+    if (force) {
+      visibleAnswerText = partialText;
+      pendingAnswerText = "";
+      clearAnswerRenderTimer();
+      streamRenderState.flush();
+      resolveAnswerRenderWaiter();
+      return;
+    }
+    if (!pendingAnswerText) {
+      clearAnswerRenderTimer();
+      resolveAnswerRenderWaiter();
+      return;
+    }
+    const take = Math.min(
+      pendingAnswerText.length,
+      Math.max(14, Math.min(58, Math.ceil(pendingAnswerText.length / 18)))
+    );
+    visibleAnswerText += pendingAnswerText.slice(0, take);
+    pendingAnswerText = pendingAnswerText.slice(take);
+    streamRenderState.flush();
+    if (!pendingAnswerText) {
+      clearAnswerRenderTimer();
+      resolveAnswerRenderWaiter();
+    }
+  };
+  const scheduleAnswerRenderQueue = () => {
+    if (answerRenderTimer) return;
+    answerRenderTimer = setInterval(() => drainAnswerRenderQueue(false), 18);
+  };
+  const finishAnswerRenderQueue = () => {
+    if (!smoothAnswerStream || !pendingAnswerText) {
+      if (smoothAnswerStream) {
+        visibleAnswerText = partialText;
+      }
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      answerRenderResolve = resolve;
+      scheduleAnswerRenderQueue();
+    });
+  };
+  const primeAnswerRenderQueueForCompletedText = () => {
+    if (smoothAnswerStream || !shouldSmoothAnswerTokens() || partialText.length < 120) {
+      return;
+    }
+    smoothAnswerStream = true;
+    visibleAnswerText = "";
+    pendingAnswerText = partialText;
+    scheduleAnswerRenderQueue();
+  };
   const resetAssistantUiForAutoWebRetry = () => {
     partialText = "";
     thinkingText = "";
@@ -13711,6 +13830,12 @@ async function send() {
     answerStarted = false;
     assistantStreamStarted = false;
     pendingToolCalls = [];
+    webSearchVisualActive = false;
+    smoothAnswerStream = false;
+    visibleAnswerText = "";
+    pendingAnswerText = "";
+    answerRenderResolve = null;
+    clearAnswerRenderTimer();
     thinkingTitleRequested = false;
     thinkingTitleResolved = false;
     streamRenderState.lastFlush = 0;
@@ -13749,6 +13874,7 @@ async function send() {
       const retryLine = bubble.querySelector(".retry-status-line");
       if (retryLine) retryLine.remove();
       bubble.removeAttribute("data-retry-status");
+      bubble.classList.remove("assistant-status-bubble");
     }
     removeTypingIndicator();
     finalizeThinkingPanel(true);
@@ -13759,6 +13885,13 @@ async function send() {
     noteAnswerStarted();
     markAssistantStreamStarted();
     partialText += piece;
+    if (shouldSmoothAnswerTokens() || smoothAnswerStream) {
+      smoothAnswerStream = true;
+      pendingAnswerText += piece;
+      scheduleAnswerRenderQueue();
+      return;
+    }
+    visibleAnswerText = partialText;
     const now = performance.now();
     if (now - streamRenderState.lastFlush > 40) {
       streamRenderState.flush();
@@ -14192,6 +14325,8 @@ async function send() {
         partialText = "(No response)";
       }
       finalizeThinkingPanel(Boolean(partialText), true);
+      primeAnswerRenderQueueForCompletedText();
+      await finishAnswerRenderQueue();
       removeTypingIndicator();
 
       if (!writeBackToWorkspace) {
@@ -14243,7 +14378,7 @@ async function send() {
           ? `Writing story... ${partialText.length.toLocaleString()} chars`
           : "Writing story in canvas...";
       } else {
-        bubble.textContent = partialText;
+        bubble.textContent = smoothAnswerStream ? visibleAnswerText : partialText;
       }
       scrollToBottom();
     };
@@ -14551,6 +14686,8 @@ async function send() {
 
     if (!writeBackToWorkspace) {
       const finalEvidence = finalizeAssistantEvidence(assistantEvidence);
+      primeAnswerRenderQueueForCompletedText();
+      await finishAnswerRenderQueue();
       streamRenderState.flush();
       if (storyCanvas) {
         storyCanvas.setStatus("Complete");
@@ -14586,6 +14723,7 @@ async function send() {
     console.log("chat error:", err);
     removeTypingIndicator();
     flushTaggedTokenCarry();
+    drainAnswerRenderQueue(true);
     finalizeThinkingPanel(Boolean(partialText), true);
 
     if (isBanOverlayActive) {

@@ -4677,16 +4677,142 @@ a.server-down-btn {
 }
 
 .avatar-gif {
-  width: 100%;
-  height: 100%;
+  width: 32px;
+  height: 32px;
   display: block;
-  object-fit: cover;
-  border-radius: 50%;
+  object-fit: contain;
+  border-radius: 0;
+  transform-origin: center;
 }
 
-.avatar-gif.is-thinking {
+.avatar-gif.is-thinking,
+.avatar-gif.is-generating,
+.avatar-gif.is-analyzing {
   transform: scale(1.18);
-  transform-origin: center;
+}
+
+.avatar-gif.is-searching {
+  transform: scale(1.28);
+}
+
+.assistant-status-bubble {
+  min-width: min(360px, 78vw);
+}
+
+.assistant-status {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: min(340px, 76vw);
+  padding: 10px 0 12px;
+  color: #f6d5d5;
+  overflow: hidden;
+}
+
+.assistant-status-pulse {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assistant-status-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px solid rgba(239, 68, 68, 0.52);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.24);
+  animation: status-ring 1.25s ease-in-out infinite;
+}
+
+.assistant-status-pulse i {
+  width: 5px;
+  height: 5px;
+  margin: 0 2px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
+  animation: status-dot-wave 900ms ease-in-out infinite;
+}
+
+.assistant-status-pulse i:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.assistant-status-pulse i:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.assistant-status-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assistant-status-copy strong {
+  font-size: 14px;
+  line-height: 1.2;
+  color: #fff4f4;
+}
+
+.assistant-status-copy em {
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #c69c9c;
+}
+
+.assistant-status-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.95), transparent);
+  transform: translateX(-65%);
+  animation: status-scan 1.15s ease-in-out infinite;
+}
+
+.assistant-status.is-web .assistant-status-pulse::before {
+  border-radius: 8px;
+  transform: rotate(-8deg);
+}
+
+@keyframes status-ring {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes status-dot-wave {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translateY(3px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes status-scan {
+  0% {
+    transform: translateX(-70%);
+  }
+  100% {
+    transform: translateX(70%);
+  }
 }
 
 .bubble {
