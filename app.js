@@ -17766,6 +17766,7 @@ const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
+const PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY = "rok_pixel_painter_svg_default_migrated";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
@@ -18880,20 +18881,18 @@ function setPixelPainterProvider(value) {
 
 function getPixelPainterRenderMode() {
   try {
-    const value = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "best").trim().toLowerCase();
-    return value === "pixel" || value === "vector" || value === "best" ? value : "best";
+    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vector");
   } catch (e) {
-    return "best";
+    // Ignore storage errors
   }
+  return "vector";
 }
 
 function setPixelPainterRenderMode(value) {
   try {
-    const normalized = String(value || "").trim().toLowerCase();
-    localStorage.setItem(
-      PIXEL_PAINTER_MODE_STORAGE_KEY,
-      normalized === "pixel" || normalized === "vector" || normalized === "best" ? normalized : "best"
-    );
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vector");
+    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
   } catch (e) {
     // Ignore storage errors
   }
@@ -18971,7 +18970,7 @@ function requestPixelPainterSettings() {
 
   let selectedProvider = "ollama";
   const existingOllamaKey = getPixelPainterApiKey();
-  let selectedMode = "pixel";
+  let selectedMode = "vector";
   let ollamaApiKey = existingOllamaKey;
   let referenceImageBase64 = "";
   let referencePreviewUrl = "";
@@ -19027,22 +19026,10 @@ function requestPixelPainterSettings() {
 
   const modeOptions = [
     {
-      value: "best",
-      badge: "HQ",
-      title: "Best",
-      description: "Vector planning plus paint refinement for the strongest result."
-    },
-    {
       value: "vector",
-      badge: "VG",
-      title: "Vector",
-      description: "Smooth SVG illustration with clean shapes."
-    },
-    {
-      value: "pixel",
-      badge: "PX",
-      title: "Pixel",
-      description: "Classic block-by-block painter."
+      badge: "SVG",
+      title: "SVG",
+      description: "Fast editable vector art with clean shapes."
     }
   ];
 
@@ -19272,7 +19259,7 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Save and Continue";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE is Ollama-only. It uses your Ollama key for vector/pixel painting and rejects every outside image provider.";
+    hint.textContent = "ROK IMAGE uses compact SVG with your Ollama key.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
     modeLabel.style.display = "none";
@@ -19301,11 +19288,11 @@ function requestPixelPainterSettings() {
     ollamaApiKey = normalizedKey;
     setPixelPainterProvider("ollama");
     setPixelPainterApiKey(normalizedKey);
-    setPixelPainterRenderMode("pixel");
+    setPixelPainterRenderMode(selectedMode);
     closePixelPainterApiKeyModal({
       provider: "ollama",
       apiKey: normalizedKey,
-      mode: "pixel",
+      mode: selectedMode,
       referenceImageBase64,
       referenceImageName
     });
@@ -19425,7 +19412,7 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const renderMode = "pixel";
+  const renderMode = "vector";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
@@ -19472,7 +19459,7 @@ async function handleImagineCommand(prompt) {
   const previewImg = document.createElement("img");
   previewImg.className = "pixel-painting-img";
   previewImg.alt = "Generated image";
-  previewImg.style.imageRendering = renderMode === "pixel" ? "pixelated" : "auto";
+  previewImg.style.imageRendering = "auto";
   previewDiv.appendChild(previewImg);
   header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">${modeMeta.icon}</span><span class="pixel-painting-title">${modeMeta.label}: "${escapeHtml(prompt)}"</span>`;
   
@@ -19830,12 +19817,12 @@ async function handleImagineCommand(prompt) {
     };
   }
 
-  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, priorRepairFocus) {
+  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, currentVectorSvg, priorRepairFocus) {
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
 
-    let retries = renderMode === "best" ? 1 : 2;
-    let rateLimitRetries = renderMode === "best" ? 0 : 1;
+    let retries = 2;
+    let rateLimitRetries = 1;
 
     while (retries > 0) {
       const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -19849,11 +19836,12 @@ async function handleImagineCommand(prompt) {
           canvas_base64: currentVectorBase64 || "",
           reference_image_base64: referenceImageBase64,
           current_scene: currentVectorScene || null,
+          current_svg: String(currentVectorSvg || ""),
           repair_focus: String(priorRepairFocus || ""),
           pass_num: passNum,
           max_pixels: 100,
-          quality_profile: renderMode === "best" ? "usage_safe" : "standard",
-          mode: "vector"
+          quality_profile: "standard",
+          mode: "svg"
         })
       });
       const responseData = await response.json().catch(() => null);
@@ -19861,7 +19849,7 @@ async function handleImagineCommand(prompt) {
       if (response.ok) {
         const data = responseData || {};
         const imageUrl = getPixelPainterImageUrl(data);
-        if (data.ok && data.mode === "vector" && imageUrl) {
+        if (data.ok && data.mode === "svg" && imageUrl) {
           const confidence = Number(data.confidence);
           const elementCount = Number(data.element_count);
           const criticScore = Number(data.critic_score);
@@ -19875,7 +19863,8 @@ async function handleImagineCommand(prompt) {
             issueCount: Number.isFinite(issueCount) ? issueCount : 0,
             issues: Array.isArray(data.issues) ? data.issues.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
             repairFocus: String(data.repair_focus || "").trim(),
-            scene: data && typeof data.scene === "object" ? data.scene : null
+            scene: data && typeof data.scene === "object" ? data.scene : null,
+            svg: String(data.svg || "")
           };
         }
         throw new Error((data && data.error) || "Vector generation returned an invalid scene.");
@@ -19911,7 +19900,7 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
-  const useVectorPipeline = false;
+  const useVectorPipeline = true;
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
   const complexVectorPrompt = useVectorPipeline && (
@@ -19920,59 +19909,22 @@ async function handleImagineCommand(prompt) {
   );
   const relationHeavyVectorPrompt = useVectorPipeline &&
     /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
-  const pixelPromptProfile = getPixelPainterPromptProfile(prompt);
   let finalUrl = "";
-  const vectorPasses = renderMode === "best"
-    ? (
-        complexVectorPrompt
-          ? [
-              { passNum: 1, progress: 18, label: "Planning structure" },
-              { passNum: 2, progress: 36, label: "Locking scaffold" }
-            ]
-          : [
-              { passNum: 1, progress: 24, label: "Blocking scene" }
-            ]
-      )
-    : (
-        complexVectorPrompt
-          ? [
-              { passNum: 1, progress: 18, label: "Blocking scene" },
-              { passNum: 2, progress: 38, label: "Separating subjects" },
-              { passNum: 3, progress: 58, label: "Fixing relationships" },
-              { passNum: 4, progress: 78, label: "Repairing anatomy and props" },
-              { passNum: 5, progress: 92, label: "Polishing silhouette" }
-            ]
-          : [
-              { passNum: 1, progress: 24, label: "Blocking scene" },
-              { passNum: 2, progress: 52, label: "Correcting shapes" },
-              { passNum: 3, progress: 78, label: "Refining details" },
-              { passNum: 4, progress: 92, label: "Final cleanup" }
-            ]
-      );
-  const directPixelPasses = buildAdaptivePixelPasses(pixelPromptProfile);
-  const hybridPixelPasses = complexVectorPrompt
+  const vectorPasses = complexVectorPrompt
     ? [
-        { passNum: 1, progress: 62, label: "Overpainting scaffold", maxPixels: 150, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
-        { passNum: 2, progress: 82, label: "Fixing action details", maxPixels: 140, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
-        { passNum: 3, progress: 97, label: "Final cleanup", maxPixels: 100, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
+        { passNum: 1, progress: 36, label: "Writing SVG layout" },
+        { passNum: 2, progress: 76, label: "Editing SVG details" }
       ]
     : [
-        { passNum: 1, progress: 70, label: "Overpainting scaffold", maxPixels: 130, guideMode: "vector_scaffold", qualityProfile: "usage_safe" },
-        { passNum: 2, progress: 95, label: "Final cleanup", maxPixels: 90, guideMode: "vector_scaffold", qualityProfile: "usage_safe" }
+        { passNum: 1, progress: 70, label: "Writing SVG" }
       ];
-  let generationSummary = `${directPixelPasses.length}-pass Ollama vision-guided ROK IMAGE painting`;
+  let generationSummary = `${vectorPasses.length}-pass Ollama SVG renderer`;
 
   try {
-    if (!stopped) {
-      imagePlan = await requestPixelPainterImagePlan(pixelPromptProfile);
-      generationSummary = `${directPixelPasses.length}-pass planned Ollama vision painting`;
-    }
-
-    let seedVectorResult = null;
-    let skipBestPaintStage = false;
     if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
       let currentVectorScene = null;
+      let currentVectorSvg = "";
       let currentRepairFocus = "";
       let bestVectorResult = null;
       for (const vectorPass of vectorPasses) {
@@ -19985,6 +19937,7 @@ async function handleImagineCommand(prompt) {
             vectorPass.progress,
             currentVectorBase64,
             currentVectorScene,
+            currentVectorSvg,
             currentRepairFocus
           );
         } catch (error) {
@@ -20032,12 +19985,14 @@ async function handleImagineCommand(prompt) {
           issueCount: safeIssueCount,
           issues: Array.isArray(vectorResult.issues) ? vectorResult.issues : [],
           repairFocus: String(vectorResult.repairFocus || "").trim(),
-          scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null
+          scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null,
+          svg: String(vectorResult.svg || "")
         };
         finalUrl = bestVectorResult.imageUrl;
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
         currentVectorScene = bestVectorResult.scene;
+        currentVectorSvg = bestVectorResult.svg;
         currentRepairFocus = bestVectorResult.repairFocus;
         const earlyStopStrongFirstPass = renderMode === "vector" &&
           complexVectorPrompt &&
@@ -20053,25 +20008,6 @@ async function handleImagineCommand(prompt) {
           statusText.textContent = "Complete";
           break;
         }
-        const bestModeSkipPaint = renderMode === "best" &&
-          (
-            bestVectorResult.criticScore >= 112 ||
-            bestVectorResult.issueCount <= 1
-          );
-        if (bestModeSkipPaint) {
-          generationSummary = `${vectorPass.passNum}-pass usage-safe vector illustration`;
-          statusText.textContent = "Complete";
-          skipBestPaintStage = true;
-          break;
-        }
-        const earlyStopBestScaffold = renderMode === "best" &&
-          vectorPass.passNum >= 2 &&
-          bestVectorResult.criticScore >= 106 &&
-          bestVectorResult.issueCount <= 2;
-        if (earlyStopBestScaffold) {
-          statusText.textContent = "Scaffold locked";
-          break;
-        }
         if (vectorPass.passNum < vectorPasses.length) {
           currentVectorBase64 = await renderPixelPainterPreviewToBase64(finalUrl);
         }
@@ -20079,50 +20015,7 @@ async function handleImagineCommand(prompt) {
       if (renderMode === "vector" && finalUrl) {
         progressBar.style.width = "100%";
         statusText.textContent = "Complete";
-      } else if (renderMode === "best" && skipBestPaintStage && bestVectorResult) {
-        progressBar.style.width = "100%";
-        statusText.textContent = "Complete";
-      } else if (renderMode === "best" && bestVectorResult) {
-        seedVectorResult = bestVectorResult;
-        finalUrl = "";
       }
-    }
-
-    if (!stopped && renderMode === "best" && !finalUrl) {
-      let activePixelPasses = hybridPixelPasses;
-      if (seedVectorResult && seedVectorResult.imageUrl) {
-        statusText.textContent = "Seeding paint canvas...";
-        await canvas.loadFromDataUrl(seedVectorResult.imageUrl);
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
-      } else {
-        statusText.textContent = "Falling back to direct painting...";
-        activePixelPasses = directPixelPasses;
-        generationSummary = `${directPixelPasses.length}-pass paint fallback`;
-      }
-
-      const pixelRun = await runProtectedPixelPassSequence(activePixelPasses, {
-        allowPartialResult: !!(seedVectorResult && seedVectorResult.imageUrl),
-        minPassesBeforeStop: Math.max(2, pixelPromptProfile.minPassesBeforeStop - 1),
-        targetConfidence: Math.max(0.72, pixelPromptProfile.targetConfidence - 0.03)
-      });
-      generationSummary = `${pixelRun.completedPasses}-pass protected paint fallback`;
-      finalUrl = canvas.getDisplayUrl();
-      progressBar.style.width = "100%";
-      statusText.textContent = "Complete";
-    }
-
-    if (!stopped && renderMode === "pixel" && !finalUrl) {
-      previewImg.style.imageRendering = "pixelated";
-      const pixelRun = await runProtectedPixelPassSequence(directPixelPasses, {
-        allowPartialResult: false,
-        minPassesBeforeStop: pixelPromptProfile.minPassesBeforeStop,
-        targetConfidence: pixelPromptProfile.targetConfidence
-      });
-      generationSummary = `${pixelRun.completedPasses}-pass Ollama vision pixel painting`;
-      finalUrl = canvas.getDisplayUrl();
-      progressBar.style.width = "100%";
-      statusText.textContent = "Complete";
     }
   } catch (error) {
     statusText.textContent = `Error: ${error.message}`;
@@ -20130,9 +20023,6 @@ async function handleImagineCommand(prompt) {
   }
   
   // Show final result
-  if (!finalUrl && renderMode !== "vector") {
-    finalUrl = canvas.getDisplayUrl();
-  }
   if (!finalUrl) {
     stopBtn.style.display = "none";
     return;
@@ -20147,7 +20037,6 @@ async function handleImagineCommand(prompt) {
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
       <span>â±ï¸ ${duration}s</span>
-      <span>4-pass pixel painting</span>
     </div>
     <button class="pixel-painting-save" type="button">ðŸ’¾ Save to Gallery</button>
   `;
