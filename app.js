@@ -19402,6 +19402,109 @@ function renderPixelPainterPreviewToBase64(dataUrl) {
   });
 }
 
+function isPixelPainterDebugEnabled() {
+  try {
+    return new URLSearchParams(window.location.search).get("debug") === "true";
+  } catch (_) {
+    return false;
+  }
+}
+
+function getPixelPainterSvgDebugBoxes(svgText) {
+  const source = String(svgText || "").trim();
+  if (!source) return [];
+  let doc;
+  try {
+    doc = new DOMParser().parseFromString(source, "image/svg+xml");
+  } catch (_) {
+    return [];
+  }
+  if (!doc || doc.querySelector("parsererror")) return [];
+  const boxes = [];
+  const numberList = (value) => (String(value || "").match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter(Number.isFinite);
+  const pushBox = (el, box) => {
+    if (!box || box.some((value) => !Number.isFinite(value))) return;
+    const [x1, y1, x2, y2] = box;
+    if (x2 <= x1 || y2 <= y1) return;
+    boxes.push({
+      x: Math.max(0, Math.min(300, x1)),
+      y: Math.max(0, Math.min(300, y1)),
+      w: Math.max(1, Math.min(300, x2) - Math.max(0, x1)),
+      h: Math.max(1, Math.min(300, y2) - Math.max(0, y1)),
+      layer: String(el.getAttribute("data-layer") || "shape")
+    });
+  };
+  doc.querySelectorAll("rect,circle,ellipse,line,polygon,polyline,path").forEach((el) => {
+    const tag = el.tagName.toLowerCase();
+    if (tag === "rect") {
+      const x = Number(el.getAttribute("x") || 0);
+      const y = Number(el.getAttribute("y") || 0);
+      const w = Number(el.getAttribute("width") || 0);
+      const h = Number(el.getAttribute("height") || 0);
+      pushBox(el, [x, y, x + w, y + h]);
+    } else if (tag === "circle") {
+      const cx = Number(el.getAttribute("cx") || 0);
+      const cy = Number(el.getAttribute("cy") || 0);
+      const r = Number(el.getAttribute("r") || 0);
+      pushBox(el, [cx - r, cy - r, cx + r, cy + r]);
+    } else if (tag === "ellipse") {
+      const cx = Number(el.getAttribute("cx") || 0);
+      const cy = Number(el.getAttribute("cy") || 0);
+      const rx = Number(el.getAttribute("rx") || 0);
+      const ry = Number(el.getAttribute("ry") || 0);
+      pushBox(el, [cx - rx, cy - ry, cx + rx, cy + ry]);
+    } else if (tag === "line") {
+      const nums = ["x1", "y1", "x2", "y2"].map((attr) => Number(el.getAttribute(attr) || 0));
+      pushBox(el, [Math.min(nums[0], nums[2]), Math.min(nums[1], nums[3]), Math.max(nums[0], nums[2]), Math.max(nums[1], nums[3])]);
+    } else {
+      const nums = numberList(tag === "path" ? el.getAttribute("d") : el.getAttribute("points"));
+      const xs = [];
+      const ys = [];
+      for (let i = 0; i < nums.length - 1; i += 2) {
+        xs.push(nums[i]);
+        ys.push(nums[i + 1]);
+      }
+      if (xs.length && ys.length) {
+        pushBox(el, [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+      }
+    }
+  });
+  return boxes.slice(0, 60);
+}
+
+function renderPixelPainterDebugOverlay(previewDiv, svgText) {
+  if (!previewDiv) return;
+  const existing = previewDiv.querySelector(".pixel-painting-debug-overlay");
+  if (existing) existing.remove();
+  if (!isPixelPainterDebugEnabled()) return;
+  const boxes = getPixelPainterSvgDebugBoxes(svgText);
+  if (!boxes.length) return;
+  const ns = "http://www.w3.org/2000/svg";
+  const overlay = document.createElementNS(ns, "svg");
+  overlay.setAttribute("class", "pixel-painting-debug-overlay");
+  overlay.setAttribute("viewBox", "0 0 300 300");
+  overlay.setAttribute("aria-hidden", "true");
+  boxes.forEach((box) => {
+    const rect = document.createElementNS(ns, "rect");
+    rect.setAttribute("x", box.x.toFixed(2));
+    rect.setAttribute("y", box.y.toFixed(2));
+    rect.setAttribute("width", box.w.toFixed(2));
+    rect.setAttribute("height", box.h.toFixed(2));
+    rect.setAttribute("fill", "none");
+    rect.setAttribute("stroke", /subject|foreground|character/i.test(box.layer) ? "#ff4040" : "#ffd166");
+    rect.setAttribute("stroke-width", "1.2");
+    rect.setAttribute("stroke-dasharray", "4 3");
+    overlay.appendChild(rect);
+    const center = document.createElementNS(ns, "circle");
+    center.setAttribute("cx", (box.x + box.w / 2).toFixed(2));
+    center.setAttribute("cy", (box.y + box.h / 2).toFixed(2));
+    center.setAttribute("r", "2");
+    center.setAttribute("fill", "#ff4040");
+    overlay.appendChild(center);
+  });
+  previewDiv.appendChild(overlay);
+}
+
 // Store for active painting sessions
 let activePixelPainting = null;
 
@@ -19817,7 +19920,7 @@ async function handleImagineCommand(prompt) {
     };
   }
 
-  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, currentVectorSvg, priorRepairFocus) {
+  async function requestVectorArtwork(passNum, passName, progress, currentVectorBase64, currentVectorScene, currentVectorSvg, previousVectorSvg, priorRepairFocus) {
     progressBar.style.width = `${progress}%`;
     statusText.textContent = `${passName}...`;
 
@@ -19837,6 +19940,7 @@ async function handleImagineCommand(prompt) {
           reference_image_base64: referenceImageBase64,
           current_scene: currentVectorScene || null,
           current_svg: String(currentVectorSvg || ""),
+          previous_svg: String(previousVectorSvg || ""),
           repair_focus: String(priorRepairFocus || ""),
           pass_num: passNum,
           max_pixels: 100,
@@ -19922,12 +20026,14 @@ async function handleImagineCommand(prompt) {
         { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
   let generationSummary = `${vectorPasses.length}-pass Ollama SVG renderer`;
+  let lastVectorSvg = "";
 
   try {
     if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
       let currentVectorScene = null;
       let currentVectorSvg = "";
+      let previousVectorSvg = "";
       let currentRepairFocus = "";
       let bestVectorResult = null;
       for (const vectorPass of vectorPasses) {
@@ -19941,6 +20047,7 @@ async function handleImagineCommand(prompt) {
             currentVectorBase64,
             currentVectorScene,
             currentVectorSvg,
+            previousVectorSvg,
             currentRepairFocus
           );
         } catch (error) {
@@ -19994,7 +20101,10 @@ async function handleImagineCommand(prompt) {
         finalUrl = bestVectorResult.imageUrl;
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
+        renderPixelPainterDebugOverlay(previewDiv, bestVectorResult.svg);
+        lastVectorSvg = bestVectorResult.svg;
         currentVectorScene = bestVectorResult.scene;
+        previousVectorSvg = currentVectorSvg;
         currentVectorSvg = bestVectorResult.svg;
         currentRepairFocus = bestVectorResult.repairFocus;
         const earlyStopStrongFirstPass = renderMode === "vector" &&
@@ -20032,6 +20142,7 @@ async function handleImagineCommand(prompt) {
   }
   previewImg.src = finalUrl;
   previewDiv.style.display = "block";
+  renderPixelPainterDebugOverlay(previewDiv, lastVectorSvg);
   stopBtn.style.display = "none";
   
   // Build details

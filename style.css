@@ -10611,8 +10611,12 @@ button.stop-mode:hover {
 }
 
 .pixel-painting-preview {
-  margin: 16px 0;
+  margin: 16px auto;
   text-align: center;
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .pixel-painting-img {
@@ -10622,6 +10626,16 @@ button.stop-mode:hover {
   border: 2px solid var(--border);
   background: var(--bg);
   image-rendering: pixelated;
+}
+
+.pixel-painting-debug-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 3px rgba(255, 64, 64, 0.55));
 }
 
 .pixel-painting-controls {
