@@ -19910,13 +19910,16 @@ async function handleImagineCommand(prompt) {
   const relationHeavyVectorPrompt = useVectorPipeline &&
     /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
   let finalUrl = "";
-  const vectorPasses = complexVectorPrompt
+  const vectorPasses = relationHeavyVectorPrompt
     ? [
-        { passNum: 1, progress: 36, label: "Writing SVG layout" },
-        { passNum: 2, progress: 76, label: "Editing SVG details" }
+        { passNum: 1, progress: 28, label: "Writing SVG layout" },
+        { passNum: 2, progress: 62, label: "Fixing SVG relationships" },
+        { passNum: 3, progress: 88, label: "Polishing SVG details" }
       ]
     : [
-        { passNum: 1, progress: 70, label: "Writing SVG" }
+        { passNum: 1, progress: 30, label: "Writing SVG draft" },
+        { passNum: 2, progress: 64, label: "Editing SVG shapes" },
+        { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
   let generationSummary = `${vectorPasses.length}-pass Ollama SVG renderer`;
 
