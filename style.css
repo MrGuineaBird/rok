@@ -10638,6 +10638,63 @@ button.stop-mode:hover {
   filter: drop-shadow(0 0 3px rgba(255, 64, 64, 0.55));
 }
 
+.rok-doom-shell {
+  width: min(100%, 560px);
+  padding: 12px;
+  border: 1px solid rgba(209, 75, 75, 0.32);
+  border-radius: 8px;
+  background: #120d12;
+}
+
+.rok-doom-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.rok-doom-topbar span {
+  margin-left: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.rok-doom-stop {
+  border: 1px solid rgba(209, 75, 75, 0.5);
+  border-radius: 6px;
+  background: rgba(209, 75, 75, 0.18);
+  color: var(--text);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.rok-doom-canvas {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 10;
+  margin: 0 auto;
+  border: 2px solid rgba(255, 209, 102, 0.22);
+  border-radius: 6px;
+  background: #080608;
+  outline: none;
+  image-rendering: pixelated;
+}
+
+.rok-doom-canvas:focus {
+  border-color: rgba(255, 209, 102, 0.65);
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.1);
+}
+
+.rok-doom-help {
+  margin-top: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: center;
+}
+
 .pixel-painting-controls {
   margin-top: 12px;
 }

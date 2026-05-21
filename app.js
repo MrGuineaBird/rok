@@ -13435,6 +13435,13 @@ async function send() {
     }
     return;
   }
+
+  if (text && /^\/doom\b/i.test(text)) {
+    input.value = "";
+    autoResizeInput();
+    handleDoomCommand();
+    return;
+  }
   
   // Handle /imagine command for pixel painting
   if (text && text.startsWith("/imagine")) {
@@ -19508,6 +19515,180 @@ function renderPixelPainterDebugOverlay(previewDiv, svgText) {
 // Store for active painting sessions
 let activePixelPainting = null;
 
+function handleDoomCommand() {
+  addMessage("user", "/doom");
+  if (!chat) {
+    addMessage("bot", "DOOM mode could not open because the chat panel is unavailable.");
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "msg bot";
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:86%;height:86%;object-fit:contain;border-radius:50%;">';
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+  const shell = document.createElement("div");
+  shell.className = "rok-doom-shell";
+  shell.innerHTML = `
+    <div class="rok-doom-topbar">
+      <div><strong>ROK DOOM</strong><span> local raycaster</span></div>
+      <button class="rok-doom-stop" type="button">Stop</button>
+    </div>
+    <canvas class="rok-doom-canvas" width="480" height="300" tabindex="0" aria-label="ROK Doom canvas"></canvas>
+    <div class="rok-doom-help">WASD / arrows to move. Q/E to turn. Survive the hallway.</div>
+  `;
+  bubble.appendChild(shell);
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  chat.appendChild(row);
+  scrollToBottom();
+
+  const canvas = shell.querySelector(".rok-doom-canvas");
+  const ctx = canvas.getContext("2d");
+  const stopBtn = shell.querySelector(".rok-doom-stop");
+  const map = [
+    "111111111111",
+    "100000000001",
+    "101111011101",
+    "100001010001",
+    "111101010111",
+    "100000010001",
+    "101111110101",
+    "100000000001",
+    "101011111101",
+    "100000000001",
+    "111111111111",
+  ];
+  const keys = new Set();
+  const player = { x: 1.7, y: 1.7, angle: 0.12, health: 100 };
+  const sprites = [{ x: 9.5, y: 8.5, alive: true }, { x: 6.5, y: 1.8, alive: true }];
+  let running = true;
+  let lastTs = performance.now();
+
+  const isWall = (x, y) => {
+    const mx = Math.floor(x);
+    const my = Math.floor(y);
+    return my < 0 || my >= map.length || mx < 0 || mx >= map[0].length || map[my][mx] === "1";
+  };
+  const onKeyDown = (event) => {
+    if (!running) return;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "q", "e", " "].includes(event.key)) {
+      event.preventDefault();
+      keys.add(event.key.toLowerCase());
+    }
+  };
+  const onKeyUp = (event) => keys.delete(event.key.toLowerCase());
+  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keyup", onKeyUp);
+  stopBtn.addEventListener("click", () => {
+    running = false;
+    stopBtn.disabled = true;
+    stopBtn.textContent = "Stopped";
+  });
+  canvas.focus();
+
+  function castRay(angle) {
+    const sin = Math.sin(angle);
+    const cos = Math.cos(angle);
+    let depth = 0;
+    while (depth < 13) {
+      depth += 0.035;
+      const x = player.x + cos * depth;
+      const y = player.y + sin * depth;
+      if (isWall(x, y)) return depth;
+    }
+    return 13;
+  }
+
+  function update(dt) {
+    const turn = 2.4 * dt;
+    if (keys.has("arrowleft") || keys.has("q")) player.angle -= turn;
+    if (keys.has("arrowright") || keys.has("e")) player.angle += turn;
+    let move = 0;
+    if (keys.has("arrowup") || keys.has("w")) move += 1;
+    if (keys.has("arrowdown") || keys.has("s")) move -= 1;
+    const strafe = keys.has("a") ? -1 : keys.has("d") ? 1 : 0;
+    const speed = 2.35 * dt;
+    const nx = player.x + Math.cos(player.angle) * move * speed + Math.cos(player.angle + Math.PI / 2) * strafe * speed;
+    const ny = player.y + Math.sin(player.angle) * move * speed + Math.sin(player.angle + Math.PI / 2) * strafe * speed;
+    if (!isWall(nx, player.y)) player.x = nx;
+    if (!isWall(player.x, ny)) player.y = ny;
+    if (keys.has(" ")) {
+      sprites.forEach((sprite) => {
+        const dist = Math.hypot(sprite.x - player.x, sprite.y - player.y);
+        const delta = Math.atan2(sprite.y - player.y, sprite.x - player.x) - player.angle;
+        if (sprite.alive && dist < 3.2 && Math.abs(Math.atan2(Math.sin(delta), Math.cos(delta))) < 0.22) {
+          sprite.alive = false;
+        }
+      });
+    }
+  }
+
+  function render() {
+    const width = canvas.width;
+    const height = canvas.height;
+    const fov = Math.PI / 3;
+    ctx.fillStyle = "#211020";
+    ctx.fillRect(0, 0, width, height / 2);
+    ctx.fillStyle = "#341417";
+    ctx.fillRect(0, height / 2, width, height / 2);
+    const rays = 160;
+    for (let i = 0; i < rays; i += 1) {
+      const t = i / rays;
+      const angle = player.angle - fov / 2 + t * fov;
+      const dist = castRay(angle) * Math.cos(angle - player.angle);
+      const wallH = Math.min(height, height / Math.max(0.08, dist));
+      const shade = Math.max(35, 230 - dist * 22);
+      ctx.fillStyle = `rgb(${shade}, ${Math.max(20, shade * 0.18)}, ${Math.max(24, shade * 0.16)})`;
+      ctx.fillRect((i / rays) * width, (height - wallH) / 2, Math.ceil(width / rays) + 1, wallH);
+    }
+    sprites
+      .filter((sprite) => sprite.alive)
+      .map((sprite) => {
+        const dx = sprite.x - player.x;
+        const dy = sprite.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        const rel = Math.atan2(Math.sin(Math.atan2(dy, dx) - player.angle), Math.cos(Math.atan2(dy, dx) - player.angle));
+        return { sprite, dist, rel };
+      })
+      .filter((item) => Math.abs(item.rel) < fov / 2 && item.dist > 0.2)
+      .sort((a, b) => b.dist - a.dist)
+      .forEach((item) => {
+        const size = Math.min(130, height / item.dist);
+        const x = width / 2 + (item.rel / (fov / 2)) * (width / 2) - size / 2;
+        const y = height / 2 - size / 2;
+        ctx.fillStyle = "#f34242";
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = "#ffcf6b";
+        ctx.fillRect(x + size * 0.22, y + size * 0.26, size * 0.18, size * 0.12);
+        ctx.fillRect(x + size * 0.6, y + size * 0.26, size * 0.18, size * 0.12);
+      });
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.fillRect(0, height - 34, width, 34);
+    ctx.fillStyle = "#ffd166";
+    ctx.font = "700 14px system-ui, sans-serif";
+    ctx.fillText(`HP ${player.health}`, 14, height - 13);
+    ctx.fillText(`ENEMIES ${sprites.filter((sprite) => sprite.alive).length}`, 110, height - 13);
+    ctx.fillText("SPACE = fire", width - 120, height - 13);
+  }
+
+  function tick(ts) {
+    if (!running) {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+      return;
+    }
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    render();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 // Handle /imagine command
 async function handleImagineCommand(prompt) {
   const imagineSettings = await requestPixelPainterSettings();
@@ -20016,17 +20197,17 @@ async function handleImagineCommand(prompt) {
   let finalUrl = "";
   const vectorPasses = relationHeavyVectorPrompt
     ? [
-        { passNum: 1, progress: 28, label: "Writing SVG layout" },
-        { passNum: 2, progress: 62, label: "Fixing SVG relationships" },
-        { passNum: 3, progress: 88, label: "Polishing SVG details" }
+        { passNum: 1, progress: 24, label: "Building local SVG scaffold" },
+        { passNum: 2, progress: 64, label: "Fixing SVG relationships" },
+        { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ]
     : [
-        { passNum: 1, progress: 30, label: "Writing SVG draft" },
-        { passNum: 2, progress: 64, label: "Editing SVG shapes" },
-        { passNum: 3, progress: 90, label: "Polishing SVG details" }
+        { passNum: 1, progress: 30, label: "Building local SVG scaffold" },
+        { passNum: 2, progress: 90, label: "Polishing SVG shapes" }
       ];
-  let generationSummary = `${vectorPasses.length}-pass Ollama SVG renderer`;
+  let generationSummary = "local SVG scaffold + Ollama polish";
   let lastVectorSvg = "";
+  let vectorModelEdits = 0;
 
   try {
     if (!stopped && useVectorPipeline) {
@@ -20098,6 +20279,9 @@ async function handleImagineCommand(prompt) {
           scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null,
           svg: String(vectorResult.svg || "")
         };
+        if (!/^(local_svg_scaffold|template_svg|kept_scaffold|template)$/i.test(bestVectorResult.vectorSource)) {
+          vectorModelEdits += 1;
+        }
         finalUrl = bestVectorResult.imageUrl;
         previewImg.src = finalUrl;
         previewDiv.style.display = "block";
@@ -20128,6 +20312,7 @@ async function handleImagineCommand(prompt) {
       if (renderMode === "vector" && finalUrl) {
         progressBar.style.width = "100%";
         statusText.textContent = "Complete";
+        generationSummary = `${vectorModelEdits} Ollama edit${vectorModelEdits === 1 ? "" : "s"} + local SVG scaffold`;
       }
     }
   } catch (error) {
