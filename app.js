@@ -12702,6 +12702,47 @@ function renderAssistantMarkdownHtml(text) {
   return renderMarkdownFallback(normalizedMarkdown);
 }
 
+function closeOpenStreamingMarkdownFences(text) {
+  var value = String(text || "").replace(/\r\n/g, "\n");
+  var fenceOpen = false;
+  value.split("\n").forEach(function (line) {
+    if (/^\s*```/.test(line)) {
+      fenceOpen = !fenceOpen;
+    }
+  });
+  if (fenceOpen) {
+    value += value.endsWith("\n") ? "```" : "\n```";
+  }
+  return value;
+}
+
+function prepareStreamingAssistantMarkdown(text) {
+  return closeOpenStreamingMarkdownFences(text);
+}
+
+function decorateAssistantMarkdownLinks(root) {
+  if (!(root instanceof HTMLElement)) return;
+  root.querySelectorAll("a[href]").forEach(function (a) {
+    var href = a.getAttribute("href") || "";
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+      a.classList.add("external-link");
+    }
+  });
+}
+
+function setStreamingBubbleContent(bubble, text) {
+  if (!(bubble instanceof HTMLElement)) return;
+  bubble.classList.remove("plain", "assistant-status-bubble");
+  bubble.classList.add("markdown", "markdown-streaming");
+  var rawHtml = renderAssistantMarkdownHtml(prepareStreamingAssistantMarkdown(text));
+  var cleanHtml = hasDOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
+  bubble.innerHTML = cleanHtml;
+  renderKatexInElement(bubble);
+  decorateAssistantMarkdownLinks(bubble);
+}
+
 function ensureMermaidInitialized() {
   if (!hasMermaid || mermaidInitialized) return;
   mermaid.initialize({
@@ -12787,6 +12828,7 @@ async function renderMermaidBlocksInElement(root) {
 }
 
 function setBubbleContent(bubble, text, markdown) {
+  bubble.classList.remove("markdown-streaming");
   if (markdown) {
     var wasPlain = bubble.classList.contains("plain");
     bubble.classList.remove("plain");
@@ -12802,14 +12844,7 @@ function setBubbleContent(bubble, text, markdown) {
       bubble.classList.add("bubble-reveal");
     }
     // Open external links in new tab with icon
-    bubble.querySelectorAll("a[href]").forEach(function (a) {
-      var href = a.getAttribute("href") || "";
-      if (href.startsWith("http://") || href.startsWith("https://")) {
-        a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener noreferrer");
-        a.classList.add("external-link");
-      }
-    });
+    decorateAssistantMarkdownLinks(bubble);
     // Add copy button to each code block
     bubble.querySelectorAll("pre").forEach(function (pre) {
       const codeEl = pre.querySelector("code");
@@ -14607,7 +14642,7 @@ async function send() {
           ? `Writing story... ${partialText.length.toLocaleString()} chars`
           : "Writing story in canvas...";
       } else {
-        bubble.textContent = smoothAnswerStream ? visibleAnswerText : partialText;
+        setStreamingBubbleContent(bubble, smoothAnswerStream ? visibleAnswerText : partialText);
       }
       scrollToBottom();
     };
