@@ -17809,6 +17809,7 @@ const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY = "rok_pixel_painter_svg_default_migrated";
+const PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE = "asset_png_default_v2";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
@@ -18923,12 +18924,8 @@ function setPixelPainterProvider(value) {
 
 function getPixelPainterRenderMode() {
   try {
-    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
-    const savedMode = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "").trim();
-    if (savedMode === "vector" || savedMode === "asset_png") {
-      return savedMode;
-    }
     localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "asset_png");
+    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
     // Ignore storage errors
   }
@@ -18939,7 +18936,7 @@ function setPixelPainterRenderMode(value) {
   try {
     const normalized = value === "vector" ? "vector" : "asset_png";
     localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized);
-    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
+    localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
     // Ignore storage errors
   }
@@ -19077,12 +19074,6 @@ function requestPixelPainterSettings() {
       badge: "PNG",
       title: "Asset PNG",
       description: "Fast local asset-grid image compositor."
-    },
-    {
-      value: "vector",
-      badge: "SVG",
-      title: "SVG Debug",
-      description: "Editable vector fallback for debugging."
     }
   ];
 
@@ -19742,9 +19733,7 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const renderMode = String(imagineSettings.mode || getPixelPainterRenderMode() || "asset_png").trim() === "vector"
-    ? "vector"
-    : "asset_png";
+  const renderMode = "asset_png";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
@@ -20268,6 +20257,9 @@ async function handleImagineCommand(prompt) {
       renderMs: Number.isFinite(Number(data.render_ms)) ? Number(data.render_ms) : 0,
       validationFixes: Array.isArray(data.validation_fixes) ? data.validation_fixes : [],
       fallbacksUsed: Array.isArray(data.fallbacks_used) ? data.fallbacks_used : [],
+      assetFiles: Object.values((data.render_scene && data.render_scene.placements) || {})
+        .map((placement) => String((placement && placement.asset_file) || "").trim())
+        .filter(Boolean),
       svg: String(data.svg_scaffold || "")
     };
   }
@@ -20299,6 +20291,7 @@ async function handleImagineCommand(prompt) {
         { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
   let generationSummary = "local SVG scaffold + Ollama polish";
+  let durationLabel = "";
   let lastVectorSvg = "";
   let vectorModelEdits = 0;
 
@@ -20313,7 +20306,9 @@ async function handleImagineCommand(prompt) {
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";
       const fallbackCount = assetResult.fallbacksUsed.length;
-      generationSummary = `${assetResult.usageCalls} Ollama plan + local asset PNG${fallbackCount ? `, ${fallbackCount} fallback${fallbackCount === 1 ? "" : "s"}` : ""}`;
+      const assetFileSummary = [...new Set(assetResult.assetFiles)].slice(0, 4).join(", ");
+      generationSummary = `${assetResult.usageCalls} Ollama plan + local asset PNG${assetFileSummary ? ` | assets: ${assetFileSummary}` : ""}${fallbackCount ? `, ${fallbackCount} fallback${fallbackCount === 1 ? "" : "s"}` : ""}`;
+      durationLabel = assetResult.renderMs > 0 ? `${assetResult.renderMs}ms render` : "";
     }
     if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
@@ -20437,6 +20432,7 @@ async function handleImagineCommand(prompt) {
   
   // Build details
   const duration = Math.round((Date.now() - startTime) / 1000);
+  const displayDuration = durationLabel || `${duration}s`;
   
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
@@ -20448,6 +20444,7 @@ async function handleImagineCommand(prompt) {
   detailsDiv.innerHTML = `
     <div class="pixel-painting-stats">
       <span>Time: ${duration}s</span>
+      <span>${escapeHtml(displayDuration)}</span>
       <span>${escapeHtml(generationSummary)}</span>
     </div>
     <button class="pixel-painting-save" type="button">Save to Gallery</button>
