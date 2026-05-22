@@ -7,7 +7,7 @@
   <title>ROK Docs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="docs.css?v=docs5" />
+  <link rel="stylesheet" href="docs.css?v=docs6" />
 </head>
 <body>
   <div class="docs-wrap">
@@ -37,6 +37,7 @@
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#roadmap">Roadmap</a></li>
           <li><a href="#api-access">API Access</a></li>
+          <li><a href="#embed-builder">Embed Builder</a></li>
           <li><a href="#tool-calling">Tool Calling</a></li>
           <li><a href="#contributing">Contributing</a></li>
         </ul>
@@ -492,6 +493,163 @@ with requests.post(
           </div>
         </section>
 
+        <section id="embed-builder" class="docs-card docs-embed-builder">
+          <span class="docs-kicker">Embed</span>
+          <h2>Embed Builder</h2>
+          <p>
+            Configure a ROK chat embed, preview the layout, then copy the script tag. The embed key still has to come from
+            ROKTEAM, so leave the key blank until you approve the site.
+          </p>
+
+          <div class="docs-embed-layout">
+            <form class="docs-embed-form" aria-label="ROK embed builder controls">
+              <div class="docs-field">
+                <label for="embedBuilderKey">Embed key</label>
+                <input id="embedBuilderKey" type="text" autocomplete="off" spellcheck="false" placeholder="YOUR_EMBED_KEY" />
+                <span>Use the key you manually give them. Blank keeps the placeholder in the script.</span>
+              </div>
+
+              <div class="docs-embed-row">
+                <div class="docs-field">
+                  <label for="embedBuilderLayout">Layout</label>
+                  <select id="embedBuilderLayout">
+                    <option value="page">Full page app</option>
+                    <option value="widget">Floating bubble</option>
+                  </select>
+                </div>
+                <div class="docs-field">
+                  <label for="embedBuilderPosition">Widget position</label>
+                  <select id="embedBuilderPosition">
+                    <option value="bottom-right">Bottom right</option>
+                    <option value="bottom-left">Bottom left</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="docs-embed-row">
+                <div class="docs-field">
+                  <label for="embedBuilderTheme">Preset</label>
+                  <select id="embedBuilderTheme">
+                    <option value="blue">Blue</option>
+                    <option value="red">Red</option>
+                    <option value="dark">Dark ROK</option>
+                    <option value="purple">Purple</option>
+                    <option value="green">Green</option>
+                  </select>
+                </div>
+                <div class="docs-field">
+                  <label for="embedBuilderFont">Font</label>
+                  <select id="embedBuilderFont">
+                    <option value="system">System</option>
+                    <option value="serif">Classic</option>
+                    <option value="rounded">Rounded</option>
+                    <option value="mono">Mono</option>
+                    <option value="game">Game</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="docs-embed-row">
+                <div class="docs-field">
+                  <label for="embedBuilderTitle">Title</label>
+                  <input id="embedBuilderTitle" type="text" maxlength="40" value="ROK" />
+                </div>
+                <div class="docs-field">
+                  <label for="embedBuilderButton">Button text</label>
+                  <input id="embedBuilderButton" type="text" maxlength="18" value="Send" />
+                </div>
+              </div>
+
+              <div class="docs-field">
+                <label for="embedBuilderWelcome">Welcome message</label>
+                <input id="embedBuilderWelcome" type="text" maxlength="160" value="Ask ROK anything." />
+              </div>
+
+              <div class="docs-field">
+                <label for="embedBuilderPlaceholder">Input placeholder</label>
+                <input id="embedBuilderPlaceholder" type="text" maxlength="80" value="Ask ROK..." />
+              </div>
+
+              <div class="docs-field">
+                <label for="embedBuilderFooter">Footer text</label>
+                <input id="embedBuilderFooter" type="text" maxlength="80" value="" placeholder="Optional studio or site name" />
+              </div>
+
+              <div class="docs-field">
+                <label for="embedBuilderPrompt">Public custom prompt</label>
+                <textarea id="embedBuilderPrompt" rows="4" maxlength="1200" placeholder="Example: You are the assistant for this game site. Keep answers short, helpful, and focused on the site."></textarea>
+                <span>This is visible in the script tag, so do not put secrets here.</span>
+              </div>
+
+              <div class="docs-color-grid" aria-label="Embed colors">
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderAccent">Accent</label>
+                  <input id="embedBuilderAccent" type="color" value="#3f55ff" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderBackground">Background</label>
+                  <input id="embedBuilderBackground" type="color" value="#1200a8" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderPanel">Panel</label>
+                  <input id="embedBuilderPanel" type="color" value="#1b1b2d" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderTopbar">Top bar</label>
+                  <input id="embedBuilderTopbar" type="color" value="#080078" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderForm">Input bar</label>
+                  <input id="embedBuilderForm" type="color" value="#000082" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderBotBubble">Bot bubble</label>
+                  <input id="embedBuilderBotBubble" type="color" value="#171b24" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderUserBubble">User bubble</label>
+                  <input id="embedBuilderUserBubble" type="color" value="#3f55ff" />
+                </div>
+                <div class="docs-field docs-color-field">
+                  <label for="embedBuilderButtonColor">Send button</label>
+                  <input id="embedBuilderButtonColor" type="color" value="#000091" />
+                </div>
+              </div>
+            </form>
+
+            <div class="docs-embed-output">
+              <div id="embedBuilderPreviewStage" class="docs-embed-preview-stage">
+                <div id="embedBuilderPreviewPanel" class="docs-embed-preview-panel">
+                  <div id="embedBuilderPreviewTop" class="docs-embed-preview-top">
+                    <span id="embedBuilderPreviewTitle">ROK</span>
+                  </div>
+                  <div id="embedBuilderPreviewLog" class="docs-embed-preview-log">
+                    <div id="embedBuilderPreviewWelcome" class="docs-preview-bubble docs-preview-bot">Ask ROK anything.</div>
+                    <div id="embedBuilderPreviewUser" class="docs-preview-bubble docs-preview-user">hi</div>
+                    <div class="docs-preview-bubble docs-preview-bot">What should we work on?</div>
+                  </div>
+                  <div id="embedBuilderPreviewForm" class="docs-embed-preview-form">
+                    <span id="embedBuilderPreviewPlaceholder">Ask ROK...</span>
+                    <strong id="embedBuilderPreviewButton">Send</strong>
+                  </div>
+                  <div id="embedBuilderPreviewFooter" class="docs-embed-preview-footer" hidden></div>
+                </div>
+              </div>
+
+              <div class="docs-block docs-embed-code-block">
+                <h3 class="docs-block-title">Script Code</h3>
+                <pre><code id="embedBuilderCode"></code></pre>
+              </div>
+
+              <div class="docs-embed-actions">
+                <button id="copyEmbedScriptBtn" class="docs-primary-btn" type="button">Save &amp; Copy Script</button>
+                <button id="requestEmbedKeyBtn" class="docs-secondary-btn" type="button">Request Embed Key</button>
+                <span id="embedBuilderStatus" class="docs-embed-status" role="status" aria-live="polite"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="tool-calling" class="docs-card">
           <h2>Tool Calling</h2>
           <p>
@@ -579,13 +737,14 @@ with requests.post(
   <section id="apiAccessModal" class="docs-modal" hidden aria-hidden="true">
     <div class="docs-modal-card" role="dialog" aria-modal="true" aria-labelledby="apiAccessModalTitle">
       <button id="apiAccessModalCloseBtn" class="docs-modal-close" type="button" aria-label="Close API access dialog">x</button>
-      <h3 id="apiAccessModalTitle">Request API Key</h3>
-      <p>ROK API access is currently limited during beta.</p>
+      <h3 id="apiAccessModalTitle">Request API or Embed Key</h3>
+      <p>ROK API and embed access is currently limited during beta.</p>
       <p>To request a key, email:<br />mrguineabird@gmail.com</p>
       <p>Include:</p>
       <ul>
         <li>What you plan to build</li>
         <li>How you plan to use the ROK API</li>
+        <li>Whether you need a full API key or a website embed key</li>
         <li>Estimated usage (light / medium / heavy)</li>
       </ul>
       <p>Approved users will receive a private key.</p>
@@ -595,6 +754,7 @@ with requests.post(
   <script>
     (function () {
       const requestBtn = document.getElementById("requestApiKeyBtn");
+      const requestEmbedKeyBtn = document.getElementById("requestEmbedKeyBtn");
       const modal = document.getElementById("apiAccessModal");
       const closeBtn = document.getElementById("apiAccessModalCloseBtn");
 
@@ -611,27 +771,307 @@ with requests.post(
           document.body.classList.remove("docs-modal-open");
         }
 
-        requestBtn.addEventListener("click", openModal);
+        [requestBtn, requestEmbedKeyBtn].filter(Boolean).forEach((button) => {
+          button.addEventListener("click", openModal);
+        });
         closeBtn.addEventListener("click", closeModal);
       }
 
       const languageSelect = document.getElementById("apiExampleLanguage");
       const exampleBlocks = Array.from(document.querySelectorAll("[data-api-example]"));
-      if (!languageSelect || !exampleBlocks.length) return;
+      if (languageSelect && exampleBlocks.length) {
+        function setActiveLanguage(value) {
+          const selected = String(value || "js").toLowerCase();
+          exampleBlocks.forEach((block) => {
+            const lang = String(block.getAttribute("data-api-example") || "").toLowerCase();
+            block.hidden = lang !== selected;
+          });
+        }
 
-      function setActiveLanguage(value) {
-        const selected = String(value || "js").toLowerCase();
-        exampleBlocks.forEach((block) => {
-          const lang = String(block.getAttribute("data-api-example") || "").toLowerCase();
-          block.hidden = lang !== selected;
+        setActiveLanguage(languageSelect.value);
+        languageSelect.addEventListener("change", function onLanguageChange(event) {
+          const target = event.target;
+          setActiveLanguage(target && target.value ? target.value : "js");
         });
       }
 
-      setActiveLanguage(languageSelect.value);
-      languageSelect.addEventListener("change", function onLanguageChange(event) {
-        const target = event.target;
-        setActiveLanguage(target && target.value ? target.value : "js");
+      const builderIds = [
+        "embedBuilderKey",
+        "embedBuilderLayout",
+        "embedBuilderPosition",
+        "embedBuilderTheme",
+        "embedBuilderFont",
+        "embedBuilderTitle",
+        "embedBuilderButton",
+        "embedBuilderWelcome",
+        "embedBuilderPlaceholder",
+        "embedBuilderFooter",
+        "embedBuilderPrompt",
+        "embedBuilderAccent",
+        "embedBuilderBackground",
+        "embedBuilderPanel",
+        "embedBuilderTopbar",
+        "embedBuilderForm",
+        "embedBuilderBotBubble",
+        "embedBuilderUserBubble",
+        "embedBuilderButtonColor"
+      ];
+      const builderControls = Object.fromEntries(
+        builderIds.map((id) => [id, document.getElementById(id)]).filter((entry) => entry[1])
+      );
+      const builderCode = document.getElementById("embedBuilderCode");
+      if (!builderCode || !builderControls.embedBuilderLayout) return;
+
+      const preview = {
+        stage: document.getElementById("embedBuilderPreviewStage"),
+        panel: document.getElementById("embedBuilderPreviewPanel"),
+        top: document.getElementById("embedBuilderPreviewTop"),
+        log: document.getElementById("embedBuilderPreviewLog"),
+        form: document.getElementById("embedBuilderPreviewForm"),
+        title: document.getElementById("embedBuilderPreviewTitle"),
+        welcome: document.getElementById("embedBuilderPreviewWelcome"),
+        user: document.getElementById("embedBuilderPreviewUser"),
+        placeholder: document.getElementById("embedBuilderPreviewPlaceholder"),
+        button: document.getElementById("embedBuilderPreviewButton"),
+        footer: document.getElementById("embedBuilderPreviewFooter")
+      };
+      const copyEmbedScriptBtn = document.getElementById("copyEmbedScriptBtn");
+      const embedBuilderStatus = document.getElementById("embedBuilderStatus");
+      const storageKey = "rok_docs_embed_builder_v1";
+      const presetColors = {
+        blue: {
+          accent: "#3f55ff",
+          background: "#1200a8",
+          panel: "#1b1b2d",
+          topbar: "#080078",
+          form: "#000082",
+          botBubble: "#171b24",
+          userBubble: "#3f55ff",
+          button: "#000091"
+        },
+        red: {
+          accent: "#e23b3b",
+          background: "#8f0615",
+          panel: "#211517",
+          topbar: "#69000e",
+          form: "#7d0010",
+          botBubble: "#1b1216",
+          userBubble: "#e23b3b",
+          button: "#b81424"
+        },
+        dark: {
+          accent: "#d83b3b",
+          background: "#0b0d12",
+          panel: "#11151d",
+          topbar: "#0c0f16",
+          form: "#0a0d13",
+          botBubble: "#171b24",
+          userBubble: "#d83b3b",
+          button: "#a51f2a"
+        },
+        purple: {
+          accent: "#8b5cf6",
+          background: "#2b0c8f",
+          panel: "#1c1930",
+          topbar: "#2c0e7e",
+          form: "#30108b",
+          botBubble: "#201c36",
+          userBubble: "#8b5cf6",
+          button: "#5b21b6"
+        },
+        green: {
+          accent: "#22c55e",
+          background: "#086b3a",
+          panel: "#14231c",
+          topbar: "#045b32",
+          form: "#056939",
+          botBubble: "#13251c",
+          userBubble: "#22c55e",
+          button: "#15803d"
+        }
+      };
+
+      function controlValue(id, fallback) {
+        const control = builderControls[id];
+        return control ? String(control.value || fallback || "").trim() : String(fallback || "");
+      }
+
+      function setControlValue(id, value) {
+        const control = builderControls[id];
+        if (control) control.value = value;
+      }
+
+      function escapeAttribute(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/\r?\n/g, "&#10;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function readableTextColor(hexColor) {
+        const raw = String(hexColor || "").replace("#", "");
+        if (!/^[0-9a-f]{6}$/i.test(raw)) return "#ffffff";
+        const red = parseInt(raw.slice(0, 2), 16);
+        const green = parseInt(raw.slice(2, 4), 16);
+        const blue = parseInt(raw.slice(4, 6), 16);
+        const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+        return luminance > 0.58 ? "#140707" : "#ffffff";
+      }
+
+      function buildScriptCode() {
+        const key = controlValue("embedBuilderKey", "") || "YOUR_EMBED_KEY";
+        const attrs = [
+          ["src", "https://rok.rokteam.org/embed.js"],
+          ["data-rok-api", "https://rok.rokteam.org"],
+          ["data-rok-embed-key", key],
+          ["data-rok-layout", controlValue("embedBuilderLayout", "page")],
+          ["data-rok-position", controlValue("embedBuilderPosition", "bottom-right")],
+          ["data-rok-color", controlValue("embedBuilderTheme", "blue")],
+          ["data-rok-font", controlValue("embedBuilderFont", "system")],
+          ["data-rok-title", controlValue("embedBuilderTitle", "ROK") || "ROK"],
+          ["data-rok-welcome", controlValue("embedBuilderWelcome", "Ask ROK anything.")],
+          ["data-rok-placeholder", controlValue("embedBuilderPlaceholder", "Ask ROK...")],
+          ["data-rok-button", controlValue("embedBuilderButton", "Send") || "Send"],
+          ["data-rok-footer", controlValue("embedBuilderFooter", "")],
+          ["data-rok-prompt", controlValue("embedBuilderPrompt", "")],
+          ["data-rok-accent", controlValue("embedBuilderAccent", "#3f55ff")],
+          ["data-rok-background", controlValue("embedBuilderBackground", "#1200a8")],
+          ["data-rok-panel", controlValue("embedBuilderPanel", "#1b1b2d")],
+          ["data-rok-topbar", controlValue("embedBuilderTopbar", "#080078")],
+          ["data-rok-form", controlValue("embedBuilderForm", "#000082")],
+          ["data-rok-bot-bubble", controlValue("embedBuilderBotBubble", "#171b24")],
+          ["data-rok-user-bubble", controlValue("embedBuilderUserBubble", "#3f55ff")],
+          ["data-rok-user-text", readableTextColor(controlValue("embedBuilderUserBubble", "#3f55ff"))],
+          ["data-rok-button-color", controlValue("embedBuilderButtonColor", "#000091")]
+        ].filter((attr) => attr[1] !== "");
+
+        const lines = ["<script"];
+        attrs.forEach(([name, value]) => {
+          lines.push(`  ${name}="${escapeAttribute(value)}"`);
+        });
+        lines.push("></scr" + "ipt>");
+        return lines.join("\n");
+      }
+
+      function updatePreview() {
+        const layout = controlValue("embedBuilderLayout", "page");
+        const title = controlValue("embedBuilderTitle", "ROK") || "ROK";
+        const welcome = controlValue("embedBuilderWelcome", "Ask ROK anything.");
+        const placeholder = controlValue("embedBuilderPlaceholder", "Ask ROK...");
+        const button = controlValue("embedBuilderButton", "Send") || "Send";
+        const footer = controlValue("embedBuilderFooter", "");
+        const background = controlValue("embedBuilderBackground", "#1200a8");
+        const panel = controlValue("embedBuilderPanel", "#1b1b2d");
+        const topbar = controlValue("embedBuilderTopbar", "#080078");
+        const form = controlValue("embedBuilderForm", "#000082");
+        const botBubble = controlValue("embedBuilderBotBubble", "#171b24");
+        const userBubble = controlValue("embedBuilderUserBubble", "#3f55ff");
+        const buttonColor = controlValue("embedBuilderButtonColor", "#000091");
+
+        if (preview.stage) {
+          preview.stage.classList.toggle("is-widget", layout === "widget");
+          preview.stage.style.background = background;
+        }
+        if (preview.panel) preview.panel.style.background = panel;
+        if (preview.top) preview.top.style.background = topbar;
+        if (preview.log) preview.log.style.background = panel;
+        if (preview.form) preview.form.style.background = form;
+        if (preview.title) preview.title.textContent = title;
+        if (preview.welcome) {
+          preview.welcome.textContent = welcome || "Ask ROK anything.";
+          preview.welcome.style.background = botBubble;
+        }
+        if (preview.user) {
+          preview.user.style.background = userBubble;
+          preview.user.style.color = readableTextColor(userBubble);
+        }
+        document.querySelectorAll(".docs-preview-bot").forEach((node) => {
+          node.style.background = botBubble;
+        });
+        if (preview.placeholder) preview.placeholder.textContent = placeholder || "Ask ROK...";
+        if (preview.button) {
+          preview.button.textContent = button;
+          preview.button.style.background = buttonColor;
+        }
+        if (preview.footer) {
+          preview.footer.hidden = !footer;
+          preview.footer.textContent = footer;
+        }
+        builderCode.textContent = buildScriptCode();
+      }
+
+      function getBuilderState() {
+        const state = {};
+        builderIds.forEach((id) => {
+          if (builderControls[id]) state[id] = builderControls[id].value;
+        });
+        return state;
+      }
+
+      function saveBuilderState() {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(getBuilderState()));
+        } catch (_) {
+          return false;
+        }
+        return true;
+      }
+
+      function loadBuilderState() {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (!raw) return;
+          const state = JSON.parse(raw);
+          if (!state || typeof state !== "object") return;
+          Object.entries(state).forEach(([id, value]) => {
+            if (builderControls[id]) builderControls[id].value = value;
+          });
+        } catch (_) {
+          return;
+        }
+      }
+
+      function applyThemePreset(themeName) {
+        const preset = presetColors[String(themeName || "blue")] || presetColors.blue;
+        setControlValue("embedBuilderAccent", preset.accent);
+        setControlValue("embedBuilderBackground", preset.background);
+        setControlValue("embedBuilderPanel", preset.panel);
+        setControlValue("embedBuilderTopbar", preset.topbar);
+        setControlValue("embedBuilderForm", preset.form);
+        setControlValue("embedBuilderBotBubble", preset.botBubble);
+        setControlValue("embedBuilderUserBubble", preset.userBubble);
+        setControlValue("embedBuilderButtonColor", preset.button);
+      }
+
+      builderIds.forEach((id) => {
+        const control = builderControls[id];
+        if (!control) return;
+        const eventName = control.tagName === "SELECT" || control.type === "color" ? "change" : "input";
+        control.addEventListener(eventName, function onBuilderInput(event) {
+          if (id === "embedBuilderTheme") {
+            applyThemePreset(event.target.value);
+          }
+          updatePreview();
+        });
       });
+
+      if (copyEmbedScriptBtn) {
+        copyEmbedScriptBtn.addEventListener("click", async function onCopyEmbedScript() {
+          const saved = saveBuilderState();
+          const scriptCode = builderCode.textContent || buildScriptCode();
+          try {
+            await navigator.clipboard.writeText(scriptCode);
+            if (embedBuilderStatus) embedBuilderStatus.textContent = saved ? "Saved locally. Script copied." : "Script copied.";
+          } catch (_) {
+            if (embedBuilderStatus) embedBuilderStatus.textContent = saved ? "Saved locally. Select the code to copy." : "Select the code to copy.";
+          }
+        });
+      }
+
+      loadBuilderState();
+      updatePreview();
     })();
   </script>
 </body>

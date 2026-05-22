@@ -91,12 +91,20 @@
   var apiBase = String(script.getAttribute("data-rok-api") || "").trim();
   var titleText = String(script.getAttribute("data-rok-title") || "ROK").trim() || "ROK";
   var welcomeText = String(script.getAttribute("data-rok-welcome") || "Ask ROK anything.").trim();
+  var embedPrompt = String(
+    script.getAttribute("data-rok-prompt")
+    || script.getAttribute("data-rok-custom-prompt")
+    || script.getAttribute("data-rok-system-prompt")
+    || ""
+  ).trim().slice(0, 1200);
   var colorTheme = getBuiltInColorTheme(script.getAttribute("data-rok-color") || script.getAttribute("data-rok-colour") || script.getAttribute("data-rok-theme") || "blue");
   var accent = String(script.getAttribute("data-rok-accent") || colorTheme.accent).trim();
   var fontStack = getBuiltInFontStack(script.getAttribute("data-rok-font") || "system");
   var titleFontStack = getBuiltInFontStack(script.getAttribute("data-rok-title-font") || script.getAttribute("data-rok-font") || "system");
   var mode = String(script.getAttribute("data-rok-mode") || script.getAttribute("data-rok-layout") || "widget").trim().toLowerCase();
   var pageMode = /^(?:page|full|fullscreen|app)$/.test(mode);
+  var position = String(script.getAttribute("data-rok-position") || "bottom-right").trim().toLowerCase();
+  var leftWidget = /left/.test(position);
   var placeholderText = String(script.getAttribute("data-rok-placeholder") || "Ask ROK...").trim() || "Ask ROK...";
   var askText = String(script.getAttribute("data-rok-button") || "Send").trim() || "Send";
   var footerText = String(script.getAttribute("data-rok-footer") || "").trim();
@@ -109,6 +117,14 @@
   var formBackground = String(script.getAttribute("data-rok-form") || colorTheme.form).trim();
   var buttonBackground = String(script.getAttribute("data-rok-button-color") || script.getAttribute("data-rok-send-color") || colorTheme.button).trim();
   var linkColor = String(script.getAttribute("data-rok-link-color") || colorTheme.link).trim();
+  var botBubbleBackground = String(script.getAttribute("data-rok-bot-bubble") || "#171b24").trim();
+  var botTextColor = String(script.getAttribute("data-rok-bot-text") || "#f3eeee").trim();
+  var userBubbleBackground = String(script.getAttribute("data-rok-user-bubble") || accent).trim();
+  var userTextColor = String(script.getAttribute("data-rok-user-text") || "#130808").trim();
+  var inputBackground = String(script.getAttribute("data-rok-input") || "#080b10").trim();
+  var inputTextColor = String(script.getAttribute("data-rok-input-text") || "#ffffff").trim();
+  var widgetWidth = safeCssSize(script.getAttribute("data-rok-width"), "370px");
+  var widgetHeight = safeCssSize(script.getAttribute("data-rok-height"), "560px");
 
   try {
     if (!apiBase && script.src) {
@@ -117,8 +133,16 @@
   } catch (_) {
     apiBase = "";
   }
-  apiBase = (apiBase || "https://rokteam.org").replace(/\/+$/, "");
+  apiBase = (apiBase || "https://rok.rokteam.org").replace(/\/+$/, "");
   var endpoint = apiBase + "/api/embed/chat";
+
+  function safeCssSize(rawValue, fallback) {
+    var value = String(rawValue || "").trim().toLowerCase();
+    if (!value) return fallback;
+    if (/^\d{2,4}$/.test(value)) return value + "px";
+    if (/^\d{2,4}(?:px|rem|vw|vh|%)$/.test(value)) return value;
+    return fallback;
+  }
 
   var host = document.createElement("div");
   host.id = "rok-embed";
@@ -144,16 +168,16 @@
   var style = document.createElement("style");
   style.textContent = [
     ":host{all:initial;color-scheme:dark;font-family:" + fontStack + "}",
-    ".wrap{position:fixed;right:18px;bottom:18px;z-index:2147483000}",
+    ".wrap{position:fixed;" + (leftWidget ? "left:18px;right:auto;" : "right:18px;left:auto;") + "bottom:18px;z-index:2147483000}",
     ":host([data-rok-mode='page']){position:fixed;inset:0;width:100vw;height:100vh;display:block;overflow:hidden;background:" + pageBackground + ";z-index:2147483000}",
     ".wrap.is-page{position:fixed;inset:0;right:auto;bottom:auto;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:50px 22px;background:" + pageBackground + ";overflow:hidden}",
     ".launcher{width:56px;height:56px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:#11151d;color:#fff;box-shadow:0 16px 48px rgba(0,0,0,.35);cursor:pointer;font:800 28px/1 " + fontStack + ";display:grid;place-items:center}",
     ".wrap.is-page .launcher{display:none}",
     ".launcher span{color:" + accent + ";transform:translateY(-1px)}",
-    ".panel{position:absolute;right:0;bottom:70px;width:min(370px,calc(100vw - 28px));height:min(560px,calc(100vh - 105px));border:1px solid rgba(255,255,255,.14);border-radius:14px;background:#0d1017;color:#f8eded;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;display:flex;flex-direction:column}",
+    ".panel{position:absolute;" + (leftWidget ? "left:0;right:auto;" : "right:0;left:auto;") + "bottom:70px;width:min(" + widgetWidth + ",calc(100vw - 28px));height:min(" + widgetHeight + ",calc(100vh - 105px));border:1px solid rgba(255,255,255,.14);border-radius:14px;background:" + panelBackground + ";color:#f8eded;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;display:flex;flex-direction:column}",
     ".wrap.is-page .panel{position:relative;right:auto;bottom:auto;width:min(900px,calc(100vw - 44px));height:min(900px,calc(100vh - 96px));border-radius:10px;background:" + panelBackground + ";box-shadow:0 24px 70px rgba(0,0,0,.38);border-color:rgba(255,255,255,.18)}",
     ".panel[hidden]{display:none}",
-    ".top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1);background:#11151d}",
+    ".top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1);background:" + topbarBackground + "}",
     ".wrap.is-page .top{height:54px;justify-content:center;background:" + topbarBackground + ";border-bottom-color:rgba(255,255,255,.24)}",
     ".brand{display:flex;gap:10px;align-items:center;font:800 14px/1 " + titleFontStack + ";letter-spacing:0}",
     ".wrap.is-page .brand{font-size:23px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}",
@@ -161,11 +185,11 @@
     ".wrap.is-page .dot{display:none}",
     ".close{border:0;background:transparent;color:#bcaeae;font:700 22px/1 " + fontStack + ";cursor:pointer;padding:4px 8px}",
     ".wrap.is-page .close{display:none}",
-    ".log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-color:rgba(255,255,255,.24) transparent}",
+    ".log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:" + panelBackground + ";scrollbar-color:rgba(255,255,255,.24) transparent}",
     ".wrap.is-page .log{padding:18px 16px;gap:12px;background:" + panelBackground + "}",
     ".msg{max-width:88%;word-break:break-word;border-radius:12px;padding:10px 11px;font:500 14px/1.42 " + fontStack + "}",
-    ".user{align-self:flex-end;background:" + accent + ";color:#130808;white-space:pre-wrap}",
-    ".bot{align-self:flex-start;background:#171b24;color:#f3eeee;border:1px solid rgba(255,255,255,.08);white-space:normal}",
+    ".user{align-self:flex-end;background:" + userBubbleBackground + ";color:" + userTextColor + ";white-space:pre-wrap}",
+    ".bot{align-self:flex-start;background:" + botBubbleBackground + ";color:" + botTextColor + ";border:1px solid rgba(255,255,255,.08);white-space:normal}",
     ".bot p{margin:0 0 8px}.bot p:last-child{margin-bottom:0}",
     ".bot h1,.bot h2,.bot h3{font-size:15px;line-height:1.25;margin:2px 0 8px;font-weight:850;color:#fff}",
     ".bot strong{font-weight:850;color:#fff}.bot em{font-style:italic}",
@@ -174,11 +198,12 @@
     ".bot pre code{display:block;background:transparent;border:0;border-radius:0;padding:0;color:#f4eeee;white-space:pre}",
     ".bot ul,.bot ol{margin:6px 0 9px;padding-left:20px}.bot li{margin:3px 0}",
     ".bot blockquote{margin:7px 0;padding:6px 9px;border-left:3px solid " + accent + ";background:rgba(255,255,255,.04);border-radius:7px}",
+    ".bot hr{border:0;height:1px;margin:13px 0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent)}",
     ".bot a{color:" + linkColor + ";text-decoration:underline;text-underline-offset:2px}",
     ".status{align-self:flex-start;color:#ac9d9d;font:600 12px/1.3 system-ui;padding:0 2px}",
-    ".form{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.1);background:#10141b}",
+    ".form{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.1);background:" + formBackground + "}",
     ".wrap.is-page .form{gap:14px;padding:16px;border-top:1px solid rgba(255,255,255,.24);background:" + formBackground + "}",
-    ".input{flex:1;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:11px;background:#080b10;color:#fff;padding:11px 12px;font:500 14px/1.2 " + fontStack + ";outline:none}",
+    ".input{flex:1;min-width:0;border:1px solid rgba(255,255,255,.14);border-radius:11px;background:" + inputBackground + ";color:" + inputTextColor + ";padding:11px 12px;font:500 14px/1.2 " + fontStack + ";outline:none}",
     ".wrap.is-page .input{height:49px;border-radius:7px;background:#f4f8ff;color:#111827;font-size:17px;padding:0 14px;border-color:rgba(255,255,255,.42)}",
     ".input:focus{border-color:" + accent + ";box-shadow:0 0 0 3px rgba(216,59,59,.18)}",
     ".send{border:0;border-radius:11px;background:" + accent + ";color:#150707;padding:0 14px;font:800 13px/1 " + fontStack + ";cursor:pointer}",
@@ -267,6 +292,10 @@
     return html;
   }
 
+  function isMarkdownHorizontalRuleLine(line) {
+    return /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(String(line || ""));
+  }
+
   function renderMarkdown(rawText) {
     var lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
     var html = [];
@@ -317,6 +346,13 @@
       if (!line.trim()) {
         flushParagraph();
         flushList();
+        return;
+      }
+
+      if (isMarkdownHorizontalRuleLine(line)) {
+        flushParagraph();
+        flushList();
+        html.push("<hr>");
         return;
       }
 
@@ -496,7 +532,8 @@
           message: message,
           history: history.slice(-6),
           site_title: document.title || "",
-          site_url: window.location.href || ""
+          site_url: window.location.href || "",
+          embed_prompt: embedPrompt
         })
       });
 

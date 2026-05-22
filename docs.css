@@ -612,6 +612,227 @@ code {
   filter: brightness(1.05);
 }
 
+.docs-secondary-btn {
+  cursor: pointer;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+.docs-embed-builder .docs-kicker + h2 {
+  margin-top: 10px;
+}
+
+.docs-embed-layout {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.docs-embed-form,
+.docs-embed-output {
+  display: grid;
+  gap: 12px;
+}
+
+.docs-embed-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.docs-field {
+  display: grid;
+  gap: 6px;
+}
+
+.docs-field label {
+  color: #f0d6d6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.docs-field span {
+  color: #ad9696;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.docs-field input,
+.docs-field select,
+.docs-field textarea {
+  width: 100%;
+  border: 1px solid #3d4657;
+  border-radius: 10px;
+  background: rgba(8, 12, 18, 0.92);
+  color: #f3dddd;
+  font: 500 12px/1.35 "Sora", "Segoe UI", sans-serif;
+  padding: 10px 11px;
+  outline: none;
+}
+
+.docs-field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.docs-field input:focus,
+.docs-field select:focus,
+.docs-field textarea:focus {
+  border-color: #b64f4f;
+  box-shadow: 0 0 0 1px rgba(209, 75, 75, 0.32);
+}
+
+.docs-color-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.docs-color-field input[type="color"] {
+  height: 42px;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.docs-embed-preview-stage {
+  min-height: 430px;
+  border: 1px solid #334054;
+  border-radius: 14px;
+  padding: 28px;
+  display: grid;
+  place-items: center;
+  background: #1200a8;
+  overflow: hidden;
+}
+
+.docs-embed-preview-stage.is-widget {
+  place-items: end;
+}
+
+.docs-embed-preview-stage.is-widget .docs-embed-preview-panel {
+  width: min(330px, 100%);
+  height: 390px;
+}
+
+.docs-embed-preview-panel {
+  width: min(520px, 100%);
+  height: 370px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: #1b1b2d;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.34);
+}
+
+.docs-embed-preview-top {
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  background: #080078;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.docs-embed-preview-log {
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #1b1b2d;
+}
+
+.docs-preview-bubble {
+  max-width: 72%;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.docs-preview-bot {
+  align-self: flex-start;
+  background: #171b24;
+  color: #f3eeee;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.docs-preview-user {
+  align-self: flex-end;
+  background: #3f55ff;
+  color: #ffffff;
+}
+
+.docs-embed-preview-form {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  background: #000082;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.docs-embed-preview-form span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: 8px;
+  background: #f4f8ff;
+  color: #657084;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.docs-embed-preview-form strong {
+  border-radius: 8px;
+  background: #000091;
+  color: #ffffff;
+  padding: 11px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.docs-embed-preview-footer {
+  min-height: 20px;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 20px;
+  padding: 0 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.docs-embed-code-block pre {
+  max-height: 280px;
+}
+
+.docs-embed-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.docs-embed-actions .docs-primary-btn,
+.docs-embed-actions .docs-secondary-btn {
+  margin-top: 0;
+}
+
+.docs-embed-status {
+  color: #cdb4b4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .docs-modal-open {
   overflow: hidden;
 }
@@ -694,6 +915,10 @@ code {
   .docs-split {
     grid-template-columns: 1fr 1fr;
   }
+
+  .docs-embed-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -722,6 +947,27 @@ code {
   .docs-grid-3,
   .docs-stat-grid,
   .docs-split {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-embed-row {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-color-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .docs-embed-preview-stage {
+    min-height: 360px;
+    padding: 12px;
+  }
+
+  .docs-embed-preview-panel {
+    height: 330px;
+  }
+
+  .docs-embed-preview-form {
     grid-template-columns: 1fr;
   }
 
