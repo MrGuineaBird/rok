@@ -20238,7 +20238,8 @@ async function handleImagineCommand(prompt) {
       ]
     : [
         { passNum: 1, progress: 30, label: "Building local SVG scaffold" },
-        { passNum: 2, progress: 90, label: "Polishing SVG shapes" }
+        { passNum: 2, progress: 62, label: "Fixing SVG shapes" },
+        { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
   let generationSummary = "local SVG scaffold + Ollama polish";
   let lastVectorSvg = "";
@@ -20314,7 +20315,7 @@ async function handleImagineCommand(prompt) {
           scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null,
           svg: String(vectorResult.svg || "")
         };
-        if (!/^(local_svg_scaffold|template_svg|kept_scaffold|template)$/i.test(bestVectorResult.vectorSource)) {
+        if (!/^(local_svg_scaffold|template_svg|kept_scaffold|kept_scaffold_quality_gate|template)$/i.test(bestVectorResult.vectorSource)) {
           vectorModelEdits += 1;
         }
         finalUrl = bestVectorResult.imageUrl;
