@@ -18924,16 +18924,21 @@ function setPixelPainterProvider(value) {
 function getPixelPainterRenderMode() {
   try {
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
-    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vector");
+    const savedMode = String(localStorage.getItem(PIXEL_PAINTER_MODE_STORAGE_KEY) || "").trim();
+    if (savedMode === "vector" || savedMode === "asset_png") {
+      return savedMode;
+    }
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "asset_png");
   } catch (e) {
     // Ignore storage errors
   }
-  return "vector";
+  return "asset_png";
 }
 
 function setPixelPainterRenderMode(value) {
   try {
-    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vector");
+    const normalized = value === "vector" ? "vector" : "asset_png";
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized);
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, "1");
   } catch (e) {
     // Ignore storage errors
@@ -19012,7 +19017,7 @@ function requestPixelPainterSettings() {
 
   let selectedProvider = "ollama";
   const existingOllamaKey = getPixelPainterApiKey();
-  let selectedMode = "vector";
+  let selectedMode = getPixelPainterRenderMode();
   let ollamaApiKey = existingOllamaKey;
   let referenceImageBase64 = "";
   let referencePreviewUrl = "";
@@ -19055,7 +19060,7 @@ function requestPixelPainterSettings() {
       value: "ollama",
       badge: "OL",
       title: "Ollama",
-      description: "ROK IMAGE uses only Ollama-guided vector and pixel painting."
+      description: "ROK IMAGE uses Ollama planning with local rendering."
     }
   ];
 
@@ -19068,10 +19073,16 @@ function requestPixelPainterSettings() {
 
   const modeOptions = [
     {
+      value: "asset_png",
+      badge: "PNG",
+      title: "Asset PNG",
+      description: "Fast local asset-grid image compositor."
+    },
+    {
       value: "vector",
       badge: "SVG",
-      title: "SVG",
-      description: "Fast editable vector art with clean shapes."
+      title: "SVG Debug",
+      description: "Editable vector fallback for debugging."
     }
   ];
 
@@ -19301,11 +19312,11 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Save and Continue";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE uses compact SVG with your Ollama key.";
+    hint.textContent = "ROK IMAGE uses your Ollama key for one scene plan, then renders locally.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
-    modeLabel.style.display = "none";
-    modeGrid.style.display = "none";
+    modeLabel.style.display = "block";
+    modeGrid.style.display = "grid";
     endpointLabel.style.display = "none";
     endpointInput.style.display = "none";
     checkpointLabel.style.display = "none";
@@ -19731,7 +19742,9 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const renderMode = "vector";
+  const renderMode = String(imagineSettings.mode || getPixelPainterRenderMode() || "asset_png").trim() === "vector"
+    ? "vector"
+    : "asset_png";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
@@ -20220,7 +20233,46 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
-  const useVectorPipeline = true;
+  async function requestAssetGridArtwork() {
+    progressBar.style.width = "10%";
+    statusText.textContent = "Planning asset scene...";
+    const response = await fetch(PIXEL_PAINTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [PIXEL_PAINTER_USER_KEY_HEADER]: userPixelPainterApiKey
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        reference_image_base64: referenceImageBase64,
+        mode: "asset_png"
+      })
+    });
+    const data = await response.json().catch(() => null);
+    if (response.status === 401 || response.status === 403) {
+      setPixelPainterApiKey("");
+      throw new Error((data && data.error) || "Your Ollama API key was rejected.");
+    }
+    if (!response.ok) {
+      throw new Error((data && data.error) || `Asset compositor failed (${response.status}).`);
+    }
+    const imageUrl = getPixelPainterImageUrl(data || {});
+    if (!data || !data.ok || data.mode !== "png" || !imageUrl) {
+      throw new Error((data && data.error) || "Asset compositor returned an invalid image.");
+    }
+    progressBar.style.width = "82%";
+    statusText.textContent = "Rendering local PNG...";
+    return {
+      imageUrl,
+      usageCalls: Number.isFinite(Number(data.usage_calls)) ? Number(data.usage_calls) : 0,
+      renderMs: Number.isFinite(Number(data.render_ms)) ? Number(data.render_ms) : 0,
+      validationFixes: Array.isArray(data.validation_fixes) ? data.validation_fixes : [],
+      fallbacksUsed: Array.isArray(data.fallbacks_used) ? data.fallbacks_used : [],
+      svg: String(data.svg_scaffold || "")
+    };
+  }
+
+  const useVectorPipeline = renderMode === "vector";
   const vectorPromptText = ` ${String(prompt || "").toLowerCase()} `;
   const vectorPromptWordCount = (String(prompt || "").match(/[A-Za-z0-9']+/g) || []).length;
   const complexVectorPrompt = useVectorPipeline && (
@@ -20230,7 +20282,12 @@ async function handleImagineCommand(prompt) {
   const relationHeavyVectorPrompt = useVectorPipeline &&
     /\b(riding|holding|eating|wearing|beside|next to|while|carrying|under|over)\b/.test(vectorPromptText);
   let finalUrl = "";
-  const vectorPasses = relationHeavyVectorPrompt
+  const localOnlySvgPrompt = !referenceImageBase64;
+  const vectorPasses = localOnlySvgPrompt
+    ? [
+        { passNum: 1, progress: 90, label: "Building local SVG illustration" }
+      ]
+    : relationHeavyVectorPrompt
     ? [
         { passNum: 1, progress: 24, label: "Building local SVG scaffold" },
         { passNum: 2, progress: 64, label: "Fixing SVG relationships" },
@@ -20246,6 +20303,18 @@ async function handleImagineCommand(prompt) {
   let vectorModelEdits = 0;
 
   try {
+    if (!stopped && renderMode === "asset_png") {
+      const assetResult = await requestAssetGridArtwork();
+      finalUrl = assetResult.imageUrl;
+      previewImg.src = finalUrl;
+      previewDiv.style.display = "block";
+      lastVectorSvg = assetResult.svg;
+      renderPixelPainterDebugOverlay(previewDiv, lastVectorSvg);
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
+      const fallbackCount = assetResult.fallbacksUsed.length;
+      generationSummary = `${assetResult.usageCalls} Ollama plan + local asset PNG${fallbackCount ? `, ${fallbackCount} fallback${fallbackCount === 1 ? "" : "s"}` : ""}`;
+    }
     if (!stopped && useVectorPipeline) {
       let currentVectorBase64 = "";
       let currentVectorScene = null;
@@ -20315,7 +20384,7 @@ async function handleImagineCommand(prompt) {
           scene: vectorResult.scene && typeof vectorResult.scene === "object" ? vectorResult.scene : null,
           svg: String(vectorResult.svg || "")
         };
-        if (!/^(local_svg_scaffold|template_svg|kept_scaffold|kept_scaffold_quality_gate|template)$/i.test(bestVectorResult.vectorSource)) {
+        if (!/^(local_svg_scaffold|template_svg|kept_scaffold|kept_scaffold_quality_gate|kept_local_svg|template)$/i.test(bestVectorResult.vectorSource)) {
           vectorModelEdits += 1;
         }
         finalUrl = bestVectorResult.imageUrl;
