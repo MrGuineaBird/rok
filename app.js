@@ -19769,10 +19769,20 @@ async function handleImagineCommand(prompt) {
   const previewDiv = document.createElement("div");
   previewDiv.className = "pixel-painting-preview";
   previewDiv.style.display = "none";
+  const generatingPreview = document.createElement("div");
+  generatingPreview.className = "pixel-painting-generating";
+  generatingPreview.setAttribute("aria-hidden", "true");
+  generatingPreview.innerHTML = `
+    <span class="pixel-painting-generating-glow"></span>
+    <span class="pixel-painting-generating-scan"></span>
+    <span class="pixel-painting-generating-core"></span>
+  `;
   const previewImg = document.createElement("img");
   previewImg.className = "pixel-painting-img";
   previewImg.alt = "Generated image";
   previewImg.style.imageRendering = "auto";
+  previewImg.style.display = "none";
+  previewDiv.appendChild(generatingPreview);
   previewDiv.appendChild(previewImg);
   header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">${modeMeta.icon}</span><span class="pixel-painting-title">${modeMeta.label}: "${escapeHtml(prompt)}"</span>`;
   
@@ -19815,11 +19825,35 @@ async function handleImagineCommand(prompt) {
   
   const progressBar = progressWrap.querySelector(".pixel-painting-fill");
   const statusText = progressWrap.querySelector(".pixel-painting-status");
+
+  function showGeneratingPreview() {
+    previewDiv.style.display = "block";
+    previewDiv.classList.add("is-generating");
+    generatingPreview.style.display = "block";
+    previewImg.style.display = "none";
+  }
+
+  function showGeneratedPreview(imageUrl) {
+    previewImg.src = imageUrl;
+    previewImg.style.display = "block";
+    generatingPreview.style.display = "none";
+    previewDiv.classList.remove("is-generating");
+    previewDiv.style.display = "block";
+  }
+
+  function hideGeneratingPreview() {
+    generatingPreview.style.display = "none";
+    previewDiv.classList.remove("is-generating");
+    if (!previewImg.src) {
+      previewDiv.style.display = "none";
+    }
+  }
   
   let stopped = false;
   stopBtn.addEventListener("click", () => {
     stopped = true;
     statusText.textContent = "Stopped by user";
+    hideGeneratingPreview();
     stopBtn.disabled = true;
   });
   
@@ -19993,8 +20027,7 @@ async function handleImagineCommand(prompt) {
       } catch (error) {
         if (index > 0 || options.allowPartialResult) {
           canvas.restoreSnapshot(strongestSnapshot);
-          previewImg.src = canvas.getDisplayUrl();
-          previewDiv.style.display = "block";
+          showGeneratedPreview(canvas.getDisplayUrl());
           statusText.textContent = "Using strongest finished pass";
           break;
         }
@@ -20038,8 +20071,7 @@ async function handleImagineCommand(prompt) {
 
       if ((destructiveArea || destructiveIntensity || clearlyWeakerLatePass) && (lateProtection || confidenceDrop)) {
         canvas.restoreSnapshot(strongestSnapshot);
-        previewImg.src = canvas.getDisplayUrl();
-        previewDiv.style.display = "block";
+        showGeneratedPreview(canvas.getDisplayUrl());
         completedPasses = Math.max(completedPasses, Math.max(1, pixelPass.passNum - 1));
         if (!repairAttempted && !stopped) {
           repairAttempted = true;
@@ -20075,12 +20107,10 @@ async function handleImagineCommand(prompt) {
               );
               statusText.textContent = "Repaired weak area";
             }
-            previewImg.src = canvas.getDisplayUrl();
-            previewDiv.style.display = "block";
+            showGeneratedPreview(canvas.getDisplayUrl());
           } catch (repairError) {
             canvas.restoreSnapshot(strongestSnapshot);
-            previewImg.src = canvas.getDisplayUrl();
-            previewDiv.style.display = "block";
+            showGeneratedPreview(canvas.getDisplayUrl());
             statusText.textContent = "Keeping stronger earlier pass";
             console.warn("Pixel Painter repair fallback:", repairError);
           }
@@ -20102,8 +20132,7 @@ async function handleImagineCommand(prompt) {
         strongestConfidence = safeConfidence;
       }
 
-      previewImg.src = canvas.getDisplayUrl();
-      previewDiv.style.display = "block";
+      showGeneratedPreview(canvas.getDisplayUrl());
 
       const lowImpactLatePass = lateProtection &&
         diffStats.changedRatio < Math.max(0.005, effectiveAllowedChangeRatio * 0.24);
@@ -20215,6 +20244,7 @@ async function handleImagineCommand(prompt) {
   }
 
   async function requestDibutadesArtwork() {
+    showGeneratingPreview();
     progressBar.style.width = "10%";
     statusText.textContent = "Generating image...";
     const response = await fetch(PIXEL_PAINTER_API_URL, {
@@ -20369,9 +20399,12 @@ async function handleImagineCommand(prompt) {
   try {
     if (!stopped && renderMode === "cloudflare_flux") {
       const dibutadesResult = await requestDibutadesArtwork();
+      if (stopped) {
+        hideGeneratingPreview();
+        return;
+      }
       finalUrl = dibutadesResult.imageUrl;
-      previewImg.src = finalUrl;
-      previewDiv.style.display = "block";
+      showGeneratedPreview(finalUrl);
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";
       generationSummary = dibutadesResult.imageModel || "Dibutades 1";
@@ -20380,8 +20413,7 @@ async function handleImagineCommand(prompt) {
     if (!stopped && renderMode === "vq_tokens") {
       const tokenResult = await requestTokenArtwork();
       finalUrl = tokenResult.imageUrl;
-      previewImg.src = finalUrl;
-      previewDiv.style.display = "block";
+      showGeneratedPreview(finalUrl);
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";
       const fallbackCount = tokenResult.fallbacksUsed.length;
@@ -20392,8 +20424,7 @@ async function handleImagineCommand(prompt) {
     if (!stopped && renderMode === "asset_png") {
       const assetResult = await requestAssetGridArtwork();
       finalUrl = assetResult.imageUrl;
-      previewImg.src = finalUrl;
-      previewDiv.style.display = "block";
+      showGeneratedPreview(finalUrl);
       lastVectorSvg = assetResult.svg;
       renderPixelPainterDebugOverlay(previewDiv, lastVectorSvg);
       progressBar.style.width = "100%";
@@ -20476,8 +20507,7 @@ async function handleImagineCommand(prompt) {
           vectorModelEdits += 1;
         }
         finalUrl = bestVectorResult.imageUrl;
-        previewImg.src = finalUrl;
-        previewDiv.style.display = "block";
+        showGeneratedPreview(finalUrl);
         renderPixelPainterDebugOverlay(previewDiv, bestVectorResult.svg);
         lastVectorSvg = bestVectorResult.svg;
         currentVectorScene = bestVectorResult.scene;
@@ -20510,6 +20540,7 @@ async function handleImagineCommand(prompt) {
     }
   } catch (error) {
     statusText.textContent = `Error: ${error.message}`;
+    hideGeneratingPreview();
     console.error("Imagine generation error:", error);
   }
   
@@ -20518,8 +20549,7 @@ async function handleImagineCommand(prompt) {
     stopBtn.style.display = "none";
     return;
   }
-  previewImg.src = finalUrl;
-  previewDiv.style.display = "block";
+  showGeneratedPreview(finalUrl);
   renderPixelPainterDebugOverlay(previewDiv, lastVectorSvg);
   stopBtn.style.display = "none";
   
