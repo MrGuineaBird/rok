@@ -20227,7 +20227,11 @@ async function handleImagineCommand(prompt) {
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error((data && data.error) || `ROK IMAGE token generation failed (${response.status}).`);
+      const backendError = String(data && data.error || "");
+      if (/supports mode ['"]asset_png['"] or ['"]svg['"]/i.test(backendError)) {
+        throw new Error("Your ROK IMAGE backend is still the old build. Redeploy the backend with the vq_image_research token pipeline files.");
+      }
+      throw new Error(backendError || `ROK IMAGE token generation failed (${response.status}).`);
     }
     const imageUrl = getPixelPainterImageUrl(data || {});
     if (!data || !data.ok || data.mode !== "vq_tokens" || !imageUrl) {
