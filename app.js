@@ -17809,7 +17809,7 @@ const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY = "rok_pixel_painter_svg_default_migrated";
-const PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE = "asset_png_default_v2";
+const PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE = "vq_tokens_default_v1";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
@@ -18911,12 +18911,12 @@ function setPixelPainterApiKey(value) {
 }
 
 function getPixelPainterProvider() {
-  return "ollama";
+  return "local";
 }
 
 function setPixelPainterProvider(value) {
   try {
-    localStorage.setItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY, "ollama");
+    localStorage.setItem(PIXEL_PAINTER_PROVIDER_STORAGE_KEY, "local");
   } catch (e) {
     // Ignore storage errors
   }
@@ -18924,17 +18924,17 @@ function setPixelPainterProvider(value) {
 
 function getPixelPainterRenderMode() {
   try {
-    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "asset_png");
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vq_tokens");
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
     // Ignore storage errors
   }
-  return "asset_png";
+  return "vq_tokens";
 }
 
 function setPixelPainterRenderMode(value) {
   try {
-    const normalized = value === "vector" ? "vector" : "asset_png";
+    const normalized = value === "asset_png" || value === "vector" ? value : "vq_tokens";
     localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized);
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
@@ -19012,7 +19012,7 @@ function requestPixelPainterSettings() {
     return activePixelPainterApiKeyModal.promise;
   }
 
-  let selectedProvider = "ollama";
+  let selectedProvider = "local";
   const existingOllamaKey = getPixelPainterApiKey();
   let selectedMode = getPixelPainterRenderMode();
   let ollamaApiKey = existingOllamaKey;
@@ -19054,26 +19054,26 @@ function requestPixelPainterSettings() {
 
   const providerOptions = [
     {
-      value: "ollama",
-      badge: "OL",
-      title: "Ollama",
-      description: "ROK IMAGE uses Ollama planning with local rendering."
+      value: "local",
+      badge: "RI",
+      title: "ROK IMAGE",
+      description: "Local text tokens become image tokens, then decode into a PNG."
     }
   ];
 
   const modeLabel = document.createElement("div");
   modeLabel.className = "pixel-painting-settings-label";
-  modeLabel.textContent = "Ollama style";
+  modeLabel.textContent = "Generation mode";
 
   const modeGrid = document.createElement("div");
   modeGrid.className = "pixel-painting-mode-grid";
 
   const modeOptions = [
     {
-      value: "asset_png",
-      badge: "PNG",
-      title: "Asset PNG",
-      description: "Fast local asset-grid image compositor."
+      value: "vq_tokens",
+      badge: "TOK",
+      title: "Token pipeline",
+      description: "DALL-E-1-style prompt tokens, image tokens, and local decoding."
     }
   ];
 
@@ -19116,7 +19116,7 @@ function requestPixelPainterSettings() {
       `;
       button.addEventListener("click", () => {
         selectedProvider = option.value;
-        selectedProvider = "ollama";
+        selectedProvider = "local";
         renderProviderOptions();
         renderModeOptions();
         syncProviderFields();
@@ -19300,10 +19300,10 @@ function requestPixelPainterSettings() {
   const submitBtn = document.createElement("button");
   submitBtn.type = "button";
   submitBtn.className = "correction-modal-submit";
-  submitBtn.textContent = "Save and Continue";
+  submitBtn.textContent = "Generate";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE uses your Ollama key for one scene plan, then renders locally.";
+    hint.textContent = "ROK IMAGE now runs locally: prompt tokens become image tokens, then decode into a PNG.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
     modeLabel.style.display = "block";
@@ -19312,30 +19312,24 @@ function requestPixelPainterSettings() {
     endpointInput.style.display = "none";
     checkpointLabel.style.display = "none";
     checkpointInput.style.display = "none";
-    keyLabel.style.display = "block";
-    input.style.display = "block";
-    keyLabel.textContent = "Ollama API key";
-    input.placeholder = "Paste your Ollama API key";
-    input.value = ollamaApiKey;
-    forgetBtn.style.display = "inline-flex";
-    forgetBtn.disabled = !ollamaApiKey;
+    keyLabel.style.display = "none";
+    input.style.display = "none";
+    input.value = "";
+    forgetBtn.style.display = "none";
+    forgetBtn.disabled = true;
   }
 
   function updateSubmitState() {
-    const hasKey = !!String(input.value || "").trim();
-    submitBtn.disabled = referenceLoading || !hasKey;
+    submitBtn.disabled = referenceLoading;
   }
 
   function submitValue() {
-    const normalizedKey = String(input.value || "").trim();
-    if (!normalizedKey) return;
-    ollamaApiKey = normalizedKey;
-    setPixelPainterProvider("ollama");
-    setPixelPainterApiKey(normalizedKey);
+    setPixelPainterProvider("local");
+    setPixelPainterApiKey("");
     setPixelPainterRenderMode(selectedMode);
     closePixelPainterApiKeyModal({
-      provider: "ollama",
-      apiKey: normalizedKey,
+      provider: "local",
+      apiKey: "",
       mode: selectedMode,
       referenceImageBase64,
       referenceImageName
@@ -19409,8 +19403,7 @@ function requestPixelPainterSettings() {
   syncProviderFields();
   renderReferenceState();
   updateSubmitState();
-  input.focus();
-  input.select();
+  submitBtn.focus();
 
   return promise;
 }
@@ -19732,15 +19725,11 @@ async function handleImagineCommand(prompt) {
   if (imagineSettings === null) {
     return;
   }
-  const userPixelPainterApiKey = String(imagineSettings.apiKey || "").trim();
-  const renderMode = "asset_png";
+  const userPixelPainterApiKey = "";
+  const renderMode = String(imagineSettings.mode || "vq_tokens").trim() || "vq_tokens";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
-  if (!userPixelPainterApiKey) {
-    addMessage("bot", "Imagine needs your own Ollama API key before it can start.");
-    return;
-  }
 
   // Show user message
   addMessage("user", `/imagine ${prompt}`);
@@ -19831,7 +19820,7 @@ async function handleImagineCommand(prompt) {
     stopBtn.disabled = true;
   });
   
-  // Initialize canvas with blank white (easier for AI to draw on)
+  // Legacy canvas paths still use this, while the default token pipeline returns a complete image.
   const canvas = new PixelCanvas();
   canvas.initBlank();
   
@@ -20222,6 +20211,43 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
+  async function requestTokenArtwork() {
+    progressBar.style.width = "10%";
+    statusText.textContent = "Tokenizing prompt...";
+    const response = await fetch(PIXEL_PAINTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        reference_image_base64: referenceImageBase64,
+        mode: "vq_tokens"
+      })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error((data && data.error) || `ROK IMAGE token generation failed (${response.status}).`);
+    }
+    const imageUrl = getPixelPainterImageUrl(data || {});
+    if (!data || !data.ok || data.mode !== "vq_tokens" || !imageUrl) {
+      throw new Error((data && data.error) || "ROK IMAGE returned an invalid token image.");
+    }
+    progressBar.style.width = "86%";
+    statusText.textContent = "Decoding image tokens...";
+    return {
+      imageUrl,
+      textTokenCount: Array.isArray(data.text_tokens) ? data.text_tokens.length : 0,
+      imageTokenCount: Array.isArray(data.image_tokens) ? data.image_tokens.length : 0,
+      tokenGridSize: Array.isArray(data.token_grid) ? data.token_grid.length : 0,
+      vocabVersion: String(data.vocab_version || "").trim(),
+      generationTrace: Array.isArray(data.generation_trace) ? data.generation_trace : [],
+      usageCalls: Number.isFinite(Number(data.usage_calls)) ? Number(data.usage_calls) : 0,
+      renderMs: Number.isFinite(Number(data.render_ms)) ? Number(data.render_ms) : 0,
+      fallbacksUsed: Array.isArray(data.fallbacks_used) ? data.fallbacks_used : []
+    };
+  }
+
   async function requestAssetGridArtwork() {
     progressBar.style.width = "10%";
     statusText.textContent = "Planning asset scene...";
@@ -20296,6 +20322,18 @@ async function handleImagineCommand(prompt) {
   let vectorModelEdits = 0;
 
   try {
+    if (!stopped && renderMode === "vq_tokens") {
+      const tokenResult = await requestTokenArtwork();
+      finalUrl = tokenResult.imageUrl;
+      previewImg.src = finalUrl;
+      previewDiv.style.display = "block";
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
+      const fallbackCount = tokenResult.fallbacksUsed.length;
+      const tokenSummary = `${tokenResult.textTokenCount} text tokens -> ${tokenResult.imageTokenCount} image tokens`;
+      generationSummary = `${tokenSummary} + local decoder${tokenResult.vocabVersion ? ` (${tokenResult.vocabVersion})` : ""}${fallbackCount ? `, ${fallbackCount} fallback${fallbackCount === 1 ? "" : "s"}` : ""}`;
+      durationLabel = tokenResult.renderMs > 0 ? `${tokenResult.renderMs}ms render` : "";
+    }
     if (!stopped && renderMode === "asset_png") {
       const assetResult = await requestAssetGridArtwork();
       finalUrl = assetResult.imageUrl;
