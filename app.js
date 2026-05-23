@@ -19058,13 +19058,13 @@ function requestPixelPainterSettings() {
       value: "local",
       badge: "RI",
       title: "ROK IMAGE",
-      description: "Server-side Cloudflare FLUX image generation with a free-neuron budget."
+      description: "Dibutades 1."
     }
   ];
 
   const modeLabel = document.createElement("div");
   modeLabel.className = "pixel-painting-settings-label";
-  modeLabel.textContent = "Generation mode";
+  modeLabel.textContent = "Image model";
 
   const modeGrid = document.createElement("div");
   modeGrid.className = "pixel-painting-mode-grid";
@@ -19072,9 +19072,9 @@ function requestPixelPainterSettings() {
   const modeOptions = [
     {
       value: "cloudflare_flux",
-      badge: "FLX",
-      title: "Cloudflare FLUX",
-      description: "Real image pixels from FLUX.2 Klein, guarded by ROK's daily Neuron cap."
+      badge: "D1",
+      title: "Dibutades 1",
+      description: "ROK IMAGE."
     }
   ];
 
@@ -19304,7 +19304,7 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Generate";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE uses Cloudflare Workers AI for real image generation. No Ollama key is needed.";
+    hint.textContent = "ROK IMAGE is ready.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
     modeLabel.style.display = "block";
@@ -19823,7 +19823,7 @@ async function handleImagineCommand(prompt) {
     stopBtn.disabled = true;
   });
   
-  // Legacy canvas paths still use this, while the default FLUX path returns a complete image.
+  // Legacy canvas paths still use this, while the default image path returns a complete image.
   const canvas = new PixelCanvas();
   canvas.initBlank();
   
@@ -20214,9 +20214,9 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
-  async function requestCloudflareFluxArtwork() {
+  async function requestDibutadesArtwork() {
     progressBar.style.width = "10%";
-    statusText.textContent = "Sending prompt to FLUX...";
+    statusText.textContent = "Generating image...";
     const response = await fetch(PIXEL_PAINTER_API_URL, {
       method: "POST",
       headers: {
@@ -20231,20 +20231,18 @@ async function handleImagineCommand(prompt) {
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const backendError = String(data && data.error || "");
-      throw new Error(backendError || `ROK IMAGE FLUX generation failed (${response.status}).`);
+      throw new Error(backendError || `ROK IMAGE generation failed (${response.status}).`);
     }
     const imageUrl = getPixelPainterImageUrl(data || {});
     if (!data || !data.ok || data.mode !== "cloudflare_flux" || !imageUrl) {
-      throw new Error((data && data.error) || "ROK IMAGE returned an invalid FLUX image.");
+      throw new Error((data && data.error) || "ROK IMAGE returned an invalid image.");
     }
     progressBar.style.width = "94%";
     statusText.textContent = "Receiving generated image...";
     return {
       imageUrl,
-      imageModel: String(data.image_model || "cloudflare_flux").trim(),
+      imageModel: "Dibutades 1",
       promptUsed: String(data.prompt_used || prompt).trim(),
-      estimatedNeurons: Number.isFinite(Number(data.estimated_neurons)) ? Number(data.estimated_neurons) : 0,
-      dailyNeuronsRemaining: Number.isFinite(Number(data.daily_neurons_remaining)) ? Number(data.daily_neurons_remaining) : null,
       usageCalls: Number.isFinite(Number(data.usage_calls)) ? Number(data.usage_calls) : 0,
       renderMs: Number.isFinite(Number(data.render_ms)) ? Number(data.render_ms) : 0,
       width: Number.isFinite(Number(data.width)) ? Number(data.width) : 0,
@@ -20363,29 +20361,21 @@ async function handleImagineCommand(prompt) {
         { passNum: 2, progress: 62, label: "Fixing SVG shapes" },
         { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
-  let generationSummary = "cloudflare_flux";
+  let generationSummary = "Dibutades 1";
   let durationLabel = "";
   let lastVectorSvg = "";
   let vectorModelEdits = 0;
 
   try {
     if (!stopped && renderMode === "cloudflare_flux") {
-      const fluxResult = await requestCloudflareFluxArtwork();
-      finalUrl = fluxResult.imageUrl;
+      const dibutadesResult = await requestDibutadesArtwork();
+      finalUrl = dibutadesResult.imageUrl;
       previewImg.src = finalUrl;
       previewDiv.style.display = "block";
       progressBar.style.width = "100%";
       statusText.textContent = "Complete";
-      const sizeLabel = fluxResult.width && fluxResult.height ? `${fluxResult.width}x${fluxResult.height}` : "";
-      const neuronLabel = fluxResult.estimatedNeurons > 0 ? `${fluxResult.estimatedNeurons.toFixed(2)} neurons` : "";
-      const remainingLabel = fluxResult.dailyNeuronsRemaining !== null
-        ? `${fluxResult.dailyNeuronsRemaining.toFixed(2)} left today`
-        : "";
-      const detailBits = [sizeLabel, `${fluxResult.steps || 25} steps`, neuronLabel, remainingLabel]
-        .filter(Boolean)
-        .join(" | ");
-      generationSummary = `${fluxResult.imageModel || "cloudflare_flux"}${detailBits ? ` | ${detailBits}` : ""}`;
-      durationLabel = fluxResult.renderMs > 0 ? `${fluxResult.renderMs}ms FLUX render` : "";
+      generationSummary = dibutadesResult.imageModel || "Dibutades 1";
+      durationLabel = dibutadesResult.renderMs > 0 ? `${dibutadesResult.renderMs}ms render` : "";
     }
     if (!stopped && renderMode === "vq_tokens") {
       const tokenResult = await requestTokenArtwork();
