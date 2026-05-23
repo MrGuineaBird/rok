@@ -17809,7 +17809,7 @@ const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
 const PIXEL_PAINTER_MODE_STORAGE_KEY = "rok_pixel_painter_mode";
 const PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY = "rok_pixel_painter_svg_default_migrated";
-const PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE = "vq_tokens_default_v1";
+const PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE = "cloudflare_flux_default_v1";
 const PIXEL_PAINTER_USER_KEY_HEADER = "X-ROK-Pixel-Painter-Key";
 const PIXEL_PAINTER_CANVAS_SIZE = 300;
 
@@ -18924,17 +18924,18 @@ function setPixelPainterProvider(value) {
 
 function getPixelPainterRenderMode() {
   try {
-    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "vq_tokens");
+    localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, "cloudflare_flux");
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
     // Ignore storage errors
   }
-  return "vq_tokens";
+  return "cloudflare_flux";
 }
 
 function setPixelPainterRenderMode(value) {
   try {
-    const normalized = value === "asset_png" || value === "vector" ? value : "vq_tokens";
+    const allowedModes = new Set(["cloudflare_flux", "vq_tokens", "asset_png", "vector"]);
+    const normalized = allowedModes.has(value) ? value : "cloudflare_flux";
     localStorage.setItem(PIXEL_PAINTER_MODE_STORAGE_KEY, normalized);
     localStorage.setItem(PIXEL_PAINTER_SVG_DEFAULT_MIGRATION_KEY, PIXEL_PAINTER_ASSET_PNG_MIGRATION_VALUE);
   } catch (e) {
@@ -19057,7 +19058,7 @@ function requestPixelPainterSettings() {
       value: "local",
       badge: "RI",
       title: "ROK IMAGE",
-      description: "Local text tokens become image tokens, then decode into a PNG."
+      description: "Server-side Cloudflare FLUX image generation with a free-neuron budget."
     }
   ];
 
@@ -19070,10 +19071,10 @@ function requestPixelPainterSettings() {
 
   const modeOptions = [
     {
-      value: "vq_tokens",
-      badge: "TOK",
-      title: "Token pipeline",
-      description: "DALL-E-1-style prompt tokens, image tokens, and local decoding."
+      value: "cloudflare_flux",
+      badge: "FLX",
+      title: "Cloudflare FLUX",
+      description: "Real image pixels from FLUX.2 Klein, guarded by ROK's daily Neuron cap."
     }
   ];
 
@@ -19303,7 +19304,7 @@ function requestPixelPainterSettings() {
   submitBtn.textContent = "Generate";
 
   function syncProviderFields() {
-    hint.textContent = "ROK IMAGE now runs locally: prompt tokens become image tokens, then decode into a PNG.";
+    hint.textContent = "ROK IMAGE uses Cloudflare Workers AI for real image generation. No Ollama key is needed.";
     providerLabel.style.display = "none";
     providerGrid.style.display = "none";
     modeLabel.style.display = "block";
@@ -19369,6 +19370,8 @@ function requestPixelPainterSettings() {
 
   modal.appendChild(title);
   modal.appendChild(hint);
+  modal.appendChild(modeLabel);
+  modal.appendChild(modeGrid);
   modal.appendChild(referenceLabel);
   modal.appendChild(referenceHint);
   modal.appendChild(referenceCard);
@@ -19726,7 +19729,7 @@ async function handleImagineCommand(prompt) {
     return;
   }
   const userPixelPainterApiKey = "";
-  const renderMode = String(imagineSettings.mode || "vq_tokens").trim() || "vq_tokens";
+  const renderMode = String(imagineSettings.mode || "cloudflare_flux").trim() || "cloudflare_flux";
   const referenceImageBase64 = String(imagineSettings.referenceImageBase64 || "").trim();
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
@@ -19820,7 +19823,7 @@ async function handleImagineCommand(prompt) {
     stopBtn.disabled = true;
   });
   
-  // Legacy canvas paths still use this, while the default token pipeline returns a complete image.
+  // Legacy canvas paths still use this, while the default FLUX path returns a complete image.
   const canvas = new PixelCanvas();
   canvas.initBlank();
   
@@ -20211,6 +20214,46 @@ async function handleImagineCommand(prompt) {
     throw new Error("Vector generation retries exhausted");
   }
 
+  async function requestCloudflareFluxArtwork() {
+    progressBar.style.width = "10%";
+    statusText.textContent = "Sending prompt to FLUX...";
+    const response = await fetch(PIXEL_PAINTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        reference_image_base64: referenceImageBase64,
+        mode: "cloudflare_flux"
+      })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const backendError = String(data && data.error || "");
+      throw new Error(backendError || `ROK IMAGE FLUX generation failed (${response.status}).`);
+    }
+    const imageUrl = getPixelPainterImageUrl(data || {});
+    if (!data || !data.ok || data.mode !== "cloudflare_flux" || !imageUrl) {
+      throw new Error((data && data.error) || "ROK IMAGE returned an invalid FLUX image.");
+    }
+    progressBar.style.width = "94%";
+    statusText.textContent = "Receiving generated image...";
+    return {
+      imageUrl,
+      imageModel: String(data.image_model || "cloudflare_flux").trim(),
+      promptUsed: String(data.prompt_used || prompt).trim(),
+      estimatedNeurons: Number.isFinite(Number(data.estimated_neurons)) ? Number(data.estimated_neurons) : 0,
+      dailyNeuronsRemaining: Number.isFinite(Number(data.daily_neurons_remaining)) ? Number(data.daily_neurons_remaining) : null,
+      usageCalls: Number.isFinite(Number(data.usage_calls)) ? Number(data.usage_calls) : 0,
+      renderMs: Number.isFinite(Number(data.render_ms)) ? Number(data.render_ms) : 0,
+      width: Number.isFinite(Number(data.width)) ? Number(data.width) : 0,
+      height: Number.isFinite(Number(data.height)) ? Number(data.height) : 0,
+      steps: Number.isFinite(Number(data.steps)) ? Number(data.steps) : 0,
+      fallbacksUsed: Array.isArray(data.fallbacks_used) ? data.fallbacks_used : []
+    };
+  }
+
   async function requestTokenArtwork() {
     progressBar.style.width = "10%";
     statusText.textContent = "Tokenizing prompt...";
@@ -20320,12 +20363,30 @@ async function handleImagineCommand(prompt) {
         { passNum: 2, progress: 62, label: "Fixing SVG shapes" },
         { passNum: 3, progress: 90, label: "Polishing SVG details" }
       ];
-  let generationSummary = "local SVG scaffold + Ollama polish";
+  let generationSummary = "cloudflare_flux";
   let durationLabel = "";
   let lastVectorSvg = "";
   let vectorModelEdits = 0;
 
   try {
+    if (!stopped && renderMode === "cloudflare_flux") {
+      const fluxResult = await requestCloudflareFluxArtwork();
+      finalUrl = fluxResult.imageUrl;
+      previewImg.src = finalUrl;
+      previewDiv.style.display = "block";
+      progressBar.style.width = "100%";
+      statusText.textContent = "Complete";
+      const sizeLabel = fluxResult.width && fluxResult.height ? `${fluxResult.width}x${fluxResult.height}` : "";
+      const neuronLabel = fluxResult.estimatedNeurons > 0 ? `${fluxResult.estimatedNeurons.toFixed(2)} neurons` : "";
+      const remainingLabel = fluxResult.dailyNeuronsRemaining !== null
+        ? `${fluxResult.dailyNeuronsRemaining.toFixed(2)} left today`
+        : "";
+      const detailBits = [sizeLabel, `${fluxResult.steps || 25} steps`, neuronLabel, remainingLabel]
+        .filter(Boolean)
+        .join(" | ");
+      generationSummary = `${fluxResult.imageModel || "cloudflare_flux"}${detailBits ? ` | ${detailBits}` : ""}`;
+      durationLabel = fluxResult.renderMs > 0 ? `${fluxResult.renderMs}ms FLUX render` : "";
+    }
     if (!stopped && renderMode === "vq_tokens") {
       const tokenResult = await requestTokenArtwork();
       finalUrl = tokenResult.imageUrl;
