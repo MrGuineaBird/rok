@@ -442,7 +442,8 @@ const HYPERION_LABEL = "Hyperion";
 const HYPERION_PROVIDER_NAME = "Cogito 2.1 671B";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
-  { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL }
+  { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL },
+  { id: HYPERION_MODEL_ID, label: HYPERION_LABEL }
 ];
 const KNOWN_MODEL_LABELS = {
   [HERMES_MODEL_ID]: HERMES_LABEL,
@@ -462,7 +463,7 @@ const KNOWN_MODEL_LABELS = {
 const MODEL_DESCRIPTIONS = {
   [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Qwen3-VL vision.`,
   [DAEDALUS_MODEL_ID]: `${DAEDALUS_LABEL} - ${DAEDALUS_PROVIDER_NAME} with a rolling token limit unless you add your own Ollama API key.`,
-  [HYPERION_MODEL_ID]: `${HYPERION_LABEL} - ${HYPERION_PROVIDER_NAME} for advanced coding and cybersecurity work using your own Ollama Cloud key.`,
+  [HYPERION_MODEL_ID]: `${HYPERION_LABEL} - ${HYPERION_PROVIDER_NAME} for advanced coding and cybersecurity work through ROK.`,
   [HYPERION_LEGACY_MODEL_ID]: `${HYPERION_LABEL} - legacy alias now routed to ${HYPERION_PROVIDER_NAME}.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
@@ -2444,9 +2445,6 @@ function getSavedUserOllamaApiKeyForModel(modelId = "") {
   if (!normalized) return "";
   if (normalized === DAEDALUS_MODEL_ID) {
     return getDaedalusUserApiKey() || getCustomOllamaApiKey();
-  }
-  if (normalized === HYPERION_MODEL_ID) {
-    return getCustomOllamaApiKey();
   }
   const setup = getCustomOllamaSetup();
   if (setup && normalized === setup.modelId) {
@@ -4581,16 +4579,13 @@ function openHyperionAnnouncementModal() {
   if (hasSeenHyperionAnnouncement()) return;
   if (document.getElementById("hyperionAnnouncementModal")) return;
 
-  const hasSavedKey = Boolean(getCustomOllamaApiKey());
   const overlay = document.createElement("div");
   overlay.id = "hyperionAnnouncementModal";
   overlay.className = "correction-modal-overlay hyperion-announcement-overlay";
   overlay.setAttribute("role", "presentation");
 
-  const keyLine = hasSavedKey
-    ? "Your Ollama Cloud key is saved. Hyperion is ready when you need a security pass."
-    : "Hyperion uses your Ollama Cloud key. Add it once, then it stays local to this browser.";
-  const ctaLabel = hasSavedKey ? "Use Hyperion" : "Unlock Hyperion";
+  const keyLine = "No Ollama Cloud key needed. Hyperion now runs through ROK's server lane.";
+  const ctaLabel = "Use Hyperion";
 
   overlay.innerHTML = `
     <div class="correction-modal hyperion-announcement-modal" role="dialog" aria-modal="true" aria-labelledby="hyperionAnnouncementTitle">
@@ -4628,24 +4623,9 @@ function openHyperionAnnouncementModal() {
 
   const openHyperion = () => {
     closeModal();
-    if (getCustomOllamaApiKey()) {
-      setCurrentSessionModel(HYPERION_MODEL_ID);
-      playHyperionUnlockAnimation();
-      showThinkingQuotaToast("Hyperion is ready for security review.");
-      return;
-    }
-    void requestCustomOllamaCloudSetup({
-      autoSelect: true,
-      fixedModelId: HYPERION_MODEL_ID,
-      titleText: `Unlock ${HYPERION_LABEL}`,
-      hintText: `${HYPERION_LABEL} is ROK's cybersecurity expert for code review, vulnerability analysis, and threat modeling.`,
-      successLabel: HYPERION_LABEL,
-      suppressDefaultModelHint: true
-    }).then((result) => {
-      if (result && result.saved) {
-        playHyperionUnlockAnimation();
-      }
-    });
+    setCurrentSessionModel(HYPERION_MODEL_ID);
+    playHyperionUnlockAnimation();
+    showThinkingQuotaToast("Hyperion is ready for security review.");
   };
 
   const keydownHandler = (event) => {
@@ -6461,7 +6441,7 @@ function ensureSessionMemory(session) {
 function normalizeSessionModel(rawModel) {
   const candidate = resolveModelAlias(rawModel);
   if (candidate === HYPERION_MODEL_ID) {
-    return getCustomOllamaApiKey() ? candidate : DEFAULT_MODEL_ID;
+    return candidate;
   }
   if (candidate && isCustomOllamaModelId(candidate)) {
     return candidate;
@@ -8283,11 +8263,8 @@ function getComposerSelectableModels() {
     label: HYPERION_LABEL,
     icon: "roklogo.png",
     alt: HYPERION_LABEL,
-    title: getCustomOllamaApiKey()
-      ? `Use ${HYPERION_LABEL} with your saved Ollama Cloud key.`
-      : `${HYPERION_LABEL} is BYOK only for now. Add your Ollama Cloud key to unlock it.`,
-    isHyperion: true,
-    requiresOllamaKey: !getCustomOllamaApiKey()
+    title: `${HYPERION_LABEL} is ready for advanced coding and cybersecurity work through ROK.`,
+    isHyperion: true
   });
   const customSetup = getCustomOllamaSetup();
   if (customSetup && resolveModelAlias(customSetup.modelId) !== HYPERION_MODEL_ID) {
@@ -8483,7 +8460,7 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const hyperionUnlocking = isHyperion && !requiresKey && isHyperionUnlockAnimating();
   const locked = requiresKey || (titanLocked && item.id === TITAN_MODEL_ID) || (daedalusLocked && item.id === DAEDALUS_MODEL_ID);
   const lockTitle = requiresKey
-    ? "Add your own Ollama Cloud key to use Hyperion."
+    ? "Add your own Ollama Cloud key to use this model."
     : titanLocked && item.id === TITAN_MODEL_ID
     ? "Temporarily unavailable."
     : daedalusLocked && item.id === DAEDALUS_MODEL_ID
@@ -8496,7 +8473,7 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
     ? `<span class="composer-model-picker-option-icon-shell${iconStateClass}"><img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />${isHyperion ? '<span class="composer-model-picker-option-key" aria-hidden="true"></span>' : ""}</span>`
     : "";
   const lockBadge = isHyperion
-    ? `<span class="composer-model-picker-option-lock">${requiresKey ? "Locked" : hyperionUnlocking ? "Unlocked" : "BYOK"}</span>`
+    ? (requiresKey || hyperionUnlocking ? `<span class="composer-model-picker-option-lock">${requiresKey ? "Locked" : "Ready"}</span>` : "")
     : locked
     ? `<span class="composer-model-picker-option-lock">${requiresKey ? "BYOK" : "Locked"}</span>`
     : "";
@@ -15789,18 +15766,8 @@ if (modelPickerBtn && modelPickerMenu) {
     const requiresKey = opt.getAttribute("data-model-requires-key") === "true";
     if (requiresKey && modelId === HYPERION_MODEL_ID) {
       setModelPickerOpen(false);
-      void requestCustomOllamaCloudSetup({
-        autoSelect: true,
-        fixedModelId: HYPERION_MODEL_ID,
-        titleText: `Unlock ${HYPERION_LABEL}`,
-        hintText: `${HYPERION_LABEL} is a cloud-only BYOK lane for advanced coding and cybersecurity work.`,
-        successLabel: HYPERION_LABEL,
-        suppressDefaultModelHint: true
-      }).then((result) => {
-        if (result && result.saved) {
-          playHyperionUnlockAnimation();
-        }
-      });
+      setCurrentSessionModel(HYPERION_MODEL_ID);
+      showThinkingQuotaToast("Hyperion is ready for security review.");
       return;
     }
     const isLocked = opt.getAttribute("data-model-locked") === "true";
