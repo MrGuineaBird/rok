@@ -260,6 +260,7 @@ const LOCAL_DAEDALUS_OLLAMA_API_KEY = "rok.daedalusOllamaApiKey.v1";
 const LOCAL_CUSTOM_OLLAMA_API_KEY = "rok.customOllamaApiKey.v1";
 const LOCAL_CUSTOM_OLLAMA_MODEL_ID = "rok.customOllamaModelId.v1";
 const LOCAL_HYPERION_ANNOUNCEMENT_KEY = "rok.hyperionAnnouncement.v1";
+const LOCAL_CLIENT_ID_KEY = "rok.clientId.v1";
 const LOCAL_BROWSER_PILOT_SELF_EMAIL_KEY = "rok.browserPilotSelfEmail.v1";
 const LOCAL_TOS_ACCEPTED_KEY = "rok.tosAccepted.v1";
 const LOCAL_KNOWLEDGE_KEY = "rok.localKnowledge.v1";
@@ -1057,11 +1058,28 @@ function getCustomPromptOverridesForApi() {
   };
 }
 
+function getStableClientId() {
+  try {
+    const existing = String(localStorage.getItem(LOCAL_CLIENT_ID_KEY) || "").trim();
+    if (/^[A-Za-z0-9._:-]{12,128}$/.test(existing)) {
+      return existing;
+    }
+    const generated = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID()
+      : `rok-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+    localStorage.setItem(LOCAL_CLIENT_ID_KEY, generated);
+    return generated;
+  } catch {
+    return `rok-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  }
+}
+
 function buildApiHeaders(includeJson, options = {}) {
   const headers = {};
   if (includeJson) {
     headers["Content-Type"] = "application/json";
   }
+  headers["X-ROK-Client-Id"] = getStableClientId();
   const requestedModel = resolveModelAlias(options && options.modelId ? options.modelId : "");
   const userKey = getSavedUserOllamaApiKeyForModel(requestedModel);
   if (userKey) {
@@ -20214,11 +20232,9 @@ async function handleImagineCommand(prompt) {
     showGeneratingPreview();
     progressBar.style.width = "10%";
     statusText.textContent = "Generating image...";
-    const response = await fetch(PIXEL_PAINTER_API_URL, {
+    const response = await fetchWithBanGuard(PIXEL_PAINTER_API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: buildApiHeaders(true),
       body: JSON.stringify({
         prompt: prompt,
         reference_image_base64: referenceImageBase64,
