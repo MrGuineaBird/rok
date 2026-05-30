@@ -13861,6 +13861,7 @@ async function send() {
     const isRetryStatus = value.toLowerCase().includes("retrying") ||
                           value.toLowerCase().includes("busy");
     if (bubble && isRetryStatus) {
+      if (typing && typing.row) typing.row.classList.remove("assistant-status-row");
       bubble.setAttribute("data-retry-status", value);
       // Show a subtle retry indicator inside the bubble
       if (!bubble.querySelector(".retry-status-line")) {
@@ -13881,9 +13882,11 @@ async function send() {
       bubble.classList.remove("markdown");
       bubble.classList.add("plain");
       if (isRichAssistantStatusKind(statusKind)) {
+        if (typing && typing.row) typing.row.classList.add("assistant-status-row");
         bubble.classList.add("assistant-status-bubble");
         bubble.innerHTML = renderAssistantStatusBubble(value, statusKind);
       } else {
+        if (typing && typing.row) typing.row.classList.remove("assistant-status-row");
         bubble.classList.remove("assistant-status-bubble");
         bubble.textContent = value;
       }
@@ -14116,6 +14119,9 @@ async function send() {
       if (retryLine) retryLine.remove();
       bubble.removeAttribute("data-retry-status");
       bubble.classList.remove("assistant-status-bubble");
+    }
+    if (typing && typing.row) {
+      typing.row.classList.remove("assistant-status-row");
     }
     removeTypingIndicator();
     finalizeThinkingPanel(true);
