@@ -13544,6 +13544,16 @@ async function send() {
     }
   }
 
+  if (text && text.startsWith("/video")) {
+    const prompt = text.slice(6).trim();
+    if (prompt) {
+      input.value = "";
+      autoResizeInput();
+      handleVideoCommand(prompt);
+      return;
+    }
+  }
+
   // Handle /pictionary command
   if (text && text.startsWith("/pictionary")) {
     input.value = "";
@@ -17991,6 +18001,7 @@ if (forumSurveyModal) {
 // â”€â”€ ROK Pixel Painter - VLM-guided image generation â”€â”€
 
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
+const ROK_VIDEO_API_URL = buildApiUrl("/api/video/generate");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
@@ -19907,6 +19918,121 @@ function handleDoomCommand() {
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+}
+
+async function handleVideoCommand(prompt) {
+  addMessage("user", `/video ${prompt}`);
+
+  const row = document.createElement("div");
+  row.className = "msg bot";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:86%;height:86%;object-fit:contain;border-radius:50%;">';
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+
+  const container = document.createElement("div");
+  container.className = "pixel-painting-container";
+
+  const header = document.createElement("div");
+  header.className = "pixel-painting-header";
+  header.innerHTML = `<span class="pixel-painting-icon" aria-hidden="true">RV</span><span class="pixel-painting-title">ROK VIDEO: "${escapeHtml(prompt)}"</span>`;
+
+  const progressWrap = document.createElement("div");
+  progressWrap.className = "pixel-painting-progress";
+  progressWrap.innerHTML = `<div class="pixel-painting-bar"><div class="pixel-painting-fill" style="width: 8%"></div></div><span class="pixel-painting-status">Generating keyframes...</span>`;
+
+  const previewDiv = document.createElement("div");
+  previewDiv.className = "pixel-painting-preview is-generating";
+  previewDiv.style.display = "block";
+
+  const generatingPreview = document.createElement("div");
+  generatingPreview.className = "pixel-painting-generating";
+  generatingPreview.setAttribute("aria-hidden", "true");
+  generatingPreview.innerHTML = `
+    <span class="pixel-painting-generating-glow"></span>
+    <span class="pixel-painting-generating-scan"></span>
+    <span class="pixel-painting-generating-core"></span>
+  `;
+
+  const previewImg = document.createElement("img");
+  previewImg.className = "pixel-painting-img";
+  previewImg.alt = "Generated video";
+  previewImg.style.imageRendering = "auto";
+  previewImg.style.display = "none";
+  previewDiv.appendChild(generatingPreview);
+  previewDiv.appendChild(previewImg);
+
+  const detailsDiv = document.createElement("div");
+  detailsDiv.className = "pixel-painting-details";
+  detailsDiv.style.display = "none";
+
+  container.appendChild(header);
+  container.appendChild(progressWrap);
+  container.appendChild(previewDiv);
+  container.appendChild(detailsDiv);
+  bubble.appendChild(container);
+
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "msg-time";
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  timeSpan.textContent = (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h >= 12 ? "PM" : "AM");
+
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  row.appendChild(timeSpan);
+  chat.appendChild(row);
+  scrollToBottom();
+  updateChatWelcomeVisibility();
+
+  const progressBar = progressWrap.querySelector(".pixel-painting-fill");
+  const statusText = progressWrap.querySelector(".pixel-painting-status");
+  const startTime = Date.now();
+
+  try {
+    const response = await fetchWithBanGuard(ROK_VIDEO_API_URL, {
+      method: "POST",
+      headers: buildApiHeaders(true),
+      body: JSON.stringify({ prompt })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(String(data && data.error || "") || `ROK VIDEO failed (${response.status}).`);
+    }
+    const videoUrl = String(data && data.video_data_url || "").trim();
+    if (!data || !data.ok || !videoUrl) {
+      throw new Error((data && data.error) || "ROK VIDEO returned an invalid video.");
+    }
+    progressBar.style.width = "100%";
+    statusText.textContent = "Complete";
+    generatingPreview.style.display = "none";
+    previewDiv.classList.remove("is-generating");
+    previewImg.src = videoUrl;
+    previewImg.style.display = "block";
+    const duration = Math.round((Date.now() - startTime) / 1000);
+    const renderMs = Number.isFinite(Number(data.render_ms)) ? `${Number(data.render_ms)}ms render` : `${duration}s`;
+    const keyframes = Number.isFinite(Number(data.keyframes)) ? Number(data.keyframes) : 0;
+    const outputFrames = Number.isFinite(Number(data.output_frames)) ? Number(data.output_frames) : 0;
+    detailsDiv.innerHTML = `
+      <div class="pixel-painting-stats">
+        <span>Time: ${duration}s</span>
+        <span>${escapeHtml(renderMs)}</span>
+        <span>${keyframes} keyframes -> ${outputFrames} video frames</span>
+        <span>${escapeHtml(String(data.video_model || "Dibutades Motion"))}</span>
+      </div>
+    `;
+    detailsDiv.style.display = "block";
+  } catch (error) {
+    progressBar.style.width = "100%";
+    statusText.textContent = `Error: ${error.message}`;
+    previewDiv.classList.remove("is-generating");
+    generatingPreview.style.display = "none";
+    console.error("Video generation error:", error);
+  }
 }
 
 // Handle /imagine command
