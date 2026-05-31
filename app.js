@@ -355,6 +355,7 @@ const CUSTOMIZATION_EXPORT_VERSION = 1;
 const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
 const DEFAULT_WORKSPACE_TAB_LABELS = {
   chat: "Chat",
+  workspace: "Artifacts",
   sandbox: "ROK CODE",
   math: "ROK MATH"
 };
@@ -408,7 +409,7 @@ const DEFAULT_USER_SETTINGS = {
   showEvidenceButtons: true,
   workspaceTabLabels: {},
   customWorkspaceTabs: [],
-  workspaceTabOrder: ["chat", "sandbox", "math"],
+  workspaceTabOrder: ["chat", "workspace", "sandbox", "math"],
   sidebarSectionOrder: [...DEFAULT_SIDEBAR_SECTION_ORDER],
   topbarActionOrder: [...DEFAULT_TOPBAR_ACTION_ORDER],
   mainSectionOrder: [...DEFAULT_MAIN_SECTION_ORDER],
@@ -473,7 +474,7 @@ const MODEL_DESCRIPTIONS = {
   [DAEDALUS_LEGACY_MODEL_ID]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`
 };
-const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
+const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
 /** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, DAEDALUS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
@@ -488,6 +489,10 @@ const COMPOSER_MODEL_ASSETS = {
   [DAEDALUS_MODEL_ID]: { label: DAEDALUS_LABEL, icon: "rokdaedalus.png", alt: DAEDALUS_LABEL },
   [HYPERION_MODEL_ID]: { label: HYPERION_LABEL, icon: "roklogo.png", alt: HYPERION_LABEL }
 };
+
+function getModelTierBadgeLabel(modelId = "") {
+  return resolveModelAlias(modelId) === HYPERION_MODEL_ID ? "Pro" : "";
+}
 const DEFAULT_TITAN_LOCK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_DAEDALUS_LOCK_WINDOW_MS = 60 * 60 * 1000;
 const SANDBOX_DEFAULT_PROMPT = "Analyze this ROK CODE project and propose the next file-by-file code changes.";
@@ -790,7 +795,7 @@ let compactingBarElement = null;
 let compactingBarTimer = null;
 let composerTrayOpen = false;
 let webSearchEnabled = false;
-let toolsEnabled = false;
+let toolsEnabled = true;
 let modelPickerOpen = false;
 let hyperionUnlockAnimationUntil = 0;
 
@@ -1259,6 +1264,7 @@ function extractTokenFromStreamPayload(payload) {
   const done = Boolean(parsed.done);
   const thinking = typeof parsed.thinking === "string" ? parsed.thinking : "";
   const status = typeof parsed.status === "string" ? parsed.status : "";
+  const work = parsed.work && typeof parsed.work === "object" ? parsed.work : null;
   const tool_calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : null;
   const assistant_content = typeof parsed.assistant_content === "string" ? parsed.assistant_content : "";
   const daedalus_quota =
@@ -1268,12 +1274,12 @@ function extractTokenFromStreamPayload(payload) {
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, status, done, tool_calls, assistant_content, daedalus_quota };
+      return { token: value, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, thinking, status, done, tool_calls, assistant_content, daedalus_quota };
+    return { token: parsed.message.content, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -1297,14 +1303,14 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, thinking, status, done: done || choiceDone, tool_calls, assistant_content, daedalus_quota };
+      return { token: joined, thinking, status, work, done: done || choiceDone, tool_calls, assistant_content, daedalus_quota };
     }
     if (done || choiceDone) {
-      return { token: "", thinking: "", status, done: true, tool_calls: null, assistant_content: "", daedalus_quota };
+      return { token: "", thinking: "", status, work, done: true, tool_calls: null, assistant_content: "", daedalus_quota };
     }
   }
 
-  return { token: "", thinking, status, done, tool_calls, assistant_content, daedalus_quota };
+  return { token: "", thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
 }
 
 function splitThinkingFromText(text = "") {
@@ -1367,6 +1373,35 @@ function createThinkingPanel() {
   shell.appendChild(body);
 
   return { shell, summary, summaryLabel, body };
+}
+
+function createWorkTracePanel() {
+  const shell = document.createElement("details");
+  shell.className = "work-trace-block";
+  shell.hidden = true;
+  shell.open = true;
+
+  const summary = document.createElement("summary");
+  summary.className = "work-trace-summary";
+
+  const title = document.createElement("span");
+  title.className = "work-trace-title";
+  title.textContent = "Working";
+
+  const arrow = document.createElement("span");
+  arrow.className = "work-trace-arrow";
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.textContent = ">";
+
+  const list = document.createElement("ol");
+  list.className = "work-trace-list";
+
+  summary.appendChild(title);
+  summary.appendChild(arrow);
+  shell.appendChild(summary);
+  shell.appendChild(list);
+
+  return { shell, summary, title, list, steps: [] };
 }
 
 function normalizeThinkingTitle(rawValue = "") {
@@ -8490,6 +8525,11 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const iconHtml = meta.icon
     ? `<span class="composer-model-picker-option-icon-shell${iconStateClass}"><img class="composer-model-picker-option-icon" src="${escapeHtml(meta.icon)}" width="28" height="28" alt="${escapeHtml(meta.alt || meta.label)}" />${isHyperion ? '<span class="composer-model-picker-option-key" aria-hidden="true"></span>' : ""}</span>`
     : "";
+  const tierBadge = getModelTierBadgeLabel(item.id);
+  const tierBadgeHtml = tierBadge
+    ? `<span class="composer-model-picker-tier-badge">${escapeHtml(tierBadge)}</span>`
+    : "";
+  const labelHtml = `<span class="composer-model-picker-option-label-wrap"><span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${tierBadgeHtml}</span>`;
   const lockBadge = isHyperion
     ? (requiresKey || hyperionUnlocking ? `<span class="composer-model-picker-option-lock">${requiresKey ? "Locked" : "Ready"}</span>` : "")
     : locked
@@ -8499,7 +8539,7 @@ function buildComposerModelPickerOptionMarkup(item, sessionModel, titanLocked, d
   const lockAttrs = locked ? ` data-model-locked="true" aria-disabled="true"` : "";
   const requiresKeyAttr = requiresKey ? ` data-model-requires-key="true"` : "";
   const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : "";
-  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}${isHyperion ? " is-hyperion-option" : ""}${hyperionUnlocking ? " is-hyperion-unlocking" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${requiresKeyAttr}${titleAttr}>${iconHtml}<span class="composer-model-picker-option-label">${escapeHtml(meta.label)}</span>${lockBadge}</button>`;
+  return `<button type="button" role="option" class="composer-model-picker-option${active ? " is-active" : ""}${isHyperion ? " is-hyperion-option" : ""}${hyperionUnlocking ? " is-hyperion-unlocking" : ""}" data-model-id="${safeId}" aria-selected="${active ? "true" : "false"}"${lockAttrs}${requiresKeyAttr}${titleAttr}>${iconHtml}${labelHtml}${lockBadge}</button>`;
 }
 
 function setModelPickerOpen(nextOpen) {
@@ -8541,7 +8581,8 @@ function refreshComposerModelPicker() {
       ? { label: item.label, icon: item.icon || "", alt: item.alt || item.label || "" }
       : COMPOSER_MODEL_ASSETS[item.id] || { label: item.label, icon: "", alt: "" };
     if (modelPickerBtnText) {
-      modelPickerBtnText.textContent = meta.label;
+      const tierBadge = getModelTierBadgeLabel(item.id);
+      modelPickerBtnText.innerHTML = `${escapeHtml(meta.label)}${tierBadge ? `<span class="composer-model-picker-tier-badge">${escapeHtml(tierBadge)}</span>` : ""}`;
     }
     if (modelPickerIcon) {
       if (meta.icon) {
@@ -8935,6 +8976,10 @@ async function classifyPromptIntentWithModel(promptText = "", workspaceText = ""
 
 function shouldAutoEnableWebSearchForIntent(intent) {
   return Boolean(intent && intent.type === "web_current_info" && !isIncognitoModeEnabled());
+}
+
+function messageContainsWebLink(text = "") {
+  return /https?:\/\/[^\s<>"']{3,}|(?:^|\s)www\.[^\s<>"']{3,}/i.test(String(text || ""));
 }
 
 function getFastStartStatusForIntent(intent, options = {}) {
@@ -9788,6 +9833,7 @@ function renderWorkspaceUI(options = {}) {
     workspace.activeTab = "chat";
   }
   const activeTab = WORKSPACE_TAB_KEYS.includes(workspace.activeTab) ? workspace.activeTab : "chat";
+  const isDocumentTab = activeTab === "workspace";
   const isSandboxTab = activeTab === "sandbox";
   const isMathTab = activeTab === "math";
 
@@ -9798,19 +9844,19 @@ function renderWorkspaceUI(options = {}) {
   syncWorkspaceTabVisibility();
   chat.hidden = activeTab !== "chat";
   composerWrap.hidden = isMathTab || isSandboxTab;
-  workspacePanel.hidden = !isSandboxTab;
+  workspacePanel.hidden = !(isSandboxTab || isDocumentTab);
   if (mathPanel) {
     mathPanel.hidden = !isMathTab;
   }
   workspacePanel.dataset.tab = activeTab || "chat";
   if (workspaceDocumentShell) {
-    workspaceDocumentShell.hidden = true;
+    workspaceDocumentShell.hidden = !isDocumentTab;
   }
   if (sandboxPanel) {
     sandboxPanel.hidden = !isSandboxTab;
   }
   if (workspaceAssistantPanel) {
-    workspaceAssistantPanel.hidden = true;
+    workspaceAssistantPanel.hidden = !isDocumentTab;
   }
   if (isMathTab) {
     initDesmosIfNeeded();
@@ -9828,7 +9874,16 @@ function renderWorkspaceUI(options = {}) {
 
   updateWorkspaceTabButtons(activeTab);
 
-  if (isSandboxTab) {
+  if (isDocumentTab) {
+    if (workspaceEditor) {
+      workspaceEditor.value = String(workspace.content || "");
+    }
+    refreshWorkspaceDocumentToolbarState();
+    setWorkspaceAssistantIdleIntelligenceState();
+    if (focus && workspaceEditor) {
+      workspaceEditor.focus();
+    }
+  } else if (isSandboxTab) {
     renderSandboxUI();
     if (focus) {
       if (sandboxChatInput && !sandboxChatInput.disabled && !getCurrentSandboxState().files.length) {
@@ -12899,16 +12954,18 @@ function populateBotMessageContainer(container, options = {}) {
     markdown = false,
     storyCanvas = false,
     thinkingBlock = false,
+    workTrace = false,
     showTypingDots = false
   } = options;
   if (!(container instanceof HTMLElement)) {
-    return { bubble: null, storyCanvas: null, thinkingPanel: null, typingIndicator: null };
+    return { bubble: null, storyCanvas: null, thinkingPanel: null, workTracePanel: null, typingIndicator: null };
   }
 
   container.textContent = "";
   container.className = "bot-stack";
 
   const thinkingPanel = thinkingBlock ? createThinkingPanel() : null;
+  const workTracePanel = workTrace ? createWorkTracePanel() : null;
   const bubble = document.createElement("div");
   bubble.className = "bubble plain";
   const canvas = storyCanvas ? createStoryCanvas() : null;
@@ -12930,12 +12987,15 @@ function populateBotMessageContainer(container, options = {}) {
   if (thinkingPanel) {
     container.appendChild(thinkingPanel.shell);
   }
+  if (workTracePanel) {
+    container.appendChild(workTracePanel.shell);
+  }
   container.appendChild(bubble);
   if (canvas) {
     container.appendChild(canvas.shell);
   }
 
-  return { bubble, storyCanvas: canvas, thinkingPanel, typingIndicator };
+  return { bubble, storyCanvas: canvas, thinkingPanel, workTracePanel, typingIndicator };
 }
 
 function addMessage(role, text, options = {}) {
@@ -13148,11 +13208,11 @@ function setIncognitoMode(nextEnabled) {
 }
 
 function setToolsEnabled(nextEnabled) {
-  toolsEnabled = false;
+  toolsEnabled = true;
   if (!toolsToggleBtn) return;
   toolsToggleBtn.setAttribute("aria-pressed", toolsEnabled ? "true" : "false");
   toolsToggleBtn.classList.toggle("is-active", toolsEnabled);
-  toolsToggleBtn.textContent = toolsEnabled ? "Tools On" : "Tools";
+  toolsToggleBtn.textContent = "Tools On";
 }
 
 // --- Built-in tool definitions (client-side execution) ---
@@ -13703,10 +13763,12 @@ async function send() {
     bubble = null;
     storyCanvas = null;
     thinkingPanel = null;
+    workTracePanel = null;
   };
   let bubble = null;
   let storyCanvas = null;
   let thinkingPanel = null;
+  let workTracePanel = null;
   let partialText = "";
   let thinkingText = "";
   let thinkTagCarry = "";
@@ -13721,6 +13783,9 @@ async function send() {
   let answerRenderTimer = null;
   let answerRenderResolve = null;
   let intentWebSearchActive = shouldAutoEnableWebSearchForIntent(fallbackIntent);
+  if (!intentWebSearchActive && !isIncognitoModeEnabled() && messageContainsWebLink(text)) {
+    intentWebSearchActive = true;
+  }
   let lastAssistantStatusText = "";
   let writeBackToWorkspace = false;
   let useStoryCanvas = false;
@@ -13748,11 +13813,13 @@ async function send() {
     const mounted = populateBotMessageContainer(typing.bubble, {
       storyCanvas: useStoryCanvas,
       thinkingBlock: requestShouldThink,
+      workTrace: true,
       showTypingDots: true
     });
     bubble = mounted.bubble;
     storyCanvas = mounted.storyCanvas;
     thinkingPanel = mounted.thinkingPanel;
+    workTracePanel = mounted.workTracePanel;
     typingIndicator = mounted.typingIndicator;
     if (requestShouldThink) {
       showThinkingAvatar();
@@ -13808,6 +13875,57 @@ async function send() {
       requestThinkingSummaryTitle();
     }
   };
+  const normalizeWorkTraceLabel = (value) => {
+    let label = String(value || "").replace(/\s+/g, " ").trim();
+    if (!label) return "";
+    label = label.replace(/^Tool\s+([a-z0-9_ -]+):\s*/i, (_, name) => `Ran ${String(name || "tool").replace(/_/g, " ")}`);
+    label = label.replace(/\.\.\.$/, "");
+    return label;
+  };
+  const appendWorkTraceStep = (label, options = {}) => {
+    if (!workTracePanel || writeBackToWorkspace) return;
+    const normalizedLabel = normalizeWorkTraceLabel(label);
+    if (!normalizedLabel) return;
+    const key = String(options.key || normalizedLabel).toLowerCase();
+    const existing = workTracePanel.steps.find((item) => item.key === key);
+    if (existing) {
+      existing.node.querySelector(".work-trace-step-label").textContent = normalizedLabel;
+      return;
+    }
+    for (const item of workTracePanel.steps) {
+      item.node.classList.remove("is-active");
+      item.node.classList.add("is-done");
+    }
+    const item = document.createElement("li");
+    item.className = "work-trace-step is-active";
+    const icon = document.createElement("span");
+    icon.className = "work-trace-step-icon";
+    icon.setAttribute("aria-hidden", "true");
+    const textNode = document.createElement("span");
+    textNode.className = "work-trace-step-label";
+    textNode.textContent = normalizedLabel;
+    item.appendChild(icon);
+    item.appendChild(textNode);
+    workTracePanel.list.appendChild(item);
+    workTracePanel.steps.push({ key, node: item });
+    workTracePanel.shell.hidden = false;
+    workTracePanel.shell.open = true;
+    workTracePanel.title.textContent = workTracePanel.steps.length === 1 ? "Working" : `${workTracePanel.steps.length} steps`;
+    scrollToBottom();
+  };
+  const finishWorkTrace = () => {
+    if (!workTracePanel || !workTracePanel.steps.length) return;
+    for (const item of workTracePanel.steps) {
+      item.node.classList.remove("is-active");
+      item.node.classList.add("is-done");
+    }
+    workTracePanel.title.textContent = "Done";
+  };
+  const handleWorkTraceEvent = (work) => {
+    if (!work || typeof work !== "object") return;
+    const label = work.label || work.title || work.status || work.message || "";
+    appendWorkTraceStep(label, { key: work.id || work.key || label });
+  };
   const handleThinking = (chunk) => {
     markAssistantStreamStarted();
     if (writeBackToWorkspace || !thinkingPanel) return;
@@ -13837,6 +13955,7 @@ async function send() {
     if (!answerStarted && value === lastAssistantStatusText) return;
     lastAssistantStatusText = value;
     convertTypingRowToBotMessage();
+    appendWorkTraceStep(value);
     const statusKind = getAssistantStatusKind(value);
     if (!answerStarted) {
       if (statusKind === "web") {
@@ -14089,11 +14208,13 @@ async function send() {
     const mounted = populateBotMessageContainer(typing.bubble, {
       storyCanvas: useStoryCanvas,
       thinkingBlock: requestShouldThink,
+      workTrace: true,
       showTypingDots: true
     });
     bubble = mounted.bubble;
     storyCanvas = mounted.storyCanvas;
     thinkingPanel = mounted.thinkingPanel;
+    workTracePanel = mounted.workTracePanel;
     typingIndicator = mounted.typingIndicator;
     typingRowConverted = true;
     if (requestShouldThink) {
@@ -14255,7 +14376,8 @@ async function send() {
     workspaceContext = "";
     hasWorkspaceContext = false;
     requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
-    intentWebSearchActive = shouldAutoEnableWebSearchForIntent(intent);
+    intentWebSearchActive = shouldAutoEnableWebSearchForIntent(intent) ||
+      (!isIncognitoModeEnabled() && messageContainsWebLink(text));
     applyIntentRoutingToRequestBody(baseRequestBody, intent);
     if (intentWebSearchActive) {
       baseRequestBody.enable_web_search = true;
@@ -14397,6 +14519,16 @@ async function send() {
 
     if (!writeBackToWorkspace) {
       convertTypingRowToBotMessage();
+      if (attachments.length) {
+        const imageCount = attachments.filter((item) => item && item.type === "image").length;
+        const fileCount = attachments.length - imageCount;
+        if (fileCount > 0) {
+          appendWorkTraceStep(`Reading ${fileCount} uploaded file${fileCount === 1 ? "" : "s"}`);
+        }
+        if (imageCount > 0) {
+          appendWorkTraceStep(`Reading ${imageCount} uploaded image${imageCount === 1 ? "" : "s"}`);
+        }
+      }
     }
 
     const reader = res.body && res.body.getReader ? res.body.getReader() : null;
@@ -14462,8 +14594,9 @@ async function send() {
               ? JSON.stringify(toolResult.result)
               : JSON.stringify({ error: toolResult.error });
 
-            // Show tool result in chat
-            handleStatusUpdate(`Tool ${toolName}: ${toolResult.ok ? String(toolResult.result) : "Error: " + toolResult.error}`);
+            handleStatusUpdate(toolResult.ok
+              ? `Ran ${toolName.replace(/_/g, " ")}`
+              : `Tool ${toolName.replace(/_/g, " ")} failed`);
 
             toolHistory.push({
               role: "tool",
@@ -14541,6 +14674,7 @@ async function send() {
                     if (fData.trim() === "[DONE]") { followupDone = true; break; }
                     const fParsed = extractTokenFromStreamPayload(fData);
                     if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
+                    if (fParsed.work) { handleWorkTraceEvent(fParsed.work); }
                     if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                     if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                     if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -14557,6 +14691,7 @@ async function send() {
                   if (fData.trim() === "[DONE]") break;
                   const fParsed = extractTokenFromStreamPayload(fData);
                   if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
+                  if (fParsed.work) { handleWorkTraceEvent(fParsed.work); }
                   if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                   if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                   if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -14603,6 +14738,7 @@ async function send() {
         } else {
           setBubbleContent(bubble, partialText, true);
           addRegenerateButton(bubble);
+          addOpenArtifactButton(bubble, partialText);
         }
         attachEvidenceToAssistantBubble(bubble, finalEvidence);
         history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -14685,6 +14821,9 @@ async function send() {
                 handleStatusUpdate(parsedPayload.status);
             }
           }
+          if (parsedPayload.work) {
+            handleWorkTraceEvent(parsedPayload.work);
+          }
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
           }
@@ -14716,6 +14855,9 @@ async function send() {
         if (parsedPayload.status) {
           handleStatusUpdate(parsedPayload.status);
         }
+        if (parsedPayload.work) {
+          handleWorkTraceEvent(parsedPayload.work);
+        }
         if (parsedPayload.thinking) {
           handleThinking(parsedPayload.thinking);
         }
@@ -14745,6 +14887,9 @@ async function send() {
       }
       if (parsedPayload.status) {
         handleStatusUpdate(parsedPayload.status);
+      }
+      if (parsedPayload.work) {
+        handleWorkTraceEvent(parsedPayload.work);
       }
       if (parsedPayload.thinking) {
         handleThinking(parsedPayload.thinking);
@@ -14837,7 +14982,9 @@ async function send() {
             ? JSON.stringify(toolResult.result)
             : JSON.stringify({ error: toolResult.error });
 
-          handleStatusUpdate(`Tool ${toolName}: ${toolResult.ok ? String(toolResult.result) : "Error: " + toolResult.error}`);
+          handleStatusUpdate(toolResult.ok
+            ? `Ran ${toolName.replace(/_/g, " ")}`
+            : `Tool ${toolName.replace(/_/g, " ")} failed`);
 
           toolHistory.push({
             role: "tool",
@@ -14904,6 +15051,7 @@ async function send() {
                 if (fd2.trim() === "[DONE]") { fDone = true; break; }
                 const fp = extractTokenFromStreamPayload(fd2);
                 if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
+                if (fp.work) handleWorkTraceEvent(fp.work);
                 if (fp.thinking) handleThinking(fp.thinking);
                 if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
                 if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -14919,6 +15067,7 @@ async function send() {
               if (fd2.trim() === "[DONE]") break;
               const fp = extractTokenFromStreamPayload(fd2);
               if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
+              if (fp.work) handleWorkTraceEvent(fp.work);
               if (fp.thinking) handleThinking(fp.thinking);
               if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
               if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -14949,6 +15098,7 @@ async function send() {
       partialText = "(No response)";
     }
     removeTypingIndicator();
+    finishWorkTrace();
 
     if (!writeBackToWorkspace) {
       const finalEvidence = finalizeAssistantEvidence(assistantEvidence);
@@ -14961,6 +15111,7 @@ async function send() {
       } else {
         setBubbleContent(bubble, partialText, true);
         addRegenerateButton(bubble);
+        addOpenArtifactButton(bubble, partialText);
       }
       attachEvidenceToAssistantBubble(bubble, finalEvidence);
       history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -14991,6 +15142,7 @@ async function send() {
     flushTaggedTokenCarry();
     drainAnswerRenderQueue(true);
     finalizeThinkingPanel(Boolean(partialText), true);
+    finishWorkTrace();
 
     if (isBanOverlayActive) {
       removeEmptyConvertedBotRow();
@@ -15009,6 +15161,7 @@ async function send() {
           } else {
             setBubbleContent(bubble, partialText, true);
             addRegenerateButton(bubble);
+            addOpenArtifactButton(bubble, partialText);
           }
           attachEvidenceToAssistantBubble(bubble, finalEvidence);
           history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -15201,6 +15354,49 @@ function addRegenerateButton(bubble) {
     regenerateLastResponse();
   });
   bubble.appendChild(btn);
+}
+
+function addOpenArtifactButton(bubble, artifactText = "") {
+  if (!bubble || !String(artifactText || "").trim()) return;
+  const existing = bubble.querySelector(".artifact-open-btn");
+  if (existing) existing.remove();
+  const btn = document.createElement("button");
+  btn.className = "regenerate-btn artifact-open-btn";
+  btn.type = "button";
+  btn.title = "Open this response as an artifact";
+  btn.textContent = "Open artifact";
+  btn.addEventListener("click", () => {
+    openTextAsArtifact(artifactText);
+  });
+  bubble.appendChild(btn);
+}
+
+function openTextAsArtifact(rawText = "") {
+  const textValue = String(rawText || "").trim();
+  if (!textValue) return;
+  const current = ensureActiveSession();
+  if (!current) return;
+  ensureSessionWorkspace(current);
+  current.workspace.content = textValue;
+  current.workspace.assistantMemory = normalizeWorkspaceAssistantMemory({
+    tone: "applied",
+    statusText: "Artifact ready",
+    intent: "Saved the assistant response as an editable artifact.",
+    outputType: inferWorkspaceOutputType(textValue, ""),
+    action: "Opened Artifact",
+    changeScope: textValue.length > 2000 ? "Long" : "Short",
+    lastAction: "Opened from chat",
+    summary: buildWorkspaceStructuredSummary(
+      "Saved the assistant response as an editable artifact.",
+      inferWorkspaceOutputType(textValue, ""),
+      "Opened Artifact",
+      textValue.length > 2000 ? "Long" : "Short"
+    ),
+    suggestions: null
+  });
+  syncCurrentSessionFromHistory();
+  setActiveWorkspaceTab("workspace", { focus: true });
+  showThinkingQuotaToast("Opened as artifact.");
 }
 
 function regenerateLastResponse() {
@@ -15466,7 +15662,7 @@ if (webToggleBtn) {
 if (toolsToggleBtn) {
   toolsToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
-    setToolsEnabled(!toolsEnabled);
+    setToolsEnabled(true);
   });
 }
 
@@ -17289,7 +17485,7 @@ function openEvidenceModal(evidence) {
 function getBubbleReadableText(bubble) {
   if (!(bubble instanceof HTMLElement)) return "";
   const clone = bubble.cloneNode(true);
-  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn, .evidence-btn, .regenerate-btn, .code-copy-btn").forEach(function (node) {
+  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn, .evidence-btn, .regenerate-btn, .artifact-open-btn, .code-copy-btn").forEach(function (node) {
     node.remove();
   });
   return String(clone.innerText || clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
