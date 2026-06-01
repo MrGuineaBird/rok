@@ -18002,6 +18002,7 @@ if (forumSurveyModal) {
 
 const PIXEL_PAINTER_API_URL = buildApiUrl("/api/image/paint");
 const ROK_VIDEO_API_URL = buildApiUrl("/api/video/generate");
+const ROK_VIDEO_PROGRESS_API_BASE = buildApiUrl("/api/video/progress");
 const PIXEL_PAINTER_STORAGE_KEY = "rok_pixel_paintings";
 const PIXEL_PAINTER_API_KEY_STORAGE_KEY = "rok_pixel_painter_ollama_api_key";
 const PIXEL_PAINTER_PROVIDER_STORAGE_KEY = "rok_pixel_painter_provider";
@@ -19942,7 +19943,7 @@ async function handleVideoCommand(prompt) {
 
   const progressWrap = document.createElement("div");
   progressWrap.className = "pixel-painting-progress";
-  progressWrap.innerHTML = `<div class="pixel-painting-bar"><div class="pixel-painting-fill" style="width: 8%"></div></div><span class="pixel-painting-status">Generating keyframes...</span>`;
+  progressWrap.innerHTML = `<div class="pixel-painting-bar"><div class="pixel-painting-fill" style="width: 4%"></div></div><span class="pixel-painting-status">Starting video...</span>`;
 
   const previewDiv = document.createElement("div");
   previewDiv.className = "pixel-painting-preview is-generating";
@@ -19992,12 +19993,71 @@ async function handleVideoCommand(prompt) {
   const progressBar = progressWrap.querySelector(".pixel-painting-fill");
   const statusText = progressWrap.querySelector(".pixel-painting-status");
   const startTime = Date.now();
+  const progressId = ((window.crypto && typeof window.crypto.randomUUID === "function")
+    ? window.crypto.randomUUID()
+    : `rok-video-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`)
+    .replace(/[^A-Za-z0-9._:-]/g, "")
+    .slice(0, 96);
+  let progressPollTimer = null;
+  let lastProgressPercent = 4;
+
+  const applyVideoProgress = (payload) => {
+    if (!payload || typeof payload !== "object") return;
+    const completed = Number(payload.completed_frames);
+    const total = Number(payload.total_frames);
+    const accepted = Number(payload.accepted_frames);
+    const rejected = Number(payload.rejected_frames);
+    const fallbackCount = Number(payload.fallback_count);
+    const rawPercent = Number(payload.percent);
+    const nextPercent = Number.isFinite(rawPercent)
+      ? Math.max(lastProgressPercent, Math.min(99, Math.round(rawPercent)))
+      : lastProgressPercent;
+    lastProgressPercent = nextPercent;
+    if (progressBar) {
+      progressBar.style.width = `${nextPercent}%`;
+    }
+    if (statusText) {
+      const phase = String(payload.phase || "").trim();
+      if (Number.isFinite(completed) && Number.isFinite(total) && total > 0) {
+        const extras = [];
+        if (Number.isFinite(accepted)) extras.push(`${accepted} accepted`);
+        if (Number.isFinite(rejected) && rejected > 0) extras.push(`${rejected} rejected`);
+        if (Number.isFinite(fallbackCount) && fallbackCount > 0) extras.push(`${fallbackCount} reused`);
+        statusText.textContent = `${phase || "Generating"} - frame ${completed}/${total}${extras.length ? ` (${extras.join(", ")})` : ""}`;
+      } else if (phase) {
+        statusText.textContent = phase;
+      }
+    }
+  };
+
+  const pollVideoProgress = async () => {
+    try {
+      const progressUrl = `${ROK_VIDEO_PROGRESS_API_BASE}/${encodeURIComponent(progressId)}`;
+      const response = await fetchWithBanGuard(progressUrl, {
+        method: "GET",
+        headers: buildApiHeaders(false),
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload && payload.ok) {
+        applyVideoProgress(payload);
+        if (payload.status === "complete" || payload.status === "error") {
+          clearInterval(progressPollTimer);
+          progressPollTimer = null;
+        }
+      }
+    } catch {
+      // Progress polling is best-effort; the final generate request still owns success/error.
+    }
+  };
 
   try {
+    progressPollTimer = setInterval(pollVideoProgress, 1200);
+    setTimeout(pollVideoProgress, 650);
     const response = await fetchWithBanGuard(ROK_VIDEO_API_URL, {
       method: "POST",
       headers: buildApiHeaders(true),
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, progress_id: progressId })
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
@@ -20032,6 +20092,11 @@ async function handleVideoCommand(prompt) {
     previewDiv.classList.remove("is-generating");
     generatingPreview.style.display = "none";
     console.error("Video generation error:", error);
+  } finally {
+    if (progressPollTimer) {
+      clearInterval(progressPollTimer);
+      progressPollTimer = null;
+    }
   }
 }
 
