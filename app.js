@@ -1012,6 +1012,7 @@ function getCustomIdentityHeaderValue() {
 function getRokTasteSystemPrompt() {
   return [
     "ROK response taste rules: match the user's pace and do the useful thing first.",
+    "Use first person for yourself in normal replies. Say I, me, or my instead of third-person lines like ROK can, ROK will, or ROK thinks.",
     "When the user says fix it, add this, change this, make it work, or similar, prioritize the actual patch, command, result, or next concrete action before explanation.",
     "Do not explain obvious steps unless the user asks, the risk is non-obvious, or the explanation prevents a bad outcome.",
     "Use clean Markdown when it improves scanning. A line containing only --- may be used as a horizontal divider between sections.",
@@ -13999,6 +14000,7 @@ async function send() {
                           value.toLowerCase().includes("busy");
     if (bubble && isRetryStatus) {
       if (typing && typing.row) typing.row.classList.remove("assistant-status-row");
+      bubble.hidden = false;
       bubble.setAttribute("data-retry-status", value);
       // Show a subtle retry indicator inside the bubble
       if (!bubble.querySelector(".retry-status-line")) {
@@ -14019,12 +14021,14 @@ async function send() {
       bubble.classList.remove("markdown");
       bubble.classList.add("plain");
       if (isRichAssistantStatusKind(statusKind)) {
-        if (typing && typing.row) typing.row.classList.add("assistant-status-row");
-        bubble.classList.add("assistant-status-bubble");
-        bubble.innerHTML = renderAssistantStatusBubble(value, statusKind);
+        if (typing && typing.row) typing.row.classList.remove("assistant-status-row");
+        bubble.classList.remove("assistant-status-bubble");
+        bubble.hidden = true;
+        bubble.textContent = "";
       } else {
         if (typing && typing.row) typing.row.classList.remove("assistant-status-row");
         bubble.classList.remove("assistant-status-bubble");
+        bubble.hidden = false;
         bubble.textContent = value;
       }
     }
@@ -14254,6 +14258,7 @@ async function send() {
     }
     // Clear any retry status indicator now that a real answer is arriving
     if (bubble) {
+      bubble.hidden = false;
       const retryLine = bubble.querySelector(".retry-status-line");
       if (retryLine) retryLine.remove();
       bubble.removeAttribute("data-retry-status");

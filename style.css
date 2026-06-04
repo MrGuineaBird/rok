@@ -4649,7 +4649,7 @@ a.server-down-btn {
 }
 
 .work-trace-block {
-  margin: 0 0 2px;
+  margin: 5px 0 2px;
   border-left: 1px solid rgba(209, 75, 75, 0.22);
   padding-left: 12px;
   color: #cfa8a8;
