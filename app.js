@@ -352,7 +352,7 @@ const CUSTOMIZATION_ACCENT_PRESETS = [
 ];
 const MAX_LOCAL_SESSIONS = 30;
 const CUSTOMIZATION_EXPORT_VERSION = 1;
-const DEFAULT_CHAT_MODEL = "gpt-oss:120b-cloud";
+const DEFAULT_CHAT_MODEL = "nemotron-3-ultra:cloud";
 const DEFAULT_WORKSPACE_TAB_LABELS = {
   chat: "Chat",
   workspace: "Artifacts",
@@ -424,11 +424,13 @@ function sanitizePrimaryUseCase(value) {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
+const HERMES_MODEL_ID = "nemotron-3-ultra:cloud";
+const HERMES_LEGACY_MODEL_ID = "gpt-oss:120b-cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-4.7:cloud";
 const HYPERION_LEGACY_MODEL_ID = "qwen3-coder:480b-cloud";
-const HYPERION_MODEL_ID = "cogito-2.1:671b-cloud";
+const HYPERION_LEGACY_MODEL_ID_COGITO = "cogito-2.1:671b-cloud";
+const HYPERION_MODEL_ID = "minimax-m3:cloud";
 const DAEDALUS_LEGACY_MODEL_ID = "deepseek-v3.2:cloud";
 const DAEDALUS_LEGACY_MODEL_ID_ALT = "glm-5.1:cloud";
 const CHEESE_MODEL_ID = "gpt-oss:20b-cheese";
@@ -437,11 +439,11 @@ const UNOFFICIAL_MODEL_IDS = new Set();
 const CUSTOM_OLLAMA_GROUP_LABEL = "Your Ollama Cloud";
 const CUSTOM_OLLAMA_CONFIG_ACTION = "configure_custom_ollama_cloud";
 const HERMES_LABEL = "Hermes 1.3";
-const HERMES_PROVIDER_NAME = "GPT OSS 120B Cloud";
+const HERMES_PROVIDER_NAME = "Nemotron 3 Ultra Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.0";
 const DAEDALUS_PROVIDER_NAME = "GLM 4.7 Cloud";
 const HYPERION_LABEL = "Hyperion";
-const HYPERION_PROVIDER_NAME = "Cogito 2.1 671B";
+const HYPERION_PROVIDER_NAME = "MiniMax M3 Cloud";
 const DEFAULT_MODEL_OPTIONS = [
   { id: HERMES_MODEL_ID, label: HERMES_LABEL },
   { id: DAEDALUS_MODEL_ID, label: DAEDALUS_LABEL },
@@ -449,12 +451,14 @@ const DEFAULT_MODEL_OPTIONS = [
 ];
 const KNOWN_MODEL_LABELS = {
   [HERMES_MODEL_ID]: HERMES_LABEL,
+  [HERMES_LEGACY_MODEL_ID]: HERMES_LABEL,
   [TITAN_MODEL_ID]: HERMES_LABEL,
   [CHEESE_MODEL_ID]: HERMES_LABEL,
   [CHESS_MODEL_ID]: HERMES_LABEL,
   [DAEDALUS_MODEL_ID]: DAEDALUS_LABEL,
   [HYPERION_MODEL_ID]: HYPERION_LABEL,
   [HYPERION_LEGACY_MODEL_ID]: HYPERION_LABEL,
+  [HYPERION_LEGACY_MODEL_ID_COGITO]: HYPERION_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_LABEL,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_LABEL,
   "gemma4:31b-cloud": HERMES_LABEL,
@@ -464,9 +468,11 @@ const KNOWN_MODEL_LABELS = {
 };
 const MODEL_DESCRIPTIONS = {
   [HERMES_MODEL_ID]: `${HERMES_LABEL} - ${HERMES_PROVIDER_NAME} for chat, coding, and math. Image uploads route through Qwen3-VL vision.`,
+  [HERMES_LEGACY_MODEL_ID]: `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   [DAEDALUS_MODEL_ID]: `${DAEDALUS_LABEL} - ${DAEDALUS_PROVIDER_NAME} with a rolling token limit unless you add your own Ollama API key.`,
   [HYPERION_MODEL_ID]: `${HYPERION_LABEL} - ${HYPERION_PROVIDER_NAME} for advanced coding and cybersecurity work through ROK.`,
   [HYPERION_LEGACY_MODEL_ID]: `${HYPERION_LABEL} - legacy alias now routed to ${HYPERION_PROVIDER_NAME}.`,
+  [HYPERION_LEGACY_MODEL_ID_COGITO]: `${HYPERION_LABEL} - legacy alias now routed to ${HYPERION_PROVIDER_NAME}.`,
   "gemma4:31b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
   "qwen3.5:397b-cloud": `${HERMES_LABEL} - legacy alias now routed to ${HERMES_PROVIDER_NAME}.`,
@@ -817,7 +823,9 @@ function sanitizeModelId(rawModel) {
 }
 
 const MODEL_ID_ALIASES = {
+  [HERMES_LEGACY_MODEL_ID]: HERMES_MODEL_ID,
   [HYPERION_LEGACY_MODEL_ID]: HYPERION_MODEL_ID,
+  [HYPERION_LEGACY_MODEL_ID_COGITO]: HYPERION_MODEL_ID,
   [DAEDALUS_LEGACY_MODEL_ID]: DAEDALUS_MODEL_ID,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: DAEDALUS_MODEL_ID
 };
@@ -1018,7 +1026,7 @@ function getModelSpecificSystemPrompt() {
     return "";
   }
   return [
-    "You are Hyperion, ROK's Cogito-backed defensive cybersecurity and secure-code-review mode. Be calm, precise, and threat-model oriented.",
+    "You are Hyperion, ROK's Pro defensive cybersecurity and secure-code-review mode. Be calm, precise, and threat-model oriented.",
     "Optimize for vulnerability analysis, secure code review, authentication and session design, CORS, rate limiting, SSRF, XSS, SQL injection, path traversal, access control, secrets handling, dependency risk, logging, and safe deployment hardening.",
     "When the user asks for a fix, prefer actionable patches, exact config changes, and tests over broad lecture-mode explanation.",
     "For security or code-review requests, start by identifying assets, trust boundaries, entry points, attacker capabilities, and likely impact. Then provide prioritized findings with severity, affected component, exploitability, evidence, fix, and regression tests.",
