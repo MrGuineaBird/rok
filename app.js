@@ -14140,7 +14140,7 @@ async function send() {
     return isSlashToolDraft(partialText);
   };
   const shouldSmoothAnswerTokens = () => {
-    return !writeBackToWorkspace && !storyCanvas;
+    return false;
   };
   const clearAnswerRenderTimer = () => {
     if (answerRenderTimer) {
