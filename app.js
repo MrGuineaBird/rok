@@ -14140,7 +14140,7 @@ async function send() {
     return isSlashToolDraft(partialText);
   };
   const shouldSmoothAnswerTokens = () => {
-    return !writeBackToWorkspace && !storyCanvas && (webSearchVisualActive || isWebSearchActiveForRequest());
+    return !writeBackToWorkspace && !storyCanvas;
   };
   const clearAnswerRenderTimer = () => {
     if (answerRenderTimer) {
@@ -14169,10 +14169,19 @@ async function send() {
       resolveAnswerRenderWaiter();
       return;
     }
-    const take = Math.min(
-      pendingAnswerText.length,
-      Math.max(14, Math.min(58, Math.ceil(pendingAnswerText.length / 18)))
-    );
+    const queuedLength = pendingAnswerText.length;
+    let take = queuedLength > 1200 ? 22 : queuedLength > 500 ? 16 : queuedLength > 180 ? 12 : 8;
+    const visibleSlice = pendingAnswerText.slice(0, take + 1);
+    const newlineIndex = visibleSlice.indexOf("\n", 1);
+    if (newlineIndex > 0 && newlineIndex < take) {
+      take = newlineIndex + 1;
+    } else {
+      const boundaryMatch = pendingAnswerText.slice(1, take + 1).search(/[\s.,!?;:)]/);
+      if (boundaryMatch >= 2) {
+        take = boundaryMatch + 2;
+      }
+    }
+    take = Math.min(pendingAnswerText.length, Math.max(1, take));
     visibleAnswerText += pendingAnswerText.slice(0, take);
     pendingAnswerText = pendingAnswerText.slice(take);
     streamRenderState.flush();
@@ -14183,7 +14192,8 @@ async function send() {
   };
   const scheduleAnswerRenderQueue = () => {
     if (answerRenderTimer) return;
-    answerRenderTimer = setInterval(() => drainAnswerRenderQueue(false), 18);
+    const intervalMs = Math.max(12, Math.min(40, Number(clientLimits.typingSpeedMs) || 16));
+    answerRenderTimer = setInterval(() => drainAnswerRenderQueue(false), intervalMs);
   };
   const finishAnswerRenderQueue = () => {
     if (!smoothAnswerStream || !pendingAnswerText) {
