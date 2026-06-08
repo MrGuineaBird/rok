@@ -5409,12 +5409,6 @@ a.server-down-btn {
   background: rgba(30, 14, 14, 0.5);
 }
 
-.artifact-open-btn {
-  color: #caa0a0;
-  border-color: rgba(209, 75, 75, 0.34);
-  background: rgba(209, 75, 75, 0.08);
-}
-
 /* Chat search bar */
 .chat-search-bar {
   display: flex;
@@ -11394,5 +11388,275 @@ button.stop-mode:hover {
 
   #homeScreen .rok-home-section-title {
     font-size: clamp(24px, 9vw, 38px);
+  }
+}
+
+/* Cleaner ROK CODE and Customize surfaces */
+.sandbox-shell {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(300px, 360px);
+  gap: 0;
+  border: 1px solid rgba(95, 112, 132, 0.28);
+  border-radius: 8px;
+  background: #070b10;
+  overflow: hidden;
+}
+
+.sandbox-files-shell,
+.sandbox-chat-shell,
+.sandbox-editor-shell,
+.sandbox-changes-shell,
+.sandbox-activity-shell {
+  border-radius: 0;
+  border-color: rgba(95, 112, 132, 0.24);
+  background: #0b1118;
+  box-shadow: none;
+}
+
+.sandbox-files-shell,
+.sandbox-main-shell {
+  border-right: 1px solid rgba(95, 112, 132, 0.2);
+}
+
+.sandbox-files-head,
+.sandbox-chat-head,
+.sandbox-changes-head {
+  border-color: rgba(95, 112, 132, 0.2);
+  background: #0d131b;
+}
+
+.sandbox-shell .workspace-panel-head {
+  min-height: 0;
+  padding: 10px 12px;
+  gap: 6px;
+}
+
+.sandbox-shell .workspace-panel-title {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.sandbox-shell .workspace-panel-hint,
+.sandbox-setup-note,
+.sandbox-empty-copy,
+.sandbox-empty-note,
+.sandbox-change-reason,
+.sandbox-activity-step-detail {
+  color: #93a1b1;
+}
+
+.sandbox-shell .workspace-panel-tools {
+  gap: 8px;
+}
+
+.sandbox-shell .workspace-panel-actions {
+  gap: 6px;
+}
+
+.sandbox-shell .workspace-mini-btn,
+.sandbox-empty-btn,
+.sandbox-change-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border-color: rgba(111, 126, 145, 0.35);
+  background: rgba(255, 255, 255, 0.03);
+  color: #dbe5ef;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.sandbox-shell .workspace-mini-btn:not(.ghost),
+.sandbox-empty-btn[data-tone="primary"] {
+  border-color: rgba(209, 75, 75, 0.45);
+  background: rgba(209, 75, 75, 0.18);
+}
+
+.sandbox-files-list,
+.sandbox-chat-list {
+  padding: 8px;
+  gap: 6px;
+}
+
+.sandbox-file-btn {
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+
+.sandbox-file-btn:hover,
+.sandbox-file-btn.is-active {
+  background: rgba(209, 75, 75, 0.1);
+  border-color: rgba(209, 75, 75, 0.34);
+}
+
+.sandbox-file-path-input,
+.sandbox-file-editor,
+.sandbox-chat-input {
+  border-radius: 6px;
+  border-color: rgba(95, 112, 132, 0.28);
+  background: #070b10;
+  color: #e8eef6;
+}
+
+.sandbox-file-editor {
+  height: clamp(340px, 62vh, 760px);
+  min-height: 320px;
+  font-size: 12px;
+}
+
+.sandbox-editor-shell {
+  padding: 10px;
+  gap: 8px;
+}
+
+.sandbox-empty-state-rich {
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0d131b;
+}
+
+.sandbox-empty-title {
+  font-size: 12px;
+}
+
+.sandbox-empty-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 6px;
+}
+
+.sandbox-empty-btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+.sandbox-chat-compose {
+  padding: 10px;
+  border-color: rgba(95, 112, 132, 0.2);
+  background: #0d131b;
+}
+
+.sandbox-chat-input {
+  min-height: 76px;
+  font-size: 12px;
+}
+
+.sandbox-chat-compose-actions {
+  align-items: center;
+}
+
+.sandbox-chat-msg .sandbox-chat-bubble {
+  border-radius: 8px;
+  border-color: rgba(95, 112, 132, 0.24);
+  background: #0d131b;
+}
+
+.sandbox-chat-msg.user .sandbox-chat-bubble {
+  background: rgba(209, 75, 75, 0.14);
+  border-color: rgba(209, 75, 75, 0.28);
+}
+
+.sandbox-change-row {
+  padding: 10px 12px;
+  background: #0b1118;
+  border-color: rgba(95, 112, 132, 0.18);
+}
+
+.sandbox-change-preview,
+.sandbox-change-preview-pane,
+.sandbox-change-preview-code {
+  background: #070b10;
+  border-color: rgba(95, 112, 132, 0.22);
+}
+
+.customize-rok-modal {
+  width: min(1080px, calc(100vw - 32px));
+  max-width: 1080px;
+  gap: 12px;
+}
+
+.customize-rok-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.customize-rok-section {
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border-color: rgba(95, 112, 132, 0.22);
+  background: #0b1118;
+}
+
+.customize-rok-section:last-child {
+  grid-column: 1 / -1;
+}
+
+.customize-rok-section-title {
+  font-size: 13px;
+}
+
+.customize-rok-section-kicker,
+.customize-rok-kicker {
+  letter-spacing: 0.08em;
+}
+
+.customize-rok-field-grid,
+.customize-rok-range-grid,
+.customize-rok-toggle-grid,
+.customize-rok-action-grid {
+  gap: 8px;
+}
+
+.customize-rok-toggle,
+.customize-rok-action-btn {
+  border-radius: 8px;
+  padding: 10px;
+  background: #0d131b;
+  border-color: rgba(95, 112, 132, 0.22);
+}
+
+.customize-rok-action-btn {
+  min-height: 72px;
+}
+
+.customize-rok-action-btn:hover,
+.customize-rok-toggle:hover {
+  border-color: rgba(209, 75, 75, 0.4);
+  background: #101821;
+}
+
+.customize-rok-textarea {
+  min-height: 96px;
+}
+
+@media (max-width: 1120px) {
+  .sandbox-shell {
+    grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  }
+
+  .sandbox-chat-shell {
+    grid-column: 1 / -1;
+    min-height: 300px;
+    border-top: 1px solid rgba(95, 112, 132, 0.2);
+  }
+}
+
+@media (max-width: 820px) {
+  .sandbox-shell,
+  .customize-rok-body {
+    grid-template-columns: 1fr;
+  }
+
+  .sandbox-files-shell,
+  .sandbox-main-shell {
+    border-right: 0;
+    border-bottom: 1px solid rgba(95, 112, 132, 0.2);
   }
 }

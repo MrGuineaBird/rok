@@ -355,7 +355,7 @@ const CUSTOMIZATION_EXPORT_VERSION = 1;
 const DEFAULT_CHAT_MODEL = "nemotron-3-ultra:cloud";
 const DEFAULT_WORKSPACE_TAB_LABELS = {
   chat: "Chat",
-  workspace: "Artifacts",
+  workspace: "Drafts",
   sandbox: "ROK CODE",
   math: "ROK MATH"
 };
@@ -409,7 +409,7 @@ const DEFAULT_USER_SETTINGS = {
   showEvidenceButtons: true,
   workspaceTabLabels: {},
   customWorkspaceTabs: [],
-  workspaceTabOrder: ["chat", "workspace", "sandbox", "math"],
+  workspaceTabOrder: ["chat", "sandbox", "math"],
   sidebarSectionOrder: [...DEFAULT_SIDEBAR_SECTION_ORDER],
   topbarActionOrder: [...DEFAULT_TOPBAR_ACTION_ORDER],
   mainSectionOrder: [...DEFAULT_MAIN_SECTION_ORDER],
@@ -480,7 +480,7 @@ const MODEL_DESCRIPTIONS = {
   [DAEDALUS_LEGACY_MODEL_ID]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`,
   [DAEDALUS_LEGACY_MODEL_ID_ALT]: `${DAEDALUS_LABEL} - legacy alias now routed to ${DAEDALUS_PROVIDER_NAME}.`
 };
-const WORKSPACE_TAB_KEYS = ["chat", "workspace", "sandbox", "math"];
+const WORKSPACE_TAB_KEYS = ["chat", "sandbox", "math"];
 /** Visible text chat models shown in the composer. Image uploads use the backend vision route. */
 const COMPOSER_TEXT_MODEL_ORDER = [HERMES_MODEL_ID, DAEDALUS_MODEL_ID];
 const COMPOSER_MODEL_GROUPS = [
@@ -1779,7 +1779,7 @@ function buildSanitizedUserSettings(sourceSettings = {}) {
     rememberModel: merged.rememberModel !== false,
     enterToSend: merged.enterToSend !== false,
     autoScroll: merged.autoScroll !== false,
-    sidebarStartsCollapsed: true,
+    sidebarStartsCollapsed: merged.sidebarStartsCollapsed !== false,
     sidebarWidth: normalizeClientLimit(merged.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
     chatWidth: normalizeClientLimit(merged.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
     bubbleRadius: normalizeClientLimit(merged.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
@@ -4946,6 +4946,27 @@ function openCustomizeRokModal() {
               <span>Keep quick time hints on each message.</span>
             </span>
           </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="sidebarStartsCollapsed" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Start with sidebar collapsed</strong>
+              <span>Open ROK with the chat area taking priority.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="showTopWorkspaceTabs" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show top view tabs</strong>
+              <span>Keep Chat, ROK CODE, and ROK MATH above the main surface.</span>
+            </span>
+          </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="showSidebarWorkspaceTabs" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Show sidebar view tabs</strong>
+              <span>Keep the view switcher in the left rail.</span>
+            </span>
+          </label>
         </div>
       </section>
 
@@ -5058,6 +5079,13 @@ function openCustomizeRokModal() {
               <span>Let every answer expose the context that shaped it.</span>
             </span>
           </label>
+          <label class="customize-rok-toggle">
+            <input data-customize-field="incognitoMode" type="checkbox" />
+            <span class="customize-rok-toggle-copy">
+              <strong>Incognito by default</strong>
+              <span>Stop browser memory and project memory from being used.</span>
+            </span>
+          </label>
         </div>
       </section>
       <section class="customize-rok-section">
@@ -5118,6 +5146,9 @@ function openCustomizeRokModal() {
   const reduceMotionInput = modal.querySelector('[data-customize-field="reduceMotion"]');
   const showStarterChipsInput = modal.querySelector('[data-customize-field="showStarterChips"]');
   const showTimestampsInput = modal.querySelector('[data-customize-field="showTimestamps"]');
+  const sidebarStartsCollapsedInput = modal.querySelector('[data-customize-field="sidebarStartsCollapsed"]');
+  const showTopWorkspaceTabsInput = modal.querySelector('[data-customize-field="showTopWorkspaceTabs"]');
+  const showSidebarWorkspaceTabsInput = modal.querySelector('[data-customize-field="showSidebarWorkspaceTabs"]');
   const defaultModelInput = modal.querySelector('[data-customize-field="defaultModel"]');
   const rememberModelInput = modal.querySelector('[data-customize-field="rememberModel"]');
   const enterToSendInput = modal.querySelector('[data-customize-field="enterToSend"]');
@@ -5125,6 +5156,9 @@ function openCustomizeRokModal() {
   const memoryEnabledInput = modal.querySelector('[data-customize-field="memoryEnabled"]');
   const projectMemoryEnabledInput = modal.querySelector('[data-customize-field="projectMemoryEnabled"]');
   const autoLearnInput = modal.querySelector('[data-customize-field="autoLearn"]');
+  const askBeforeSensitiveSendInput = modal.querySelector('[data-customize-field="askBeforeSensitiveSend"]');
+  const showEvidenceButtonsInput = modal.querySelector('[data-customize-field="showEvidenceButtons"]');
+  const incognitoModeInput = modal.querySelector('[data-customize-field="incognitoMode"]');
   const chatWidthInput = modal.querySelector('[data-customize-field="chatWidth"]');
   const sidebarWidthInput = modal.querySelector('[data-customize-field="sidebarWidth"]');
   const bubbleRadiusInput = modal.querySelector('[data-customize-field="bubbleRadius"]');
@@ -5211,7 +5245,8 @@ function openCustomizeRokModal() {
   };
 
   const syncMemoryDependents = () => {
-    const memoryEnabled = Boolean(memoryEnabledInput && memoryEnabledInput.checked);
+    const incognitoEnabled = Boolean(incognitoModeInput && incognitoModeInput.checked);
+    const memoryEnabled = Boolean(memoryEnabledInput && memoryEnabledInput.checked) && !incognitoEnabled;
     if (projectMemoryEnabledInput) {
       projectMemoryEnabledInput.disabled = !memoryEnabled;
     }
@@ -5230,11 +5265,13 @@ function openCustomizeRokModal() {
     reduceMotion: Boolean(reduceMotionInput && reduceMotionInput.checked),
     showStarterChips: Boolean(showStarterChipsInput && showStarterChipsInput.checked),
     showTimestamps: Boolean(showTimestampsInput && showTimestampsInput.checked),
+    sidebarStartsCollapsed: Boolean(sidebarStartsCollapsedInput && sidebarStartsCollapsedInput.checked),
+    showTopWorkspaceTabs: Boolean(showTopWorkspaceTabsInput && showTopWorkspaceTabsInput.checked),
+    showSidebarWorkspaceTabs: Boolean(showSidebarWorkspaceTabsInput && showSidebarWorkspaceTabsInput.checked),
     defaultModel: resolveDefaultModelId(MODEL_OPTIONS, defaultModelInput ? defaultModelInput.value : DEFAULT_USER_SETTINGS.defaultModel),
     rememberModel: Boolean(rememberModelInput && rememberModelInput.checked),
     enterToSend: Boolean(enterToSendInput && enterToSendInput.checked),
     autoScroll: Boolean(autoScrollInput && autoScrollInput.checked),
-    sidebarStartsCollapsed: true,
     sidebarWidth: normalizeClientLimit(sidebarWidthInput ? sidebarWidthInput.value : DEFAULT_USER_SETTINGS.sidebarWidth, DEFAULT_USER_SETTINGS.sidebarWidth, 180, 340),
     chatWidth: normalizeClientLimit(chatWidthInput ? chatWidthInput.value : DEFAULT_USER_SETTINGS.chatWidth, DEFAULT_USER_SETTINGS.chatWidth, 620, 1200),
     bubbleRadius: normalizeClientLimit(bubbleRadiusInput ? bubbleRadiusInput.value : DEFAULT_USER_SETTINGS.bubbleRadius, DEFAULT_USER_SETTINGS.bubbleRadius, 8, 30),
@@ -5246,8 +5283,9 @@ function openCustomizeRokModal() {
     memoryEnabled: Boolean(memoryEnabledInput && memoryEnabledInput.checked),
     projectMemoryEnabled: Boolean(projectMemoryEnabledInput && projectMemoryEnabledInput.checked),
     autoLearn: Boolean(autoLearnInput && autoLearnInput.checked),
-    askBeforeSensitiveSend: Boolean(modal.querySelector('[data-customize-field="askBeforeSensitiveSend"]')?.checked),
-    showEvidenceButtons: Boolean(modal.querySelector('[data-customize-field="showEvidenceButtons"]')?.checked)
+    incognitoMode: Boolean(incognitoModeInput && incognitoModeInput.checked),
+    askBeforeSensitiveSend: Boolean(askBeforeSensitiveSendInput && askBeforeSensitiveSendInput.checked),
+    showEvidenceButtons: Boolean(showEvidenceButtonsInput && showEvidenceButtonsInput.checked)
   });
 
   const applySettingsToFields = (sourceSettings) => {
@@ -5259,12 +5297,18 @@ function openCustomizeRokModal() {
     if (reduceMotionInput) reduceMotionInput.checked = Boolean(sourceSettings.reduceMotion);
     if (showStarterChipsInput) showStarterChipsInput.checked = Boolean(sourceSettings.showStarterChips);
     if (showTimestampsInput) showTimestampsInput.checked = Boolean(sourceSettings.showTimestamps);
+    if (sidebarStartsCollapsedInput) sidebarStartsCollapsedInput.checked = sourceSettings.sidebarStartsCollapsed !== false;
+    if (showTopWorkspaceTabsInput) showTopWorkspaceTabsInput.checked = sourceSettings.showTopWorkspaceTabs !== false;
+    if (showSidebarWorkspaceTabsInput) showSidebarWorkspaceTabsInput.checked = sourceSettings.showSidebarWorkspaceTabs !== false;
     if (rememberModelInput) rememberModelInput.checked = Boolean(sourceSettings.rememberModel);
     if (enterToSendInput) enterToSendInput.checked = Boolean(sourceSettings.enterToSend);
     if (autoScrollInput) autoScrollInput.checked = Boolean(sourceSettings.autoScroll);
     if (memoryEnabledInput) memoryEnabledInput.checked = Boolean(sourceSettings.memoryEnabled);
     if (projectMemoryEnabledInput) projectMemoryEnabledInput.checked = Boolean(sourceSettings.projectMemoryEnabled);
     if (autoLearnInput) autoLearnInput.checked = Boolean(sourceSettings.autoLearn);
+    if (askBeforeSensitiveSendInput) askBeforeSensitiveSendInput.checked = sourceSettings.askBeforeSensitiveSend !== false;
+    if (showEvidenceButtonsInput) showEvidenceButtonsInput.checked = sourceSettings.showEvidenceButtons !== false;
+    if (incognitoModeInput) incognitoModeInput.checked = Boolean(sourceSettings.incognitoMode);
     if (defaultModelInput) {
       defaultModelInput.value = resolveDefaultModelId(MODEL_OPTIONS, sourceSettings.defaultModel);
     }
@@ -5322,6 +5366,9 @@ function openCustomizeRokModal() {
   if (memoryEnabledInput) {
     memoryEnabledInput.addEventListener("change", syncMemoryDependents);
   }
+  if (incognitoModeInput) {
+    incognitoModeInput.addEventListener("change", syncMemoryDependents);
+  }
   const customizationPresets = {
     calm: {
       reduceMotion: true,
@@ -5347,10 +5394,12 @@ function openCustomizeRokModal() {
       typingSpeed: 10
     },
     private: {
+      incognitoMode: true,
       askBeforeSensitiveSend: true,
       memoryEnabled: false,
       projectMemoryEnabled: false,
-      autoLearn: false
+      autoLearn: false,
+      showEvidenceButtons: true
     }
   };
   presetButtons.forEach((btn) => {
@@ -6969,7 +7018,7 @@ function buildSandboxActivitySnapshot(activity = getActiveSandboxActivity(), san
         {
           label: "Ready in ROK CODE",
           detail: planCount
-            ? "Use Apply AI Changes to write these edits into the workspace."
+            ? "Use Apply Changes to write these edits into the workspace."
             : "Ask for another pass if you want ROK to change specific files.",
           state: "done"
         }
@@ -7741,7 +7790,7 @@ function renderSandboxAnalysisUI(analysis, activitySnapshot = null) {
     sandboxChangesList.innerHTML = buildSandboxEmptyStateMarkup({
       title: "ROK CODE is building the plan",
       body: "The file-by-file change summary will appear here as soon as the current pass is ready to review.",
-      note: "Nothing is written into the workspace until you click Apply AI Changes."
+      note: "Nothing is written into the workspace until you click Apply Changes."
     });
     sandboxChangesMeta.hidden = true;
     sandboxChangesMeta.textContent = "";
@@ -7872,15 +7921,15 @@ function renderSandboxConversationUI(sandbox, activitySnapshot = null) {
 
   if (!messages.length && !(isSending && isSandboxSessionActive())) {
     sandboxChatList.innerHTML = buildSandboxEmptyStateMarkup({
-      title: "Start with one concrete ROK CODE request",
-      body: "Describe one bug, refactor, or scaffold. ROK will plan first, show the requested changes, and wait for your apply.",
+      title: "Start with a focused request",
+      body: "Ask for one bug fix, refactor, or small feature. ROK CODE will plan before applying anything.",
       actions: [
         { kind: "starter", id: "review", label: "Review workspace", tone: "primary" },
         { kind: "starter", id: "refactor", label: "Safe refactor" },
         { kind: "starter", id: "debug", label: "Find the bug" },
         { kind: "starter", id: "scaffold", label: "Starter scaffold" }
       ],
-      note: "Nothing is written into your files until you click Apply AI Changes."
+      note: "Nothing is written until you click Apply Changes."
     });
   } else {
     messages.forEach((item) => {
@@ -7939,14 +7988,14 @@ function renderSandboxUI() {
       })
       .join("");
     sandboxFilesList.innerHTML = filesHtml || buildSandboxEmptyStateMarkup({
-      title: "No files in this workspace yet",
-      body: "Upload a project or start with one file, then ask ROK CODE for a safe first pass.",
+      title: "No files yet",
+      body: "Upload a project or create a file to give ROK CODE real context.",
       actions: [
         { kind: "action", id: "upload", label: "Upload files", tone: "primary" },
         { kind: "action", id: "new-file", label: "New file" },
-        { kind: "starter", id: "scaffold", label: "Starter scaffold prompt" }
+        { kind: "starter", id: "scaffold", label: "Scaffold prompt" }
       ],
-      note: "ROK CODE is strongest when it can inspect real files and show the review cards before apply."
+      note: "Plans stay reviewable before they touch your files."
     });
   }
 
@@ -10125,7 +10174,7 @@ function buildSandboxRequestPayload(userPrompt, recentHistory, sessionModel, ena
     })),
     attachments: buildAttachmentsPayload(),
     history: Array.isArray(recentHistory) ? recentHistory : [],
-    model: getOperationalModelId(sessionModel),
+    model: getOperationalModelId(HYPERION_MODEL_ID),
     enable_thinking: Boolean(enableThinking)
   });
 }
@@ -10161,7 +10210,7 @@ function buildSandboxChatSummary(analysis, modelId = "") {
   const setupLines = analysis.setupSteps.length
     ? `\n\nSetup:\n${analysis.setupSteps.map((item) => `- ${item}`).join("\n")}`
     : "";
-  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in ROK CODE.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the previews first, then use **Apply AI Changes** when the plan looks right.`;
+  return `**ROK CODE plan ready with ${modelLabel}.**\n\n${escapeMarkdown(analysis.summary || "Review the proposed file changes in ROK CODE.")}\n\nFiles:\n${fileLines}${setupLines}\n\nReview the previews first, then use **Apply Changes** when the plan looks right.`;
 }
 
 async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
@@ -10169,7 +10218,7 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
     throw new Error("Save the current sandbox file before asking ROK to edit it.");
   }
   const sandbox = getCurrentSandboxState();
-  const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
+  const requestShouldThink = shouldEnableThinkingForRequest(HYPERION_MODEL_ID, {
     text: promptText,
     attachments,
     sandboxFiles: sandbox.files
@@ -10182,12 +10231,12 @@ async function runSandboxAnalysis(promptText, recentHistory, sessionModel) {
 
   try {
     const analysis = await runWithAutoMessageRetry(async (attempt) => {
-      const requestBody = buildSandboxRequestPayload(promptText, recentHistory, sessionModel, requestShouldThink, sandbox);
+      const requestBody = buildSandboxRequestPayload(promptText, recentHistory, HYPERION_MODEL_ID, requestShouldThink, sandbox);
       const analysisModel = requestBody.model;
       activeRequestController = new AbortController();
       const res = await fetchWithBanGuard(SANDBOX_URL, {
         method: "POST",
-        headers: buildApiHeaders(true, { modelId: sessionModel }),
+        headers: buildApiHeaders(true, { modelId: analysisModel }),
         signal: activeRequestController.signal,
         body: JSON.stringify(requestBody)
       });
@@ -13618,7 +13667,8 @@ async function send() {
       displayText = `Uploaded ${attachments.length} file(s).`;
     }
   }
-  const requestShouldThink = shouldEnableThinkingForRequest(sessionModel, {
+  const requestModelForThinking = sandboxActive ? HYPERION_MODEL_ID : sessionModel;
+  const requestShouldThink = shouldEnableThinkingForRequest(requestModelForThinking, {
     text: text || displayText,
     workspaceContext: sessionWorkspaceContext,
     attachments,
@@ -13643,7 +13693,7 @@ async function send() {
     const sandboxPreviewPayload = buildSandboxRequestPayload(
       text || SANDBOX_DEFAULT_PROMPT,
       recentHistory,
-      sessionModel,
+      HYPERION_MODEL_ID,
       requestShouldThink,
       sessionSandbox || getCurrentSandboxState()
     );
@@ -14010,6 +14060,7 @@ async function send() {
       }
       const retryLine = bubble.querySelector(".retry-status-line");
       if (retryLine) retryLine.textContent = `âŸ³ ${value}`;
+      if (retryLine) retryLine.textContent = value;
     } else if (bubble) {
       // Clear retry indicator when a real answer starts
       const existing = bubble.querySelector(".retry-status-line");
@@ -14125,7 +14176,10 @@ async function send() {
       : String(assistantContent || "");
     // Collect tool calls for auto-execution after stream ends
     for (const tc of toolCalls) {
-      pendingToolCalls.push({ ...tc, _assistantContent: visibleAssistantContent });
+      const toolCallId = tc && tc.id
+        ? String(tc.id)
+        : `call_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      pendingToolCalls.push({ ...tc, id: toolCallId, _assistantContent: visibleAssistantContent });
     }
     handleStatusUpdate(getToolStatusText(toolCalls));
     // If the model also produced text content alongside tool calls, show it
@@ -14457,7 +14511,7 @@ async function send() {
         activeRequestController = new AbortController();
         const response = await fetchWithBanGuard(API_URL, {
           method: "POST",
-          headers: buildApiHeaders(true, { modelId: sessionModel }),
+            headers: buildApiHeaders(true, { modelId: requestBody.model || sessionModel }),
           signal: activeRequestController.signal,
           body: JSON.stringify(requestBody)
         });
@@ -14597,13 +14651,18 @@ async function send() {
 
         while (pendingToolCalls.length > 0 && toolLoopCount < BUILTIN_TOOL_MAX_LOOP && !stopRequested) {
           toolLoopCount++;
-          const callsToExecute = [...pendingToolCalls];
+          const callsToExecute = pendingToolCalls.map((tc) => {
+            const toolCallId = tc && tc.id
+              ? String(tc.id)
+              : `call_${toolLoopCount}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            return { ...tc, id: toolCallId };
+          });
           pendingToolCalls = [];
 
           // Build assistant message with tool_calls for history
           const assistantContent = callsToExecute[0]._assistantContent || partialText || "";
           const toolCallsForHistory = callsToExecute.map(tc => ({
-            id: tc.id || `call_${toolLoopCount}_${Date.now()}`,
+            id: tc.id,
             type: "function",
             function: {
               name: (tc.function && tc.function.name) || tc.name || "unknown",
@@ -14622,7 +14681,7 @@ async function send() {
             } catch (_) { args = {}; }
 
             const toolResult = executeBuiltinTool(toolName, args);
-            const callId = tc.id || `call_${toolLoopCount}_${Date.now()}`;
+            const callId = tc.id;
             const resultContent = toolResult.ok
               ? JSON.stringify(toolResult.result)
               : JSON.stringify({ error: toolResult.error });
@@ -14771,7 +14830,6 @@ async function send() {
         } else {
           setBubbleContent(bubble, partialText, true);
           addRegenerateButton(bubble);
-          addOpenArtifactButton(bubble, partialText);
         }
         attachEvidenceToAssistantBubble(bubble, finalEvidence);
         history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -14987,12 +15045,17 @@ async function send() {
 
       while (pendingToolCalls.length > 0 && toolLoopCount < BUILTIN_TOOL_MAX_LOOP && !stopRequested) {
         toolLoopCount++;
-        const callsToExecute = [...pendingToolCalls];
+        const callsToExecute = pendingToolCalls.map((tc) => {
+          const toolCallId = tc && tc.id
+            ? String(tc.id)
+            : `call_${toolLoopCount}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+          return { ...tc, id: toolCallId };
+        });
         pendingToolCalls = [];
 
         const assistantContent = callsToExecute[0]._assistantContent || partialText || "";
         const toolCallsForHistory = callsToExecute.map(tc => ({
-          id: tc.id || `call_${toolLoopCount}_${Date.now()}`,
+          id: tc.id,
           type: "function",
           function: {
             name: (tc.function && tc.function.name) || tc.name || "unknown",
@@ -15010,7 +15073,7 @@ async function send() {
           } catch (_) { args = {}; }
 
           const toolResult = executeBuiltinTool(toolName, args);
-          const callId = tc.id || `call_${toolLoopCount}_${Date.now()}`;
+          const callId = tc.id;
           const resultContent = toolResult.ok
             ? JSON.stringify(toolResult.result)
             : JSON.stringify({ error: toolResult.error });
@@ -15144,7 +15207,6 @@ async function send() {
       } else {
         setBubbleContent(bubble, partialText, true);
         addRegenerateButton(bubble);
-        addOpenArtifactButton(bubble, partialText);
       }
       attachEvidenceToAssistantBubble(bubble, finalEvidence);
       history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -15194,7 +15256,6 @@ async function send() {
           } else {
             setBubbleContent(bubble, partialText, true);
             addRegenerateButton(bubble);
-            addOpenArtifactButton(bubble, partialText);
           }
           attachEvidenceToAssistantBubble(bubble, finalEvidence);
           history.push({ role: "assistant", content: partialText, evidence: finalEvidence });
@@ -15387,49 +15448,6 @@ function addRegenerateButton(bubble) {
     regenerateLastResponse();
   });
   bubble.appendChild(btn);
-}
-
-function addOpenArtifactButton(bubble, artifactText = "") {
-  if (!bubble || !String(artifactText || "").trim()) return;
-  const existing = bubble.querySelector(".artifact-open-btn");
-  if (existing) existing.remove();
-  const btn = document.createElement("button");
-  btn.className = "regenerate-btn artifact-open-btn";
-  btn.type = "button";
-  btn.title = "Open this response as an artifact";
-  btn.textContent = "Open artifact";
-  btn.addEventListener("click", () => {
-    openTextAsArtifact(artifactText);
-  });
-  bubble.appendChild(btn);
-}
-
-function openTextAsArtifact(rawText = "") {
-  const textValue = String(rawText || "").trim();
-  if (!textValue) return;
-  const current = ensureActiveSession();
-  if (!current) return;
-  ensureSessionWorkspace(current);
-  current.workspace.content = textValue;
-  current.workspace.assistantMemory = normalizeWorkspaceAssistantMemory({
-    tone: "applied",
-    statusText: "Artifact ready",
-    intent: "Saved the assistant response as an editable artifact.",
-    outputType: inferWorkspaceOutputType(textValue, ""),
-    action: "Opened Artifact",
-    changeScope: textValue.length > 2000 ? "Long" : "Short",
-    lastAction: "Opened from chat",
-    summary: buildWorkspaceStructuredSummary(
-      "Saved the assistant response as an editable artifact.",
-      inferWorkspaceOutputType(textValue, ""),
-      "Opened Artifact",
-      textValue.length > 2000 ? "Long" : "Short"
-    ),
-    suggestions: null
-  });
-  syncCurrentSessionFromHistory();
-  setActiveWorkspaceTab("workspace", { focus: true });
-  showThinkingQuotaToast("Opened as artifact.");
 }
 
 function regenerateLastResponse() {
@@ -17518,7 +17536,7 @@ function openEvidenceModal(evidence) {
 function getBubbleReadableText(bubble) {
   if (!(bubble instanceof HTMLElement)) return "";
   const clone = bubble.cloneNode(true);
-  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn, .evidence-btn, .regenerate-btn, .artifact-open-btn, .code-copy-btn").forEach(function (node) {
+  clone.querySelectorAll(".correct-me-btn, .bubble-copy-btn, .evidence-btn, .regenerate-btn, .code-copy-btn").forEach(function (node) {
     node.remove();
   });
   return String(clone.innerText || clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();

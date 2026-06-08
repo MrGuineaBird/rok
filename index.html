@@ -306,7 +306,7 @@
           <aside class="sandbox-files-shell">
             <div class="workspace-panel-head sandbox-files-head">
               <div class="workspace-panel-title">Explorer</div>
-              <div class="workspace-panel-hint">Project files</div>
+              <div class="workspace-panel-hint">Files</div>
               <div class="workspace-panel-actions">
                 <button id="sandboxUploadBtn" class="workspace-mini-btn ghost" type="button">Upload</button>
                 <button id="sandboxUploadFolderBtn" class="workspace-mini-btn ghost" type="button">Folder</button>
@@ -319,7 +319,7 @@
             <div class="workspace-panel-head">
               <div id="sandboxCurrentFileLabel" class="workspace-panel-title">No file selected</div>
               <div class="workspace-panel-hint">
-                Edit files here, then ask ROK for the next change on the right.
+                Edit files, review proposed changes, then apply when ready.
               </div>
               <div class="workspace-panel-tools">
                 <div class="workspace-panel-stats" aria-live="polite">
@@ -330,8 +330,8 @@
                   <div class="workspace-panel-actions">
                     <button id="sandboxSaveBtn" class="workspace-mini-btn ghost" type="button">Save</button>
                     <button id="sandboxDeleteBtn" class="workspace-mini-btn ghost" type="button">Delete</button>
-                    <button id="sandboxUndoBtn" class="workspace-mini-btn ghost" type="button">Undo Last Apply</button>
-                    <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply AI Changes</button>
+                    <button id="sandboxUndoBtn" class="workspace-mini-btn ghost" type="button">Undo</button>
+                    <button id="sandboxApplyBtn" class="workspace-mini-btn" type="button">Apply Changes</button>
                   </div>
                 </div>
               </div>
@@ -375,9 +375,9 @@
           </section>
           <aside class="sandbox-chat-shell">
             <div class="workspace-panel-head sandbox-chat-head">
-              <div class="workspace-panel-title">ROK Requests</div>
+              <div class="workspace-panel-title">Requests</div>
               <div class="workspace-panel-hint">
-                Ask for edits here. The plan and requested changes stay in this thread.
+                Ask for one focused edit, review the plan, then apply.
               </div>
               <div class="workspace-panel-actions">
                 <button id="sandboxAnalyzeBtn" class="workspace-mini-btn ghost" type="button">Analyze</button>
@@ -391,11 +391,11 @@
               <textarea
                 id="sandboxChatInput"
                 class="sandbox-chat-input"
-                placeholder="Describe one bug, refactor, or starter scaffold. ROK CODE will plan first and wait for your apply."
+                placeholder="Describe one bug, refactor, or small feature."
                 spellcheck="true"
               ></textarea>
               <div class="sandbox-chat-compose-actions">
-                <div class="sandbox-setup-note">Tip: upload files, describe the change, then apply the plan when it looks right.</div>
+                <div class="sandbox-setup-note">Plans are reviewed before they touch your files.</div>
                 <button id="sandboxChatSendBtn" class="workspace-mini-btn" type="button">Send</button>
               </div>
             </div>
