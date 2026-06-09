@@ -20004,7 +20004,16 @@ async function handleVideoCommand(prompt) {
   previewImg.alt = "Generated video";
   previewImg.style.imageRendering = "auto";
   previewImg.style.display = "none";
+  const previewVideo = document.createElement("video");
+  previewVideo.className = "pixel-painting-img pixel-painting-video";
+  previewVideo.controls = true;
+  previewVideo.loop = true;
+  previewVideo.muted = true;
+  previewVideo.autoplay = true;
+  previewVideo.playsInline = true;
+  previewVideo.style.display = "none";
   previewDiv.appendChild(generatingPreview);
+  previewDiv.appendChild(previewVideo);
   previewDiv.appendChild(previewImg);
 
   const detailsDiv = document.createElement("div");
@@ -20112,17 +20121,35 @@ async function handleVideoCommand(prompt) {
     statusText.textContent = "Complete";
     generatingPreview.style.display = "none";
     previewDiv.classList.remove("is-generating");
-    previewImg.src = videoUrl;
-    previewImg.style.display = "block";
+    const mimeType = String(data.mime_type || "").toLowerCase();
+    const looksLikeVideo = mimeType.startsWith("video/")
+      || /^data:video\//i.test(videoUrl)
+      || /\.mp4(?:[?#]|$)/i.test(videoUrl)
+      || /\.webm(?:[?#]|$)/i.test(videoUrl);
+    if (looksLikeVideo) {
+      previewImg.style.display = "none";
+      previewImg.removeAttribute("src");
+      previewVideo.src = videoUrl;
+      previewVideo.style.display = "block";
+      previewVideo.play().catch(() => {});
+    } else {
+      previewVideo.style.display = "none";
+      previewVideo.removeAttribute("src");
+      previewImg.src = videoUrl;
+      previewImg.style.display = "block";
+    }
     const duration = Math.round((Date.now() - startTime) / 1000);
     const renderMs = Number.isFinite(Number(data.render_ms)) ? `${Number(data.render_ms)}ms render` : `${duration}s`;
-    const keyframes = Number.isFinite(Number(data.keyframes)) ? Number(data.keyframes) : 0;
-    const outputFrames = Number.isFinite(Number(data.output_frames)) ? Number(data.output_frames) : 0;
+    const videoDuration = Number.isFinite(Number(data.duration)) ? `${Number(data.duration)}s` : "";
+    const videoWidth = Number.isFinite(Number(data.width)) ? Number(data.width) : 0;
+    const videoHeight = Number.isFinite(Number(data.height)) ? Number(data.height) : 0;
+    const sizeLabel = videoWidth && videoHeight ? `${videoWidth}x${videoHeight}` : "";
+    const formatLabel = String(data.mode || "").includes("huggingface_ltx") ? "MP4 video" : "video";
     detailsDiv.innerHTML = `
       <div class="pixel-painting-stats">
         <span>Time: ${duration}s</span>
         <span>${escapeHtml(renderMs)}</span>
-        <span>${keyframes} keyframes -> ${outputFrames} video frames</span>
+        <span>${escapeHtml([videoDuration, sizeLabel, formatLabel].filter(Boolean).join(" | "))}</span>
         <span>${escapeHtml(String(data.video_model || "Dibutades Motion"))}</span>
       </div>
     `;
