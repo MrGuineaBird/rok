@@ -9102,8 +9102,9 @@ function applyToolChainingGuidanceToRequestBody(requestBody) {
   if (!Array.isArray(requestBody.tools) || requestBody.tools.length === 0) return requestBody;
   const prompt = [
     "Tool calling is available and may be chained. If a tool result shows another tool would help, call the next tool instead of pretending you did it.",
+    "If the user asks you to create, generate, design, draw, or edit an image/logo/icon/avatar/poster, call generate_image with the user's real requested subject and text. Do not guess by keyword and do not answer with only text.",
     "For visual explanations, diagrams, flows, systems, plans, comparisons, or map-it-out requests, call sketch_board with concise nodes and arrows.",
-    "If the user asks for image generation, the client may auto-route to ROK IMAGE; do not fake an image in text."
+    "After calling generate_image, briefly say that the image generation has started unless another tool is needed."
   ].join(" ");
   requestBody.custom_system_prompt = [requestBody.custom_system_prompt, prompt].filter(Boolean).join("\n\n");
   return requestBody;
@@ -11245,8 +11246,12 @@ function updateChatWelcomeVisibility() {
   const hasConversation = Boolean(chat.querySelector(".msg.user, .msg.bot"));
   const chatHiddenForWorkspace = Boolean(mainPanel && mainPanel.classList.contains("workspace-mode"));
   welcome.hidden = hasConversation;
+  const showWelcomeComposer = !hasConversation && !chatHiddenForWorkspace;
   if (appRoot) {
-    appRoot.classList.toggle("empty-chat-mode", !hasConversation && !chatHiddenForWorkspace);
+    appRoot.classList.toggle("empty-chat-mode", showWelcomeComposer);
+  }
+  if (composerWrap) {
+    composerWrap.classList.toggle("welcome-composer-mode", showWelcomeComposer);
   }
 }
 
@@ -11718,96 +11723,6 @@ function normalizeImageToolPromptFragment(value = "") {
   text = text.replace(/^(?:of|for|about|showing|with|where|that shows|a picture of|an image of)\s+/i, "").trim();
   text = text.replace(/^[,.:;\-\s]+|[,.:;\-\s]+$/g, "").trim();
   return text;
-}
-
-function cleanNaturalToolRequestPrefix(value = "") {
-  let text = String(value || "").trim();
-  for (let i = 0; i < 5; i += 1) {
-    const next = text
-      .replace(/^@?rok\b[:,\s-]*/i, "")
-      .replace(/^(?:hey|yo|ok(?:ay)?|alright|please|pls|bro)\b[:,\s-]*/i, "")
-      .replace(/^(?:can|could|would|will)\s+(?:you|u)\s+/i, "")
-      .replace(/^(?:i\s+want\s+(?:you\s+)?to|i\s+need\s+(?:you\s+)?to|i'd\s+like\s+(?:you\s+)?to|i\s+wanna)\s+/i, "")
-      .trim();
-    if (next === text) break;
-    text = next;
-  }
-  return text;
-}
-
-function detectNaturalImageToolRequest(rawText = "", attachedFiles = []) {
-  const original = String(rawText || "").trim();
-  if (!original || original.startsWith("/")) return null;
-
-  const imageReference = getFirstAttachedImageReference(attachedFiles);
-  const imageArtifact =
-    "(?:image|picture|pic|photo|drawing|illustration|artwork|art|poster|logo|icon|avatar|pfp|wallpaper|thumbnail|sticker|meme|render|scene)";
-  const makeVerb = "(?:make|create|generate|draw|paint|illustrate|render|design|produce)";
-
-  if (/\b(?:do not|don't|dont|without|stop)\s+(?:make|create|generate|draw|paint|render|design)\b/i.test(original)) {
-    return null;
-  }
-  if (/\b(?:write|draft|create|make)\s+(?:an?\s+)?(?:image|picture|art)\s+prompt\b/i.test(original)) {
-    return null;
-  }
-  if (/\b(?:what|why|how|when|where|who)\b.{0,36}\b(?:image|picture|photo|art|logo)\b/i.test(original) &&
-      !new RegExp(`\\b${makeVerb}\\b`, "i").test(original)) {
-    return null;
-  }
-
-  const cleaned = cleanNaturalToolRequestPrefix(original);
-  const editReferencePattern =
-    /\b(?:make|turn|change|edit|remove|erase|add|replace|transform|convert|use|keep|put|give|fix|clean up|get rid of)\b/i;
-  if (imageReference && editReferencePattern.test(cleaned)) {
-    const prompt = normalizeImageToolPromptFragment(cleaned);
-    if (prompt) {
-      return {
-        kind: "image_generation",
-        prompt,
-        displayText: original,
-        referenceImageBase64: imageReference.base64,
-        referenceImageName: imageReference.name,
-        clearAttachments: true,
-        confidence: 0.95
-      };
-    }
-  }
-
-  const patterns = [
-    new RegExp(`\\b${makeVerb}\\s+(?:me\\s+|us\\s+)?(?:an?\\s+|the\\s+|some\\s+)?${imageArtifact}\\s*(?:of|for|with|showing|that\\s+shows|about|where)?\\s+(.+)`, "i"),
-    new RegExp(`\\b${makeVerb}\\s+(?:me\\s+|us\\s+)?(?:an?\\s+|the\\s+|some\\s+)?(.+?)\\s+${imageArtifact}\\b`, "i"),
-    /\b(?:draw|paint|illustrate|render)\s+(?:me\s+|us\s+)?(.+)/i
-  ];
-
-  let prompt = "";
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-    if (match && match[1]) {
-      prompt = normalizeImageToolPromptFragment(match[1]);
-      break;
-    }
-  }
-
-  if (!prompt) return null;
-  const specificArtifact = cleaned.match(/\b(logo|icon|avatar|pfp|wallpaper|thumbnail|sticker|meme|poster)\b/i);
-  if (specificArtifact && !new RegExp(`\\b${specificArtifact[1]}\\b`, "i").test(prompt)) {
-    prompt = `${specificArtifact[1]} for ${prompt}`;
-  }
-  const weakReferent = /^(?:it|this|that|one|better|worse|smaller|bigger|larger|purple|red|blue|green)$/i.test(prompt);
-  if (weakReferent && !imageReference) return null;
-  if (/\b(?:video|movie|animation|gif)\b/i.test(cleaned) && !/\b(?:image|picture|photo|drawing|illustration|logo|poster|icon|avatar|wallpaper|thumbnail|sticker|meme)\b/i.test(cleaned)) {
-    return null;
-  }
-
-  return {
-    kind: "image_generation",
-    prompt,
-    displayText: original,
-    referenceImageBase64: imageReference ? imageReference.base64 : "",
-    referenceImageName: imageReference ? imageReference.name : "",
-    clearAttachments: Boolean(imageReference),
-    confidence: 0.9
-  };
 }
 
 function splitSketchPromptIntoNodes(prompt = "") {
@@ -13689,10 +13604,61 @@ const BUILTIN_TOOLS = [
         required: ["title"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_image",
+      description: "Generate an image, logo, icon, avatar, poster, artwork, scene, thumbnail, wallpaper, or visual design with ROK IMAGE. Use this when the user asks for an actual generated image instead of a text prompt.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "The full visual prompt to send to image generation. Preserve important names, text, style, and constraints from the user."
+          },
+          use_reference_image: {
+            type: "boolean",
+            description: "Use the first attached image as a reference when the user asks to edit or transform an attached image."
+          }
+        },
+        required: ["prompt"]
+      }
+    }
   }
 ];
 
 const BUILTIN_TOOL_MAX_LOOP = 5;
+
+function startGenerateImageTool(args = {}) {
+  const prompt = normalizeImageToolPromptFragment(args.prompt || args.description || args.subject || "");
+  if (!prompt) {
+    return { ok: false, error: "Missing image prompt." };
+  }
+
+  const useReference = Boolean(args.use_reference_image);
+  const reference = useReference ? getFirstAttachedImageReference(attachments) : null;
+  handleImagineCommand(prompt, {
+    autoTool: true,
+    suppressUserMessage: true,
+    referenceImageBase64: reference ? reference.base64 : "",
+    referenceImageName: reference ? reference.name : ""
+  }).catch((error) => {
+    addMessage("bot", `ROK IMAGE failed: ${error && error.message ? error.message : String(error)}`);
+  });
+  if (reference) {
+    clearAttachments();
+  }
+  return {
+    ok: true,
+    result: {
+      started: true,
+      mode: "ROK IMAGE",
+      prompt,
+      reference_image_used: Boolean(reference)
+    }
+  };
+}
 
 function executeBuiltinTool(name, args) {
   const a = args && typeof args === "object" ? args : {};
@@ -13737,6 +13703,9 @@ function executeBuiltinTool(name, args) {
           case "word_count": return { ok: true, result: text.trim() ? text.trim().split(/\s+/).length : 0 };
           default: return { ok: false, error: `Unknown operation: ${op}` };
         }
+      }
+      case "generate_image": {
+        return startGenerateImageTool(a);
       }
       case "sketch_board": {
         const board = createSketchBoardMessage(a);
@@ -13976,22 +13945,6 @@ async function send() {
       handleVideoCommand(prompt);
       return;
     }
-  }
-
-  const naturalImageTool = detectNaturalImageToolRequest(text, attachments);
-  if (naturalImageTool && naturalImageTool.prompt) {
-    input.value = "";
-    autoResizeInput();
-    if (naturalImageTool.clearAttachments) {
-      clearAttachments();
-    }
-    handleImagineCommand(naturalImageTool.prompt, {
-      autoTool: true,
-      displayText: naturalImageTool.displayText || text,
-      referenceImageBase64: naturalImageTool.referenceImageBase64 || "",
-      referenceImageName: naturalImageTool.referenceImageName || ""
-    });
-    return;
   }
 
   // Handle /pictionary command
@@ -20567,9 +20520,10 @@ async function handleImagineCommand(prompt, options = {}) {
   const referenceImageName = String(imagineSettings.referenceImageName || "").trim();
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
 
-  // Show user message
   const displayText = String(commandOptions.displayText || "").trim();
-  addMessage("user", displayText || `/imagine ${prompt}`);
+  if (!commandOptions.suppressUserMessage) {
+    addMessage("user", displayText || `/imagine ${prompt}`);
+  }
   
   // Build painting UI as DOM elements (not through addMessage which sanitizes HTML)
   const row = document.createElement("div");

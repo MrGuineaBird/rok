@@ -1534,6 +1534,82 @@ a.server-down-btn {
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
 }
 
+.composer-wrap.welcome-composer-mode {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(31% + 58px);
+  bottom: auto;
+  z-index: 15;
+  border-top: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.composer-wrap.welcome-composer-mode .composer {
+  max-width: min(760px, calc(100vw - 42px));
+  padding: 0;
+  align-items: center;
+}
+
+.composer-wrap.welcome-composer-mode .composer-field {
+  min-height: 72px;
+  border-radius: 999px;
+  border-color: #2f2525;
+  background: rgba(38, 38, 38, 0.94);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.composer-wrap.welcome-composer-mode .composer-field-textarea,
+.composer-wrap.welcome-composer-mode .composer-field textarea {
+  min-height: 70px;
+  padding: 24px 12px 18px 18px;
+  border-radius: 999px 0 0 999px;
+}
+
+.composer-wrap.welcome-composer-mode .composer-field-rail {
+  border-left: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 6px;
+  align-self: stretch;
+}
+
+.composer-wrap.welcome-composer-mode .composer-model-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.composer-wrap.welcome-composer-mode .composer-model-label {
+  display: none !important;
+}
+
+.composer-wrap.welcome-composer-mode .composer-model-picker-btn {
+  min-height: 46px;
+  border-radius: 999px;
+  padding: 8px 30px 8px 10px;
+  background: rgba(24, 10, 10, 0.82);
+}
+
+.composer-wrap.welcome-composer-mode .composer-plus-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  color: #f3eeee;
+}
+
+.composer-wrap.welcome-composer-mode #sendBtn {
+  min-height: 52px;
+  align-self: center;
+  border-radius: 16px;
+  padding: 0 20px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
 .sketch-board-container {
   display: flex;
   flex-direction: column;
@@ -7653,6 +7729,48 @@ a.server-down-btn {
   }
 
   .app.empty-chat-mode .main:not(.workspace-mode) #sendBtn {
+    min-height: 48px;
+    padding: 0 14px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer {
+    max-width: calc(100vw - 24px);
+    gap: 8px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-field {
+    flex-direction: row;
+    min-height: 62px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-field-textarea,
+  .composer-wrap.welcome-composer-mode .composer-field textarea {
+    min-height: 60px;
+    padding: 20px 8px 16px 16px;
+    border-radius: 999px 0 0 999px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-field-rail {
+    border-top: 0;
+    justify-content: flex-end;
+    padding: 8px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-model-picker-text {
+    display: none;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-model-picker-btn {
+    width: 44px;
+    min-height: 44px;
+    padding: 8px;
+  }
+
+  .composer-wrap.welcome-composer-mode .composer-model-picker-chevron {
+    display: none;
+  }
+
+  .composer-wrap.welcome-composer-mode #sendBtn {
     min-height: 48px;
     padding: 0 14px;
   }
