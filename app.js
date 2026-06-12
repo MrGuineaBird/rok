@@ -1976,8 +1976,7 @@ function saveOnboardingCompletedRecord() {
 }
 
 function isOnboardingCompleted() {
-  const rec = loadOnboardingRecord();
-  return rec.completed === true && rec.version === ONBOARDING_TOUR_VERSION;
+  return true;
 }
 
 let onboardingStepIndex = 0;
@@ -2202,31 +2201,7 @@ async function renderOnboardingStep() {
 }
 
 function openOnboardingModal() {
-  if (!onboardingModal) return;
-  ensureOnboardingLayoutShell();
-  if (onboardingCloseBtn) {
-    onboardingCloseBtn.hidden = true;
-    onboardingCloseBtn.setAttribute("aria-hidden", "true");
-  }
-  if (onboardingSkipBtn) {
-    onboardingSkipBtn.hidden = true;
-    onboardingSkipBtn.setAttribute("aria-hidden", "true");
-  }
-  if (onboardingNameInput) {
-    onboardingNameInput.value = String(loadUserSettingsFromStorage().preferredName || "");
-  }
-  onboardingSelectedUseCase = sanitizePrimaryUseCase(loadUserSettingsFromStorage().primaryUseCase);
-  if (mainPanel) {
-    mainPanel.scrollTop = 0;
-  }
-  onboardingStepIndex = 0;
-  onboardingRenderSequence += 1;
-  stopOnboardingTyping();
-  setOnboardingSidebarPreview(false);
-  onboardingModal.hidden = false;
-  onboardingModal.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-  renderOnboardingStep();
+  saveOnboardingCompletedRecord();
 }
 
 function closeOnboardingModal() {
@@ -9122,6 +9097,18 @@ function applyIntentRoutingToRequestBody(requestBody, intent) {
   return requestBody;
 }
 
+function applyToolChainingGuidanceToRequestBody(requestBody) {
+  if (!requestBody || typeof requestBody !== "object") return requestBody;
+  if (!Array.isArray(requestBody.tools) || requestBody.tools.length === 0) return requestBody;
+  const prompt = [
+    "Tool calling is available and may be chained. If a tool result shows another tool would help, call the next tool instead of pretending you did it.",
+    "For visual explanations, diagrams, flows, systems, plans, comparisons, or map-it-out requests, call sketch_board with concise nodes and arrows.",
+    "If the user asks for image generation, the client may auto-route to ROK IMAGE; do not fake an image in text."
+  ].join(" ");
+  requestBody.custom_system_prompt = [requestBody.custom_system_prompt, prompt].filter(Boolean).join("\n\n");
+  return requestBody;
+}
+
 function countWords(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
@@ -11169,13 +11156,25 @@ function buildChatWelcomeElement() {
   wrapper.hidden = true;
   wrapper.innerHTML = `
     <div class="chat-welcome-content" role="presentation">
-      <img src="roklogo.png" alt="" class="chat-welcome-logo" />
       <div class="chat-welcome-title"></div>
-      <div class="chat-welcome-subtitle"></div>
-      <div class="chat-welcome-chips" aria-hidden="true"></div>
+      <div class="chat-welcome-chips"></div>
     </div>
   `;
   return wrapper;
+}
+
+function renderChatWelcomeChipIcon(icon = "") {
+  const name = String(icon || "").trim().toLowerCase();
+  if (name === "image") {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m7 16 3.5-3.5 3 3 1.5-1.5 2 2"></path></svg>';
+  }
+  if (name === "edit") {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z"></path><path d="m13.5 6.5 4 4"></path></svg>';
+  }
+  if (name === "search") {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>';
+  }
+  return "";
 }
 
 function syncChatWelcomeElement(welcome) {
@@ -11192,8 +11191,9 @@ function syncChatWelcomeElement(welcome) {
         class="chat-welcome-chip"
         type="button"
         data-chip-prompt="${escapeHtml(chip.prompt || "")}"
+        ${chip.action ? `data-chip-action="${escapeHtml(chip.action)}"` : ""}
         ${chip.tab ? `data-chip-tab="${escapeHtml(chip.tab)}"` : ""}
-      >${escapeHtml(chip.label)}</button>
+      >${renderChatWelcomeChipIcon(chip.icon)}<span>${escapeHtml(chip.label)}</span></button>
     `).join("");
   }
 }
@@ -11215,6 +11215,10 @@ function ensureChatWelcomeElement() {
     chip.addEventListener("click", function () {
       const prompt = chip.getAttribute("data-chip-prompt") || "";
       const tab = chip.getAttribute("data-chip-tab") || "";
+      const action = chip.getAttribute("data-chip-action") || "";
+      if (action === "web") {
+        setWebSearchEnabled(true);
+      }
       if (tab === "sandbox") {
         setActiveWorkspaceTab("sandbox", { focus: false });
         sandboxChatDraft = prompt;
@@ -11239,7 +11243,11 @@ function updateChatWelcomeVisibility() {
   const welcome = ensureChatWelcomeElement();
   if (!welcome) return;
   const hasConversation = Boolean(chat.querySelector(".msg.user, .msg.bot"));
+  const chatHiddenForWorkspace = Boolean(mainPanel && mainPanel.classList.contains("workspace-mode"));
   welcome.hidden = hasConversation;
+  if (appRoot) {
+    appRoot.classList.toggle("empty-chat-mode", !hasConversation && !chatHiddenForWorkspace);
+  }
 }
 
 function renderConversation(messages) {
@@ -11686,6 +11694,318 @@ function buildIntentAttachmentsPayload(attachedFiles = []) {
       content_preview: preview.slice(0, 280)
     };
   });
+}
+
+function getFirstAttachedImageReference(attachedFiles = []) {
+  const image = Array.isArray(attachedFiles)
+    ? attachedFiles.find((item) => item && item.kind === "image" && item.contentBase64)
+    : null;
+  if (!image) return null;
+  return {
+    base64: String(image.contentBase64 || "").trim(),
+    name: String(image.name || "attached image").trim() || "attached image"
+  };
+}
+
+function normalizeImageToolPromptFragment(value = "") {
+  let text = String(value || "")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  text = text.replace(/^[,.:;\-\s]+|[,.:;\-\s]+$/g, "").trim();
+  text = text.replace(/\b(?:please|pls|for me|thanks|thank you)\b[.!?\s]*$/i, "").trim();
+  text = text.replace(/^(?:of|for|about|showing|with|where|that shows|a picture of|an image of)\s+/i, "").trim();
+  text = text.replace(/^[,.:;\-\s]+|[,.:;\-\s]+$/g, "").trim();
+  return text;
+}
+
+function cleanNaturalToolRequestPrefix(value = "") {
+  let text = String(value || "").trim();
+  for (let i = 0; i < 5; i += 1) {
+    const next = text
+      .replace(/^@?rok\b[:,\s-]*/i, "")
+      .replace(/^(?:hey|yo|ok(?:ay)?|alright|please|pls|bro)\b[:,\s-]*/i, "")
+      .replace(/^(?:can|could|would|will)\s+(?:you|u)\s+/i, "")
+      .replace(/^(?:i\s+want\s+(?:you\s+)?to|i\s+need\s+(?:you\s+)?to|i'd\s+like\s+(?:you\s+)?to|i\s+wanna)\s+/i, "")
+      .trim();
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
+function detectNaturalImageToolRequest(rawText = "", attachedFiles = []) {
+  const original = String(rawText || "").trim();
+  if (!original || original.startsWith("/")) return null;
+
+  const imageReference = getFirstAttachedImageReference(attachedFiles);
+  const imageArtifact =
+    "(?:image|picture|pic|photo|drawing|illustration|artwork|art|poster|logo|icon|avatar|pfp|wallpaper|thumbnail|sticker|meme|render|scene)";
+  const makeVerb = "(?:make|create|generate|draw|paint|illustrate|render|design|produce)";
+
+  if (/\b(?:do not|don't|dont|without|stop)\s+(?:make|create|generate|draw|paint|render|design)\b/i.test(original)) {
+    return null;
+  }
+  if (/\b(?:write|draft|create|make)\s+(?:an?\s+)?(?:image|picture|art)\s+prompt\b/i.test(original)) {
+    return null;
+  }
+  if (/\b(?:what|why|how|when|where|who)\b.{0,36}\b(?:image|picture|photo|art|logo)\b/i.test(original) &&
+      !new RegExp(`\\b${makeVerb}\\b`, "i").test(original)) {
+    return null;
+  }
+
+  const cleaned = cleanNaturalToolRequestPrefix(original);
+  const editReferencePattern =
+    /\b(?:make|turn|change|edit|remove|erase|add|replace|transform|convert|use|keep|put|give|fix|clean up|get rid of)\b/i;
+  if (imageReference && editReferencePattern.test(cleaned)) {
+    const prompt = normalizeImageToolPromptFragment(cleaned);
+    if (prompt) {
+      return {
+        kind: "image_generation",
+        prompt,
+        displayText: original,
+        referenceImageBase64: imageReference.base64,
+        referenceImageName: imageReference.name,
+        clearAttachments: true,
+        confidence: 0.95
+      };
+    }
+  }
+
+  const patterns = [
+    new RegExp(`\\b${makeVerb}\\s+(?:me\\s+|us\\s+)?(?:an?\\s+|the\\s+|some\\s+)?${imageArtifact}\\s*(?:of|for|with|showing|that\\s+shows|about|where)?\\s+(.+)`, "i"),
+    new RegExp(`\\b${makeVerb}\\s+(?:me\\s+|us\\s+)?(?:an?\\s+|the\\s+|some\\s+)?(.+?)\\s+${imageArtifact}\\b`, "i"),
+    /\b(?:draw|paint|illustrate|render)\s+(?:me\s+|us\s+)?(.+)/i
+  ];
+
+  let prompt = "";
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[1]) {
+      prompt = normalizeImageToolPromptFragment(match[1]);
+      break;
+    }
+  }
+
+  if (!prompt) return null;
+  const specificArtifact = cleaned.match(/\b(logo|icon|avatar|pfp|wallpaper|thumbnail|sticker|meme|poster)\b/i);
+  if (specificArtifact && !new RegExp(`\\b${specificArtifact[1]}\\b`, "i").test(prompt)) {
+    prompt = `${specificArtifact[1]} for ${prompt}`;
+  }
+  const weakReferent = /^(?:it|this|that|one|better|worse|smaller|bigger|larger|purple|red|blue|green)$/i.test(prompt);
+  if (weakReferent && !imageReference) return null;
+  if (/\b(?:video|movie|animation|gif)\b/i.test(cleaned) && !/\b(?:image|picture|photo|drawing|illustration|logo|poster|icon|avatar|wallpaper|thumbnail|sticker|meme)\b/i.test(cleaned)) {
+    return null;
+  }
+
+  return {
+    kind: "image_generation",
+    prompt,
+    displayText: original,
+    referenceImageBase64: imageReference ? imageReference.base64 : "",
+    referenceImageName: imageReference ? imageReference.name : "",
+    clearAttachments: Boolean(imageReference),
+    confidence: 0.9
+  };
+}
+
+function splitSketchPromptIntoNodes(prompt = "") {
+  const text = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!text) return [];
+  const pieces = text
+    .split(/\s*(?:->|=>|\bthen\b|\bbecause\b|\bso\b|\band\b|,|;)\s*/i)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2)
+    .slice(0, 6);
+  if (pieces.length >= 2) {
+    return pieces.map((piece, index) => ({
+      id: `n${index + 1}`,
+      label: index === 0 ? "Start" : index === pieces.length - 1 ? "Result" : `Step ${index + 1}`,
+      detail: piece
+    }));
+  }
+  return [
+    { id: "n1", label: "Idea", detail: text },
+    { id: "n2", label: "Breakdown", detail: "Key parts, causes, or moving pieces." },
+    { id: "n3", label: "Use it", detail: "Turn the idea into a next action or explanation." }
+  ];
+}
+
+function normalizeSketchBoardSpec(rawSpec = {}) {
+  const spec = rawSpec && typeof rawSpec === "object" ? rawSpec : {};
+  const prompt = String(spec.prompt || spec.topic || spec.idea || spec.summary || "").replace(/\s+/g, " ").trim();
+  const title = String(spec.title || "Sketch Board").replace(/\s+/g, " ").trim().slice(0, 80) || "Sketch Board";
+  const rawNodes = Array.isArray(spec.nodes) ? spec.nodes : [];
+  let nodes = rawNodes
+    .map((node, index) => {
+      if (!node || typeof node !== "object") return null;
+      const id = String(node.id || `n${index + 1}`).replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || `n${index + 1}`;
+      const label = String(node.label || node.title || `Step ${index + 1}`).replace(/\s+/g, " ").trim().slice(0, 42);
+      const detail = String(node.detail || node.text || node.description || "").replace(/\s+/g, " ").trim().slice(0, 130);
+      return label || detail ? { id, label: label || `Step ${index + 1}`, detail } : null;
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+  if (!nodes.length) {
+    nodes = splitSketchPromptIntoNodes(prompt || title);
+  }
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  let edges = Array.isArray(spec.edges)
+    ? spec.edges.map((edge) => {
+        if (!edge || typeof edge !== "object") return null;
+        const from = String(edge.from || edge.source || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
+        const to = String(edge.to || edge.target || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
+        if (!nodeIds.has(from) || !nodeIds.has(to) || from === to) return null;
+        const label = String(edge.label || "").replace(/\s+/g, " ").trim().slice(0, 34);
+        return { from, to, label };
+      }).filter(Boolean).slice(0, 10)
+    : [];
+  if (!edges.length && nodes.length > 1) {
+    edges = nodes.slice(1).map((node, index) => ({
+      from: nodes[index].id,
+      to: node.id,
+      label: index === 0 ? "leads to" : ""
+    }));
+  }
+
+  return {
+    title,
+    summary: String(spec.summary || spec.note || prompt || "").replace(/\s+/g, " ").trim().slice(0, 220),
+    nodes,
+    edges
+  };
+}
+
+function sketchBoardTextLines(text = "", maxChars = 18, maxLines = 3) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  words.forEach((word) => {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  });
+  if (line) lines.push(line);
+  return lines.slice(0, maxLines);
+}
+
+function buildSketchBoardSvg(spec) {
+  const width = 760;
+  const height = 420;
+  const nodeWidth = 158;
+  const nodeHeight = 88;
+  const nodes = spec.nodes || [];
+  const cols = nodes.length <= 3 ? nodes.length : Math.min(3, Math.ceil(Math.sqrt(nodes.length)));
+  const rows = Math.max(1, Math.ceil(nodes.length / Math.max(1, cols)));
+  const xGap = cols <= 1 ? 0 : (width - nodeWidth - 96) / Math.max(1, cols - 1);
+  const yGap = rows <= 1 ? 0 : (height - nodeHeight - 96) / Math.max(1, rows - 1);
+  const positions = new Map();
+
+  nodes.forEach((node, index) => {
+    const col = cols <= 1 ? 0 : index % cols;
+    const row = cols <= 1 ? index : Math.floor(index / cols);
+    const x = cols <= 1 ? (width - nodeWidth) / 2 : 48 + col * xGap;
+    const y = rows <= 1 ? (height - nodeHeight) / 2 : 48 + row * yGap;
+    positions.set(node.id, { x, y, cx: x + nodeWidth / 2, cy: y + nodeHeight / 2 });
+  });
+
+  const edgeMarkup = (spec.edges || []).map((edge) => {
+    const from = positions.get(edge.from);
+    const to = positions.get(edge.to);
+    if (!from || !to) return "";
+    const midX = (from.cx + to.cx) / 2;
+    const midY = (from.cy + to.cy) / 2;
+    const label = edge.label ? `<text x="${midX}" y="${midY - 8}" class="sketch-board-edge-label">${escapeHtml(edge.label)}</text>` : "";
+    return `
+      <path class="sketch-board-edge" d="M ${from.cx} ${from.cy} C ${midX} ${from.cy}, ${midX} ${to.cy}, ${to.cx} ${to.cy}" marker-end="url(#sketchArrow)" />
+      ${label}
+    `;
+  }).join("");
+
+  const nodeMarkup = nodes.map((node) => {
+    const pos = positions.get(node.id);
+    if (!pos) return "";
+    const labelLines = sketchBoardTextLines(node.label, 18, 2);
+    const detailLines = sketchBoardTextLines(node.detail, 24, 2);
+    const labelMarkup = labelLines.map((line, index) =>
+      `<text x="${pos.x + 14}" y="${pos.y + 26 + index * 16}" class="sketch-board-node-title">${escapeHtml(line)}</text>`
+    ).join("");
+    const detailMarkup = detailLines.map((line, index) =>
+      `<text x="${pos.x + 14}" y="${pos.y + 58 + index * 15}" class="sketch-board-node-detail">${escapeHtml(line)}</text>`
+    ).join("");
+    return `
+      <g class="sketch-board-node">
+        <rect x="${pos.x}" y="${pos.y}" width="${nodeWidth}" height="${nodeHeight}" rx="8" />
+        ${labelMarkup}
+        ${detailMarkup}
+      </g>
+    `;
+  }).join("");
+
+  return `
+    <svg class="sketch-board-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(spec.title)}">
+      <defs>
+        <marker id="sketchArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" class="sketch-board-arrow" />
+        </marker>
+      </defs>
+      ${edgeMarkup}
+      ${nodeMarkup}
+    </svg>
+  `;
+}
+
+function createSketchBoardMessage(rawSpec = {}, options = {}) {
+  const spec = normalizeSketchBoardSpec(rawSpec);
+  const row = document.createElement("div");
+  row.className = "msg bot";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.innerHTML = '<img src="rokchatR.png" class="avatar-img" style="width:86%;height:86%;object-fit:contain;border-radius:50%;">';
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble plain";
+
+  const container = document.createElement("div");
+  container.className = "sketch-board-container";
+  container.innerHTML = `
+    <div class="sketch-board-header">
+      <span class="sketch-board-badge" aria-hidden="true">SB</span>
+      <span class="sketch-board-title">${escapeHtml(spec.title)}</span>
+    </div>
+    <div class="sketch-board-surface">${buildSketchBoardSvg(spec)}</div>
+    ${spec.summary ? `<p class="sketch-board-note">${escapeHtml(spec.summary)}</p>` : ""}
+  `;
+
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "msg-time";
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  timeSpan.textContent = (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + ampm;
+
+  bubble.appendChild(container);
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  row.appendChild(timeSpan);
+  chat.appendChild(row);
+  scrollToBottom();
+  updateChatWelcomeVisibility();
+
+  return {
+    id: `sketch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: spec.title,
+    nodes: spec.nodes.length,
+    edges: spec.edges.length
+  };
 }
 
 function parseLegacyMemoryCommand(rawText = "") {
@@ -13229,7 +13549,7 @@ function setWebSearchEnabled(nextEnabled) {
   if (!webToggleBtn) return;
   webToggleBtn.setAttribute("aria-pressed", webSearchEnabled ? "true" : "false");
   webToggleBtn.classList.toggle("is-active", webSearchEnabled);
-  webToggleBtn.textContent = webSearchEnabled ? "Web On" : "Web Off";
+  webToggleBtn.textContent = "Web Search";
 }
 
 function refreshMemoryToggleButtons() {
@@ -13327,6 +13647,48 @@ const BUILTIN_TOOLS = [
         required: ["text", "operation"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "sketch_board",
+      description: "Create an inline visual sketch board with boxes and arrows when a diagram, flowchart, mind map, or visual explanation would help. Use this after other tools if their result should be shown visually.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short board title." },
+          summary: { type: "string", description: "One short sentence explaining what the board shows." },
+          prompt: { type: "string", description: "Fallback topic to sketch if nodes are not provided." },
+          nodes: {
+            type: "array",
+            description: "Boxes on the board.",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", description: "Short unique id like n1." },
+                label: { type: "string", description: "Box heading." },
+                detail: { type: "string", description: "Short detail text inside the box." }
+              },
+              required: ["id", "label"]
+            }
+          },
+          edges: {
+            type: "array",
+            description: "Arrows between boxes.",
+            items: {
+              type: "object",
+              properties: {
+                from: { type: "string", description: "Source node id." },
+                to: { type: "string", description: "Target node id." },
+                label: { type: "string", description: "Optional arrow label." }
+              },
+              required: ["from", "to"]
+            }
+          }
+        },
+        required: ["title"]
+      }
+    }
   }
 ];
 
@@ -13375,6 +13737,10 @@ function executeBuiltinTool(name, args) {
           case "word_count": return { ok: true, result: text.trim() ? text.trim().split(/\s+/).length : 0 };
           default: return { ok: false, error: `Unknown operation: ${op}` };
         }
+      }
+      case "sketch_board": {
+        const board = createSketchBoardMessage(a);
+        return { ok: true, result: { created: true, title: board.title, nodes: board.nodes, edges: board.edges } };
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` };
@@ -13592,7 +13958,7 @@ async function send() {
   }
   
   // Handle /imagine command for pixel painting
-  if (text && text.startsWith("/imagine")) {
+  if (text && /^\/imagine\b/i.test(text)) {
     const prompt = text.slice(8).trim();
     if (prompt) {
       input.value = "";
@@ -13602,7 +13968,7 @@ async function send() {
     }
   }
 
-  if (text && text.startsWith("/video")) {
+  if (text && /^\/video\b/i.test(text)) {
     const prompt = text.slice(6).trim();
     if (prompt) {
       input.value = "";
@@ -13612,8 +13978,24 @@ async function send() {
     }
   }
 
+  const naturalImageTool = detectNaturalImageToolRequest(text, attachments);
+  if (naturalImageTool && naturalImageTool.prompt) {
+    input.value = "";
+    autoResizeInput();
+    if (naturalImageTool.clearAttachments) {
+      clearAttachments();
+    }
+    handleImagineCommand(naturalImageTool.prompt, {
+      autoTool: true,
+      displayText: naturalImageTool.displayText || text,
+      referenceImageBase64: naturalImageTool.referenceImageBase64 || "",
+      referenceImageName: naturalImageTool.referenceImageName || ""
+    });
+    return;
+  }
+
   // Handle /pictionary command
-  if (text && text.startsWith("/pictionary")) {
+  if (text && /^\/pictionary\b/i.test(text)) {
     input.value = "";
     autoResizeInput();
     handlePictionaryCommand();
@@ -13734,6 +14116,7 @@ async function send() {
     }
     if (toolsEnabled) {
       baseRequestBody.tools = BUILTIN_TOOLS;
+      applyToolChainingGuidanceToRequestBody(baseRequestBody);
     }
   }
   if (compactedHistorySummary) {
@@ -14711,6 +15094,7 @@ async function send() {
               tools: BUILTIN_TOOLS
             });
             applyIntentRoutingToRequestBody(followupBody, intent);
+            applyToolChainingGuidanceToRequestBody(followupBody);
             if (isWebSearchActiveForRequest()) {
               followupBody.enable_web_search = true;
             }
@@ -15102,6 +15486,7 @@ async function send() {
             tools: BUILTIN_TOOLS
           });
           applyIntentRoutingToRequestBody(followupBody, intent);
+          applyToolChainingGuidanceToRequestBody(followupBody);
           if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
           incrementEvidenceFollowupCount(assistantEvidence);
 
@@ -17047,21 +17432,14 @@ function getChatWelcomePresets() {
 }
 
 function getChatWelcomeProfile() {
-  const useCase = getCurrentPrimaryUseCase();
-  const bucket = getChatWelcomeTimeBucket();
-  const name = sanitizeShortUserSettingText((userSettings && userSettings.preferredName) || "");
-  const presetMap = getChatWelcomePresets();
-  const preset = presetMap[useCase] || presetMap.general;
-  const dayKey = new Date().toDateString();
-  const seed = `${useCase}:${bucket}:${name}:${dayKey}`;
-  const phrase = pickChatWelcomeTitleVariant(
-    preset.titles[bucket] || preset.titles.afternoon || "What are we working on",
-    seed
-  ) || "What are we working on";
   return {
-    title: name ? `${phrase}, ${name}?` : `${phrase}?`,
-    subtitle: preset.subtitle,
-    chips: preset.chips
+    title: "What are you working on?",
+    subtitle: "",
+    chips: [
+      { label: "Create an image", prompt: "/imagine ", icon: "image" },
+      { label: "Write or edit", prompt: "Help me write or edit ", icon: "edit" },
+      { label: "Look something up", prompt: "Look up ", icon: "search", action: "web" }
+    ]
   };
 }
 
@@ -20169,8 +20547,17 @@ async function handleVideoCommand(prompt) {
 }
 
 // Handle /imagine command
-async function handleImagineCommand(prompt) {
-  const imagineSettings = await requestPixelPainterSettings();
+async function handleImagineCommand(prompt, options = {}) {
+  const commandOptions = options && typeof options === "object" ? options : {};
+  const imagineSettings = commandOptions.autoTool
+    ? {
+        provider: "local",
+        apiKey: "",
+        mode: getPixelPainterRenderMode() || "cloudflare_flux",
+        referenceImageBase64: String(commandOptions.referenceImageBase64 || "").trim(),
+        referenceImageName: String(commandOptions.referenceImageName || "").trim()
+      }
+    : await requestPixelPainterSettings();
   if (imagineSettings === null) {
     return;
   }
@@ -20181,7 +20568,8 @@ async function handleImagineCommand(prompt) {
   const modeMeta = { label: "ROK IMAGE", icon: "RI" };
 
   // Show user message
-  addMessage("user", `/imagine ${prompt}`);
+  const displayText = String(commandOptions.displayText || "").trim();
+  addMessage("user", displayText || `/imagine ${prompt}`);
   
   // Build painting UI as DOM elements (not through addMessage which sanitizes HTML)
   const row = document.createElement("div");

@@ -1361,9 +1361,9 @@ a.server-down-btn {
 .chat-welcome {
   position: absolute;
   left: 50%;
-  top: 40%;
+  top: 31%;
   transform: translate(-50%, -50%);
-  width: min(520px, 90vw);
+  width: min(720px, calc(100vw - 40px));
   text-align: center;
   pointer-events: auto;
 }
@@ -1372,7 +1372,7 @@ a.server-down-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 0;
 }
 
 .chat-welcome-logo {
@@ -1383,10 +1383,11 @@ a.server-down-btn {
 }
 
 .chat-welcome-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #f4dcdc;
+  font-size: clamp(22px, 3.2vw, 30px);
+  font-weight: 650;
+  color: #f7eded;
   margin: 0;
+  letter-spacing: 0;
 }
 
 .chat-welcome-subtitle {
@@ -1397,30 +1398,206 @@ a.server-down-btn {
 }
 
 .chat-welcome-chips {
-  margin-top: 10px;
+  margin-top: 132px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
 }
 
 .chat-welcome-chip {
-  border: 1px solid #3f2323;
-  background: rgba(13, 20, 29, 0.6);
-  color: #e0bcbc;
-  font-size: 11px;
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #342121;
+  background: rgba(10, 12, 17, 0.42);
+  color: #f5e5e5;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 9px 14px;
   border-radius: 999px;
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
 
+.chat-welcome-chip svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
 .chat-welcome-chip:hover,
 .chat-welcome-chip:focus-visible {
-  border-color: #6b3a3a;
-  background: rgba(17, 26, 36, 0.72);
-  color: #f0d0d0;
+  border-color: #5e3939;
+  background: rgba(28, 16, 18, 0.72);
+  color: #ffffff;
   outline: none;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) {
+  position: relative;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(31% + 58px);
+  bottom: auto;
+  z-index: 15;
+  border-top: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer {
+  max-width: min(760px, calc(100vw - 42px));
+  padding: 0;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field {
+  border-radius: 999px;
+  border-color: #2f2525;
+  background: rgba(38, 38, 38, 0.94);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field:focus-within {
+  border-color: #5b3a3a;
+  box-shadow:
+    0 0 0 3px rgba(209, 75, 75, 0.15),
+    0 18px 48px rgba(0, 0, 0, 0.3);
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field-textarea,
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field textarea {
+  min-height: 54px;
+  padding: 16px 8px 14px 16px;
+  border-radius: 999px 0 0 999px;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field-rail {
+  border-left: 0;
+  align-items: center;
+  padding: 5px 8px 5px 5px;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  color: #f3eeee;
+}
+
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn:hover,
+.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn.is-open {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sketch-board-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(780px, 100%);
+}
+
+.sketch-board-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sketch-board-badge {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #5a2d2d;
+  background: rgba(209, 75, 75, 0.16);
+  color: #ffd6d6;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sketch-board-title {
+  color: #f7e8e8;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.sketch-board-surface {
+  border: 1px solid #3a2424;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(14, 20, 29, 0.98), rgba(9, 13, 20, 0.98));
+  background-size: 22px 22px, 22px 22px, auto;
+  overflow: hidden;
+}
+
+.sketch-board-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 760 / 420;
+  min-height: 260px;
+}
+
+.sketch-board-edge {
+  fill: none;
+  stroke: rgba(240, 153, 153, 0.58);
+  stroke-width: 2.2;
+}
+
+.sketch-board-arrow {
+  fill: rgba(240, 153, 153, 0.76);
+}
+
+.sketch-board-edge-label {
+  fill: #d8abab;
+  font-size: 11px;
+  font-weight: 650;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(9, 13, 20, 0.88);
+  stroke-width: 4px;
+}
+
+.sketch-board-node rect {
+  fill: rgba(18, 25, 36, 0.96);
+  stroke: #5a3030;
+  stroke-width: 1.4;
+}
+
+.sketch-board-node-title {
+  fill: #fff2f2;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.sketch-board-node-detail {
+  fill: #c9aaaa;
+  font-size: 11px;
+  font-weight: 520;
+}
+
+.sketch-board-note {
+  margin: 0;
+  color: #cdb0b0;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 
