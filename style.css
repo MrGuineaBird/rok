@@ -1398,7 +1398,7 @@ a.server-down-btn {
 }
 
 .chat-welcome-chips {
-  margin-top: 132px;
+  margin-top: 172px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -1441,11 +1441,11 @@ a.server-down-btn {
   outline: none;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) {
+.app.empty-chat-mode .main:not(.workspace-mode) {
   position: relative;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-wrap {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-wrap {
   position: absolute;
   left: 0;
   right: 0;
@@ -1457,51 +1457,81 @@ a.server-down-btn {
   padding: 0;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer {
   max-width: min(760px, calc(100vw - 42px));
   padding: 0;
+  align-items: center;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-field {
+  min-height: 72px;
   border-radius: 999px;
   border-color: #2f2525;
   background: rgba(38, 38, 38, 0.94);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field:focus-within {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-field:focus-within {
   border-color: #5b3a3a;
   box-shadow:
     0 0 0 3px rgba(209, 75, 75, 0.15),
     0 18px 48px rgba(0, 0, 0, 0.3);
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field-textarea,
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field textarea {
-  min-height: 54px;
-  padding: 16px 8px 14px 16px;
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-field-textarea,
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-field textarea {
+  min-height: 70px;
+  padding: 24px 12px 18px 18px;
   border-radius: 999px 0 0 999px;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-field-rail {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-field-rail {
   border-left: 0;
   align-items: center;
-  padding: 5px 8px 5px 5px;
+  gap: 10px;
+  padding: 9px 10px 9px 6px;
+  align-self: stretch;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn {
-  width: 42px;
-  height: 42px;
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-model-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-model-label {
+  display: none;
+}
+
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-btn {
+  min-height: 46px;
+  border-radius: 999px;
+  padding: 8px 30px 8px 10px;
+  background: rgba(24, 10, 10, 0.82);
+}
+
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-plus-btn {
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
   border-color: transparent;
   background: transparent;
   color: #f3eeee;
 }
 
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn:hover,
-.app.empty-chat-mode:not(.home-mode) .main:not(.workspace-mode) .composer-plus-btn.is-open {
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-plus-btn:hover,
+.app.empty-chat-mode .main:not(.workspace-mode) .composer-plus-btn.is-open {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
+}
+
+.app.empty-chat-mode .main:not(.workspace-mode) #sendBtn {
+  min-height: 52px;
+  align-self: center;
+  border-radius: 16px;
+  padding: 0 20px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
 }
 
 .sketch-board-container {
@@ -7583,6 +7613,48 @@ a.server-down-btn {
     border-top: 1px solid rgba(90, 50, 50, 0.45);
     justify-content: flex-end;
     padding: 8px 10px 10px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer {
+    max-width: calc(100vw - 24px);
+    gap: 8px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-field {
+    flex-direction: row;
+    min-height: 62px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-field-textarea,
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-field textarea {
+    min-height: 60px;
+    padding: 20px 8px 16px 16px;
+    border-radius: 999px 0 0 999px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-field-rail {
+    border-top: 0;
+    justify-content: flex-end;
+    padding: 8px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-text {
+    display: none;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-btn {
+    width: 44px;
+    min-height: 44px;
+    padding: 8px;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-chevron {
+    display: none;
+  }
+
+  .app.empty-chat-mode .main:not(.workspace-mode) #sendBtn {
+    min-height: 48px;
+    padding: 0 14px;
   }
 }
 
