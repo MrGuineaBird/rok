@@ -7711,7 +7711,8 @@ a.server-down-btn {
   .app.empty-chat-mode .main:not(.workspace-mode) .composer-field-rail {
     border-top: 0;
     justify-content: flex-end;
-    padding: 8px;
+    padding: 10px 12px;
+    gap: 8px;
   }
 
   .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-text {
@@ -7719,9 +7720,9 @@ a.server-down-btn {
   }
 
   .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-btn {
-    width: 44px;
-    min-height: 44px;
-    padding: 8px;
+    width: 42px;
+    min-height: 42px;
+    padding: 6px;
   }
 
   .app.empty-chat-mode .main:not(.workspace-mode) .composer-model-picker-chevron {
@@ -7729,8 +7730,8 @@ a.server-down-btn {
   }
 
   .app.empty-chat-mode .main:not(.workspace-mode) #sendBtn {
-    min-height: 48px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 12px;
   }
 
   .composer-wrap.welcome-composer-mode .composer {
@@ -7753,7 +7754,8 @@ a.server-down-btn {
   .composer-wrap.welcome-composer-mode .composer-field-rail {
     border-top: 0;
     justify-content: flex-end;
-    padding: 8px;
+    padding: 10px 12px;
+    gap: 8px;
   }
 
   .composer-wrap.welcome-composer-mode .composer-model-picker-text {
@@ -7761,9 +7763,9 @@ a.server-down-btn {
   }
 
   .composer-wrap.welcome-composer-mode .composer-model-picker-btn {
-    width: 44px;
-    min-height: 44px;
-    padding: 8px;
+    width: 42px;
+    min-height: 42px;
+    padding: 6px;
   }
 
   .composer-wrap.welcome-composer-mode .composer-model-picker-chevron {
@@ -7771,8 +7773,8 @@ a.server-down-btn {
   }
 
   .composer-wrap.welcome-composer-mode #sendBtn {
-    min-height: 48px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 12px;
   }
 }
 
