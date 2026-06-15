@@ -1280,15 +1280,16 @@ function extractTokenFromStreamPayload(payload) {
     parsed.daedalus_quota && typeof parsed.daedalus_quota === "object"
       ? parsed.daedalus_quota
       : null;
+  const web_tool = parsed.web_tool && typeof parsed.web_tool === "object" ? parsed.web_tool : null;
   for (const key of ["token", "response", "reply", "text", "message", "content"]) {
     const value = parsed[key];
     if (typeof value === "string") {
-      return { token: value, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
+      return { token: value, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota, web_tool };
     }
   }
 
   if (parsed.message && typeof parsed.message === "object" && typeof parsed.message.content === "string") {
-    return { token: parsed.message.content, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
+    return { token: parsed.message.content, thinking, status, work, done, tool_calls, assistant_content, daedalus_quota, web_tool };
   }
 
   if (Array.isArray(parsed.choices)) {
@@ -1312,14 +1313,14 @@ function extractTokenFromStreamPayload(payload) {
       }
     }
     if (joined) {
-      return { token: joined, thinking, status, work, done: done || choiceDone, tool_calls, assistant_content, daedalus_quota };
+      return { token: joined, thinking, status, work, done: done || choiceDone, tool_calls, assistant_content, daedalus_quota, web_tool };
     }
     if (done || choiceDone) {
-      return { token: "", thinking: "", status, work, done: true, tool_calls: null, assistant_content: "", daedalus_quota };
+      return { token: "", thinking: "", status, work, done: true, tool_calls: null, assistant_content: "", daedalus_quota, web_tool };
     }
   }
 
-  return { token: "", thinking, status, work, done, tool_calls, assistant_content, daedalus_quota };
+  return { token: "", thinking, status, work, done, tool_calls, assistant_content, daedalus_quota, web_tool };
 }
 
 function splitThinkingFromText(text = "") {
@@ -9022,8 +9023,8 @@ function getFastStartStatusForIntent(intent, options = {}) {
   if (imageCount > 0 || type === "image_vision") {
     return `Analyzing image${imageCount === 1 ? "" : "s"}...`;
   }
-  if (type === "web_current_info" || options.webSearchActive) {
-    return "Searching the web...";
+  if (options.webSearchActive) {
+    return "Web search enabled...";
   }
   if (type === "cybersecurity") {
     return modelId === HYPERION_MODEL_ID ? "Routing to Hyperion..." : "Checking security...";
@@ -9040,7 +9041,7 @@ function getFastStartStatusForIntent(intent, options = {}) {
   if (type === "homework_study") {
     return "Building study answer...";
   }
-  return "Reading your request...";
+  return "Generating response...";
 }
 
 function getIntentRoutingSystemPrompt(intent) {
@@ -14187,10 +14188,6 @@ async function send() {
   let pendingAnswerText = "";
   let answerRenderTimer = null;
   let answerRenderResolve = null;
-  let intentWebSearchActive = shouldAutoEnableWebSearchForIntent(fallbackIntent);
-  if (!intentWebSearchActive && !isIncognitoModeEnabled() && messageContainsWebLink(text)) {
-    intentWebSearchActive = true;
-  }
   let lastAssistantStatusText = "";
   let writeBackToWorkspace = false;
   let useStoryCanvas = false;
@@ -14199,8 +14196,6 @@ async function send() {
   let requestedOutputType = inferWorkspaceOutputType("", text);
   let thinkingTitleRequested = false;
   let thinkingTitleResolved = false;
-  let autoWebRetryAttempted = false;
-  let forceWebSearchForRetry = false;
   let assistantEvidence = buildAssistantEvidenceSnapshot({
     requestBody: baseRequestBody,
     model: sessionModel
@@ -14217,7 +14212,7 @@ async function send() {
     }
     const mounted = populateBotMessageContainer(typing.bubble, {
       storyCanvas: useStoryCanvas,
-      thinkingBlock: requestShouldThink,
+      thinkingBlock: true,
       workTrace: true,
       showTypingDots: true
     });
@@ -14292,9 +14287,21 @@ async function send() {
     const normalizedLabel = normalizeWorkTraceLabel(label);
     if (!normalizedLabel) return;
     const key = String(options.key || normalizedLabel).toLowerCase();
+    const detailText = String(options.detail || "").trim();
     const existing = workTracePanel.steps.find((item) => item.key === key);
     if (existing) {
       existing.node.querySelector(".work-trace-step-label").textContent = normalizedLabel;
+      const detailNode = existing.node.querySelector(".work-trace-step-detail");
+      if (detailText) {
+        if (detailNode) {
+          detailNode.textContent = detailText;
+        } else {
+          const detail = document.createElement("div");
+          detail.className = "work-trace-step-detail";
+          detail.textContent = detailText;
+          existing.node.appendChild(detail);
+        }
+      }
       return;
     }
     for (const item of workTracePanel.steps) {
@@ -14306,11 +14313,20 @@ async function send() {
     const icon = document.createElement("span");
     icon.className = "work-trace-step-icon";
     icon.setAttribute("aria-hidden", "true");
+    const copyWrap = document.createElement("div");
+    copyWrap.className = "work-trace-step-copy";
     const textNode = document.createElement("span");
     textNode.className = "work-trace-step-label";
     textNode.textContent = normalizedLabel;
+    copyWrap.appendChild(textNode);
+    if (detailText) {
+      const detail = document.createElement("div");
+      detail.className = "work-trace-step-detail";
+      detail.textContent = detailText;
+      copyWrap.appendChild(detail);
+    }
     item.appendChild(icon);
-    item.appendChild(textNode);
+    item.appendChild(copyWrap);
     workTracePanel.list.appendChild(item);
     workTracePanel.steps.push({ key, node: item });
     workTracePanel.shell.hidden = false;
@@ -14330,6 +14346,58 @@ async function send() {
     if (!work || typeof work !== "object") return;
     const label = work.label || work.title || work.status || work.message || "";
     appendWorkTraceStep(label, { key: work.id || work.key || label });
+  };
+  const handleWebToolEvent = (webTool) => {
+    if (!webTool || typeof webTool !== "object") return;
+    convertTypingRowToBotMessage();
+    const tool = String(webTool.tool || "").trim().toLowerCase();
+    const phase = String(webTool.phase || "").trim().toLowerCase();
+    const query = String(webTool.query || "").trim();
+    const url = String(webTool.url || "").trim();
+    const preview = String(webTool.preview || "").trim();
+    const error = String(webTool.error || "").trim();
+    if (phase === "start") {
+      if (tool === "web_search") {
+        appendWorkTraceStep(`Searching the web`, {
+          key: `web_search:${query || "pending"}`,
+          detail: query ? `Query: ${query}` : "Waiting for query..."
+        });
+        handleStatusUpdate(query ? `Searching the web: ${query}` : "Searching the web...");
+        showSearchingAvatar();
+      } else if (tool === "web_fetch") {
+        appendWorkTraceStep(`Fetching page`, {
+          key: `web_fetch:${url || "pending"}`,
+          detail: url ? `URL: ${url}` : "Waiting for URL..."
+        });
+        handleStatusUpdate(url ? `Fetching page: ${url}` : "Fetching web page...");
+        showSearchingAvatar();
+      }
+      return;
+    }
+    if (phase === "done") {
+      if (tool === "web_search") {
+        appendWorkTraceStep("Search results received", {
+          key: `web_search:${query || "done"}:results`,
+          detail: preview || (query ? `Query: ${query}` : "Results received.")
+        });
+      } else if (tool === "web_fetch") {
+        appendWorkTraceStep("Page fetched", {
+          key: `web_fetch:${url || "done"}:results`,
+          detail: preview || (url ? `URL: ${url}` : "Page content received.")
+        });
+      }
+      if (assistantEvidence) {
+        assistantEvidence.webSearchEnabled = true;
+      }
+      return;
+    }
+    if (phase === "error") {
+      appendWorkTraceStep("Web tool failed", {
+        key: `web_tool_error:${tool}:${query || url || Date.now()}`,
+        detail: error || "The web tool request failed."
+      });
+      handleStatusUpdate(error || "Web tool request failed.");
+    }
   };
   const handleThinking = (chunk) => {
     markAssistantStreamStarted();
@@ -14378,6 +14446,9 @@ async function send() {
       thinkingPanel.shell.hidden = false;
       thinkingPanel.shell.classList.toggle("is-streaming", !answerStarted);
       setThinkingSummaryLabel(value);
+      if (!answerStarted && !thinkingText.trim() && (statusKind === "generating" || statusKind === "thinking" || statusKind === "web")) {
+        thinkingPanel.body.textContent = value;
+      }
     }
 
     // Also update the bubble so the user always sees the status,
@@ -14425,30 +14496,35 @@ async function send() {
   const getAssistantStatusKind = (value) => {
     const lower = String(value || "").toLowerCase();
     if (lower.includes("searching the web")) return "web";
+    if (lower.includes("fetching page") || lower.includes("fetching web")) return "web";
     if (lower.includes("analyzing image")) return "image";
+    if (lower.includes("generating response") || lower.includes("generating")) return "generating";
+    if (lower.includes("thinking")) return "thinking";
     if (lower.includes("routing to hyperion")) return "routing";
     if (lower.includes("checking security")) return "security";
     if (lower.includes("checking code")) return "code";
     if (lower.includes("preparing browser")) return "browser";
     if (lower.includes("shaping the story")) return "creative";
     if (lower.includes("building study answer")) return "study";
-    if (lower.includes("reading your request")) return "quick";
+    if (lower.includes("web search enabled")) return "quick";
     return "default";
   };
   const isRichAssistantStatusKind = (kind) => {
-    return ["web", "image", "routing", "security", "code", "browser", "creative", "study", "quick"].includes(kind);
+    return ["web", "image", "routing", "security", "code", "browser", "creative", "study", "quick", "generating", "thinking"].includes(kind);
   };
   const renderAssistantStatusBubble = (value, kind) => {
     const statusCopy = {
       web: ["Searching the web", "Checking sources and pulling the useful bits"],
       image: ["Analyzing image", "Reading the visual details"],
+      generating: ["Generating response", "The model is working on your answer"],
+      thinking: ["Thinking", "Working through the request step by step"],
       routing: ["Routing to Hyperion", "Using ROK's security brain"],
       security: ["Checking security", "Reviewing risk, exploitability, and fixes"],
       code: ["Checking code", "Finding the bug path before answering"],
       browser: ["Preparing browser", "Planning the next visible step"],
       creative: ["Shaping the story", "Turning the idea into something less bland"],
       study: ["Building study answer", "Keeping it clear without the wall of mush"],
-      quick: ["Reading your request", "Getting straight to the point"]
+      quick: ["Working", "Getting the answer ready"]
     };
     const [label, detail] = statusCopy[kind] || [String(value || "Working").replace(/\.+$/, ""), "Getting the answer ready"];
     const safeLabel = escapeHtml(label);
@@ -14523,12 +14599,7 @@ async function send() {
       consumeTaggedTokenChunk(visibleAssistantContent);
     }
   };
-  const isWebSearchActiveForRequest = () => webSearchEnabled || forceWebSearchForRetry || intentWebSearchActive;
-  const shouldAutoRetryWithWebSearch = () => {
-    if (writeBackToWorkspace || sandboxActive) return false;
-    if (isWebSearchActiveForRequest() || autoWebRetryAttempted || stopRequested) return false;
-    return isSlashToolDraft(partialText);
-  };
+  const isWebSearchActiveForRequest = () => webSearchEnabled;
   const shouldSmoothAnswerTokens = () => {
     return false;
   };
@@ -14606,55 +14677,12 @@ async function send() {
     pendingAnswerText = partialText;
     scheduleAnswerRenderQueue();
   };
-  const resetAssistantUiForAutoWebRetry = () => {
-    partialText = "";
-    thinkingText = "";
-    thinkTagCarry = "";
-    insideThinkTag = false;
-    answerStarted = false;
-    assistantStreamStarted = false;
-    pendingToolCalls = [];
-    webSearchVisualActive = false;
-    lastAssistantStatusText = "";
-    smoothAnswerStream = false;
-    visibleAnswerText = "";
-    pendingAnswerText = "";
-    answerRenderResolve = null;
-    clearAnswerRenderTimer();
-    thinkingTitleRequested = false;
-    thinkingTitleResolved = false;
-    streamRenderState.lastFlush = 0;
-    if (writeBackToWorkspace) {
-      return;
-    }
-    const mounted = populateBotMessageContainer(typing.bubble, {
-      storyCanvas: useStoryCanvas,
-      thinkingBlock: requestShouldThink,
-      workTrace: true,
-      showTypingDots: true
-    });
-    bubble = mounted.bubble;
-    storyCanvas = mounted.storyCanvas;
-    thinkingPanel = mounted.thinkingPanel;
-    workTracePanel = mounted.workTracePanel;
-    typingIndicator = mounted.typingIndicator;
-    typingRowConverted = true;
-    if (requestShouldThink) {
-      showThinkingAvatar();
-    } else {
-      showGeneratingAvatar();
-    }
-    if (assistantEvidence) {
-      assistantEvidence.webSearchEnabled = true;
-    }
-    handleStatusUpdate("Searching the web...");
-  };
   const noteAnswerStarted = () => {
     if (answerStarted) return;
     answerStarted = true;
     showGeneratingAvatar();
     if (thinkingPanel && !thinkingText.trim()) {
-      setThinkingSummaryLabel("Thinking...");
+      setThinkingSummaryLabel("Answering...");
     }
     // Clear any retry status indicator now that a real answer is arriving
     if (bubble) {
@@ -14799,12 +14827,7 @@ async function send() {
     workspaceContext = "";
     hasWorkspaceContext = false;
     requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
-    intentWebSearchActive = shouldAutoEnableWebSearchForIntent(intent) ||
-      (!isIncognitoModeEnabled() && messageContainsWebLink(text));
     applyIntentRoutingToRequestBody(baseRequestBody, intent);
-    if (intentWebSearchActive) {
-      baseRequestBody.enable_web_search = true;
-    }
     assistantEvidence = buildAssistantEvidenceSnapshot({
       requestBody: baseRequestBody,
       model: sessionModel
@@ -14835,7 +14858,7 @@ async function send() {
         if (imageAttachmentCount > 0) {
           handleStatusUpdate(`Analyzing image${imageAttachmentCount === 1 ? "" : "s"}...`);
         } else if (isWebSearchActiveForRequest()) {
-          handleStatusUpdate("Searching the web...");
+          handleStatusUpdate("Web search enabled...");
         }
       }
       const requestBody = JSON.parse(JSON.stringify(baseRequestBody));
@@ -15104,6 +15127,8 @@ async function send() {
                     const fParsed = extractTokenFromStreamPayload(fData);
                     if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
                     if (fParsed.work) { handleWorkTraceEvent(fParsed.work); }
+                  if (fParsed.web_tool) { handleWebToolEvent(fParsed.web_tool); }
+                    if (fParsed.web_tool) { handleWebToolEvent(fParsed.web_tool); }
                     if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                     if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                     if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -15121,6 +15146,7 @@ async function send() {
                   const fParsed = extractTokenFromStreamPayload(fData);
                   if (fParsed.daedalus_quota) { applyDaedalusQuota(fParsed.daedalus_quota); }
                   if (fParsed.work) { handleWorkTraceEvent(fParsed.work); }
+                  if (fParsed.web_tool) { handleWebToolEvent(fParsed.web_tool); }
                   if (fParsed.thinking) { handleThinking(fParsed.thinking); }
                   if (fParsed.tool_calls) { handleToolCalls(fParsed.tool_calls, fParsed.assistant_content); }
                   if (fParsed.token) { consumeTaggedTokenChunk(fParsed.token); }
@@ -15141,13 +15167,6 @@ async function send() {
         // After tool loop, finalize the text
         flushTaggedTokenCarry();
         finalizeThinkingPanel(Boolean(partialText), false);
-      }
-
-      if (shouldAutoRetryWithWebSearch()) {
-        autoWebRetryAttempted = true;
-        forceWebSearchForRetry = true;
-        resetAssistantUiForAutoWebRetry();
-        continue requestAttemptLoop;
       }
 
       if (!partialText) {
@@ -15252,6 +15271,9 @@ async function send() {
           if (parsedPayload.work) {
             handleWorkTraceEvent(parsedPayload.work);
           }
+          if (parsedPayload.web_tool) {
+            handleWebToolEvent(parsedPayload.web_tool);
+          }
           if (parsedPayload.thinking) {
             handleThinking(parsedPayload.thinking);
           }
@@ -15286,6 +15308,9 @@ async function send() {
         if (parsedPayload.work) {
           handleWorkTraceEvent(parsedPayload.work);
         }
+        if (parsedPayload.web_tool) {
+          handleWebToolEvent(parsedPayload.web_tool);
+        }
         if (parsedPayload.thinking) {
           handleThinking(parsedPayload.thinking);
         }
@@ -15318,6 +15343,9 @@ async function send() {
       }
       if (parsedPayload.work) {
         handleWorkTraceEvent(parsedPayload.work);
+      }
+      if (parsedPayload.web_tool) {
+        handleWebToolEvent(parsedPayload.web_tool);
       }
       if (parsedPayload.thinking) {
         handleThinking(parsedPayload.thinking);
@@ -15486,6 +15514,8 @@ async function send() {
                 const fp = extractTokenFromStreamPayload(fd2);
                 if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
                 if (fp.work) handleWorkTraceEvent(fp.work);
+              if (fp.web_tool) handleWebToolEvent(fp.web_tool);
+                if (fp.web_tool) handleWebToolEvent(fp.web_tool);
                 if (fp.thinking) handleThinking(fp.thinking);
                 if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
                 if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -15502,6 +15532,7 @@ async function send() {
               const fp = extractTokenFromStreamPayload(fd2);
               if (fp.daedalus_quota) applyDaedalusQuota(fp.daedalus_quota);
               if (fp.work) handleWorkTraceEvent(fp.work);
+              if (fp.web_tool) handleWebToolEvent(fp.web_tool);
               if (fp.thinking) handleThinking(fp.thinking);
               if (fp.tool_calls) handleToolCalls(fp.tool_calls, fp.assistant_content);
               if (fp.token) consumeTaggedTokenChunk(fp.token);
@@ -15518,12 +15549,6 @@ async function send() {
       finalizeThinkingPanel(Boolean(partialText), false);
     }
 
-    if (shouldAutoRetryWithWebSearch()) {
-      autoWebRetryAttempted = true;
-      forceWebSearchForRetry = true;
-      resetAssistantUiForAutoWebRetry();
-      continue requestAttemptLoop;
-    }
     finalizeThinkingPanel(Boolean(partialText), true);
     break requestAttemptLoop;
   }

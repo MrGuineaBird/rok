@@ -4986,12 +4986,27 @@ a.server-down-btn {
   position: relative;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 8px;
   min-height: 22px;
   color: #a98a8a;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.work-trace-step-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.work-trace-step-detail {
+  color: #8f7373;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .work-trace-step::before {
