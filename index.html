@@ -559,7 +559,7 @@ Change Scope: Short</p>
                   <div id="modelPickerMenu" class="composer-model-picker-menu" role="listbox" hidden>
                     <div class="composer-model-picker-group" role="presentation">
                       <div class="composer-model-picker-group-label">ROK</div>
-                      <button type="button" role="option" class="composer-model-picker-option is-active" data-model-id="nemotron-3-ultra:cloud" aria-selected="true">
+                      <button type="button" role="option" class="composer-model-picker-option is-active" data-model-id="gpt-oss:120b-cloud" aria-selected="true">
                         <img class="composer-model-picker-option-icon" src="rokhermes.png" width="28" height="28" alt="Hermes 1.4" />
                         <span class="composer-model-picker-option-label">Hermes 1.4</span>
                       </button>
@@ -579,7 +579,7 @@ Change Scope: Short</p>
           id="fileInput"
           class="file-input"
           type="file"
-          accept=".txt,.md,.csv,.json,.jar,.js,.ts,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.png,.jpg,.jpeg,.gif,.webp,.bmp,text/*,image/*"
+          accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.java,.c,.cpp,.h,.hpp,.png,.jpg,.jpeg,.gif,.webp,.bmp,text/*,image/*"
           multiple
         />
         <input
@@ -625,7 +625,7 @@ Change Scope: Short</p>
       <div class="server-down-logo">ROK <span class="title-beta">beta</span></div>
       <h2 class="server-down-title">ROK is currently unavailable</h2>
       <p id="serverDownMessage">Server is currently down. Check back later.</p>
-      <div id="serverDownMeta" class="server-down-meta">Unable to connect to the server right now.</div>
+      <div id="serverDownMeta" class="server-down-meta">Unable to connect to the backend right now.</div>
       <div class="server-down-actions">
         <button id="serverDownRetryBtn" class="server-down-btn" type="button">Try again</button>
         <a class="server-down-btn ghost" href="status.html">View status</a>
@@ -808,15 +808,15 @@ Change Scope: Short</p>
   <section id="thinkingBurnoutModal" class="burnout-modal" hidden aria-hidden="true">
     <div class="burnout-card" role="dialog" aria-modal="true" aria-labelledby="burnoutTitle">
       <div class="burnout-head">
-        <span class="burnout-badge">⚡ Hermes 1.3 Busy</span>
+        <span class="burnout-badge">⚡ Hermes 1.4 Busy</span>
         <button id="burnoutCloseBtn" class="burnout-close" type="button" aria-label="Close">✕</button>
       </div>
       <div class="burnout-emoji" aria-hidden="true">
         <img src="tiredrok.png" alt="" class="burnout-emoji-img" width="200" height="200" decoding="async" />
       </div>
-      <h2 id="burnoutTitle" class="burnout-title">Hermes 1.3 is temporarily busy.</h2>
+      <h2 id="burnoutTitle" class="burnout-title">Hermes 1.4 is temporarily busy.</h2>
       <p class="burnout-body">
-        Hermes 1.3 has hit a temporary limit.
+        Hermes 1.4 has hit a temporary limit.
         Please wait for the cooldown to finish and try again.
       </p>
       <p id="burnoutResetLabel" class="burnout-reset"></p>

@@ -424,8 +424,8 @@ function sanitizePrimaryUseCase(value) {
 // Model IDs are now sourced from the server via /api/models.
 // SUPPORTED_MODEL_IDS is kept as an empty set so all server-returned models are accepted.
 const SUPPORTED_MODEL_IDS = new Set();
-const HERMES_MODEL_ID = "nemotron-3-ultra:cloud";
-const HERMES_LEGACY_MODEL_ID = "gpt-oss:120b-cloud";
+const HERMES_MODEL_ID = "gpt-oss:120b-cloud";
+const HERMES_LEGACY_MODEL_ID = "nemotron-3-ultra:cloud";
 const TITAN_MODEL_ID = "qwen3.5:397b-cloud";
 const DAEDALUS_MODEL_ID = "glm-4.7:cloud";
 const HYPERION_LEGACY_MODEL_ID = "qwen3-coder:480b-cloud";
@@ -439,7 +439,7 @@ const UNOFFICIAL_MODEL_IDS = new Set();
 const CUSTOM_OLLAMA_GROUP_LABEL = "Your Ollama Cloud";
 const CUSTOM_OLLAMA_CONFIG_ACTION = "configure_custom_ollama_cloud";
 const HERMES_LABEL = "Hermes 1.4";
-const HERMES_PROVIDER_NAME = "Nemotron 3 Ultra Cloud";
+const HERMES_PROVIDER_NAME = "GPT-OSS 120B Cloud";
 const DAEDALUS_LABEL = "Daedalus 1.2";
 const DAEDALUS_PROVIDER_NAME = "GLM 4.7 Cloud";
 const HYPERION_LABEL = "Hyperion";
