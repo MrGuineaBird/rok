@@ -9057,7 +9057,8 @@ function getIntentRoutingSystemPrompt(intent) {
     ],
     coding_debugging: [
       "Act like a practical coding assistant. Identify the likely cause, make or propose the concrete fix first, then explain briefly.",
-      "Prefer patches, commands, tests, exact file/function references, and concise reasoning over lecture-mode explanation."
+      "Prefer patches, commands, tests, exact file/function references, and concise reasoning over lecture-mode explanation.",
+      "Do not call tools for coding requests. Do not generate images or diagrams unless explicitly requested. Output working code directly."
     ],
     cybersecurity: [
       "Act as a defensive cybersecurity reviewer. Prioritize vulnerability analysis, secure code review, threat modeling, auth/session/CORS/rate-limit issues, SSRF/XSS/SQLi/path traversal, and safe exploit explanation.",
@@ -9098,16 +9099,39 @@ function applyIntentRoutingToRequestBody(requestBody, intent) {
   return requestBody;
 }
 
-function applyToolChainingGuidanceToRequestBody(requestBody) {
+function applyToolChainingGuidanceToRequestBody(requestBody, context = {}) {
   if (!requestBody || typeof requestBody !== "object") return requestBody;
   if (!Array.isArray(requestBody.tools) || requestBody.tools.length === 0) return requestBody;
-  const prompt = [
-    "Tool calling is available and may be chained. If a tool result shows another tool would help, call the next tool instead of pretending you did it.",
-    "If the user asks you to create, generate, design, draw, or edit an image/logo/icon/avatar/poster, call generate_image with the user's real requested subject and text. Do not guess by keyword and do not answer with only text.",
-    "For visual explanations, diagrams, flows, systems, plans, comparisons, or map-it-out requests, call sketch_board with concise nodes and arrows.",
-    "After calling generate_image, briefly say that the image generation has started unless another tool is needed."
-  ].join(" ");
-  requestBody.custom_system_prompt = [requestBody.custom_system_prompt, prompt].filter(Boolean).join("\n\n");
+  const selectedTools = Array.isArray(context.selectedTools) ? context.selectedTools : requestBody.tools;
+  const toolNames = selectedTools
+    .map((tool) => String(tool && tool.function && tool.function.name || "").trim().toLowerCase())
+    .filter(Boolean);
+  const text = String(context.text || "");
+  const intent = context.intent || null;
+  const codingRequest = requestLooksLikeCodingRequest(text, intent);
+  const lines = [
+    "Only call a tool when it is strictly required. Never use a tool as a substitute for writing the actual answer.",
+    "If you can answer directly in text or code, do that instead of calling a tool."
+  ];
+  if (codingRequest || !toolNames.length) {
+    lines.push(
+      "This is a coding or build request. Answer with code or instructions directly.",
+      "Do NOT call generate_image, sketch_board, web_search, or web_fetch."
+    );
+  }
+  if (toolNames.includes("generate_image")) {
+    lines.push(
+      "Call generate_image ONLY when the user explicitly asked for a generated picture, logo, photo, or artwork.",
+      "Never call generate_image for apps, games, websites, scripts, HTML/CSS/JS, or software projects."
+    );
+  }
+  if (toolNames.includes("sketch_board")) {
+    lines.push("Call sketch_board only when the user explicitly asked for a diagram, flowchart, or visual map.");
+  }
+  if (toolNames.includes("calculator")) {
+    lines.push("Use calculator only for non-trivial math that is error-prone to do mentally.");
+  }
+  requestBody.custom_system_prompt = [requestBody.custom_system_prompt, lines.join(" ")].filter(Boolean).join("\n\n");
   return requestBody;
 }
 
@@ -13502,15 +13526,51 @@ function setIncognitoMode(nextEnabled) {
 }
 
 function setToolsEnabled(nextEnabled) {
-  toolsEnabled = true;
+  toolsEnabled = Boolean(nextEnabled);
   if (!toolsToggleBtn) return;
   toolsToggleBtn.setAttribute("aria-pressed", toolsEnabled ? "true" : "false");
   toolsToggleBtn.classList.toggle("is-active", toolsEnabled);
-  toolsToggleBtn.textContent = "Tools On";
+  toolsToggleBtn.textContent = toolsEnabled ? "Tools On" : "Tools Off";
+}
+
+function requestLooksLikeSoftwareBuildRequest(text = "") {
+  const value = String(text || "").trim().toLowerCase();
+  if (!value) return false;
+  return (
+    /\b(html|css|javascript|js\b|typescript|python|java|c\+\+|rust|php|ruby|sql|json|yaml)\b/.test(value)
+    || /\b(script|code|app|application|website|webpage|web page|web app|program|api|component|function|class|module|framework|react|vue|angular|node\.?js|express|flask|django)\b/.test(value)
+    || /\b(minecraft|roblox|unity|godot|three\.?js|canvas game|browser game)\b/.test(value)
+    || /\b(one file|single file|html file|index\.html|\.html|\.js|\.css|\.py)\b/.test(value)
+    || /\bmake (me )?(a |an )?.+(in|using|with) (html|css|js|javascript|python|code)\b/.test(value)
+    || /\b(build|create|write|implement|develop).+(game|app|site|website|script|program|page)\b/.test(value)
+  );
+}
+
+function requestLooksLikeCodingRequest(text = "", intent = null) {
+  const type = String(intent && intent.type || "").trim();
+  if (type === "coding_debugging") return true;
+  return requestLooksLikeSoftwareBuildRequest(text);
+}
+
+function requestLooksLikeExplicitImageGeneration(text = "") {
+  const value = String(text || "").trim().toLowerCase();
+  if (!value || requestLooksLikeSoftwareBuildRequest(value)) return false;
+  return (
+    /\b(generate|create|make|draw|paint|design|render)\s+(an?\s+)?(image|picture|photo|logo|icon|avatar|poster|artwork|wallpaper|thumbnail|illustration|banner|meme|portrait)\b/.test(value)
+    || /\b(imagine|picture of|photo of|draw me|paint me|logo for|art of|wallpaper of)\b/.test(value)
+    || /^\/imagine\b/.test(value)
+    || /\b(use|with|call)\s+generate_image\b/.test(value)
+  );
+}
+
+function requestLooksLikeDiagramRequest(text = "") {
+  const value = String(text || "").trim().toLowerCase();
+  if (!value || requestLooksLikeSoftwareBuildRequest(value)) return false;
+  return /\b(diagram|flowchart|flow chart|mind map|sketch board|map out|architecture diagram|system diagram|visual map|draw a diagram)\b/.test(value);
 }
 
 // --- Built-in tool definitions (client-side execution) ---
-const BUILTIN_TOOLS = [
+const UTILITY_BUILTIN_TOOLS = [
   {
     type: "function",
     function: {
@@ -13563,71 +13623,127 @@ const BUILTIN_TOOLS = [
         required: ["text", "operation"]
       }
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "sketch_board",
-      description: "Create an inline visual sketch board with boxes and arrows when a diagram, flowchart, mind map, or visual explanation would help. Use this after other tools if their result should be shown visually.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Short board title." },
-          summary: { type: "string", description: "One short sentence explaining what the board shows." },
-          prompt: { type: "string", description: "Fallback topic to sketch if nodes are not provided." },
-          nodes: {
-            type: "array",
-            description: "Boxes on the board.",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string", description: "Short unique id like n1." },
-                label: { type: "string", description: "Box heading." },
-                detail: { type: "string", description: "Short detail text inside the box." }
-              },
-              required: ["id", "label"]
-            }
-          },
-          edges: {
-            type: "array",
-            description: "Arrows between boxes.",
-            items: {
-              type: "object",
-              properties: {
-                from: { type: "string", description: "Source node id." },
-                to: { type: "string", description: "Target node id." },
-                label: { type: "string", description: "Optional arrow label." }
-              },
-              required: ["from", "to"]
-            }
-          }
-        },
-        required: ["title"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "generate_image",
-      description: "Generate an image, logo, icon, avatar, poster, artwork, scene, thumbnail, wallpaper, or visual design with ROK IMAGE. Use this when the user asks for an actual generated image instead of a text prompt.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt: {
-            type: "string",
-            description: "The full visual prompt to send to image generation. Preserve important names, text, style, and constraints from the user."
-          },
-          use_reference_image: {
-            type: "boolean",
-            description: "Use the first attached image as a reference when the user asks to edit or transform an attached image."
-          }
-        },
-        required: ["prompt"]
-      }
-    }
   }
 ];
+
+const SKETCH_BOARD_BUILTIN_TOOL = {
+  type: "function",
+  function: {
+    name: "sketch_board",
+    description: "Create an inline diagram board with boxes and arrows. Use ONLY when the user explicitly asks for a diagram, flowchart, mind map, or visual map — not for code, apps, or games.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short board title." },
+        summary: { type: "string", description: "One short sentence explaining what the board shows." },
+        prompt: { type: "string", description: "Fallback topic to sketch if nodes are not provided." },
+        nodes: {
+          type: "array",
+          description: "Boxes on the board.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "Short unique id like n1." },
+              label: { type: "string", description: "Box heading." },
+              detail: { type: "string", description: "Short detail text inside the box." }
+            },
+            required: ["id", "label"]
+          }
+        },
+        edges: {
+          type: "array",
+          description: "Arrows between boxes.",
+          items: {
+            type: "object",
+            properties: {
+              from: { type: "string", description: "Source node id." },
+              to: { type: "string", description: "Target node id." },
+              label: { type: "string", description: "Optional arrow label." }
+            },
+            required: ["from", "to"]
+          }
+        }
+      },
+      required: ["title"]
+    }
+  }
+};
+
+const GENERATE_IMAGE_BUILTIN_TOOL = {
+  type: "function",
+  function: {
+    name: "generate_image",
+    description: "Generate a real image file with ROK IMAGE. Use ONLY when the user explicitly wants a picture, logo, photo, poster, artwork, or wallpaper — never for apps, games, websites, scripts, or code.",
+    parameters: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description: "The full visual prompt to send to image generation. Preserve important names, text, style, and constraints from the user."
+        },
+        use_reference_image: {
+          type: "boolean",
+          description: "Use the first attached image as a reference when the user asks to edit or transform an attached image."
+        }
+      },
+      required: ["prompt"]
+    }
+  }
+};
+
+const BUILTIN_TOOLS = [
+  ...UTILITY_BUILTIN_TOOLS,
+  SKETCH_BOARD_BUILTIN_TOOL,
+  GENERATE_IMAGE_BUILTIN_TOOL
+];
+
+function selectBuiltinToolsForRequest(text = "", intent = null) {
+  if (!toolsEnabled) return [];
+  if (requestLooksLikeCodingRequest(text, intent)) {
+    return [];
+  }
+  const selected = [...UTILITY_BUILTIN_TOOLS];
+  if (requestLooksLikeExplicitImageGeneration(text)) {
+    selected.push(GENERATE_IMAGE_BUILTIN_TOOL);
+  }
+  if (requestLooksLikeDiagramRequest(text)) {
+    selected.push(SKETCH_BOARD_BUILTIN_TOOL);
+  }
+  return selected;
+}
+
+function validateBuiltinToolExecution(name, context = {}) {
+  const toolName = String(name || "").trim().toLowerCase();
+  const userText = String(context.userText || "");
+  const intent = context.intent || null;
+  const allowed = context.allowedToolNames instanceof Set ? context.allowedToolNames : new Set();
+
+  if (allowed.size && !allowed.has(toolName)) {
+    return { ok: false, reason: `${toolName} is not enabled for this request.` };
+  }
+  if (requestLooksLikeCodingRequest(userText, intent) && (toolName === "generate_image" || toolName === "sketch_board")) {
+    return { ok: false, reason: "Coding and build requests should be answered with code or text, not image tools." };
+  }
+  if (toolName === "generate_image" && !requestLooksLikeExplicitImageGeneration(userText)) {
+    return { ok: false, reason: "The user did not ask for a generated image." };
+  }
+  if (toolName === "sketch_board" && !requestLooksLikeDiagramRequest(userText)) {
+    return { ok: false, reason: "The user did not ask for a diagram or sketch board." };
+  }
+  return { ok: true, reason: "" };
+}
+
+function applyBuiltinToolsToRequestBody(requestBody, text = "", intent = null) {
+  if (!requestBody || typeof requestBody !== "object") return [];
+  const selectedTools = selectBuiltinToolsForRequest(text, intent);
+  if (!selectedTools.length) {
+    delete requestBody.tools;
+    return [];
+  }
+  requestBody.tools = selectedTools;
+  applyToolChainingGuidanceToRequestBody(requestBody, { text, intent, selectedTools });
+  return selectedTools.map((tool) => String(tool.function && tool.function.name || "").trim()).filter(Boolean);
+}
 
 const BUILTIN_TOOL_MAX_LOOP = 5;
 
@@ -13661,7 +13777,11 @@ function startGenerateImageTool(args = {}) {
   };
 }
 
-function executeBuiltinTool(name, args) {
+function executeBuiltinTool(name, args, context = {}) {
+  const guard = validateBuiltinToolExecution(name, context);
+  if (!guard.ok) {
+    return { ok: false, error: guard.reason, skipped: true };
+  }
   const a = args && typeof args === "object" ? args : {};
   try {
     switch (name) {
@@ -14068,10 +14188,6 @@ async function send() {
     if (webSearchEnabled) {
       baseRequestBody.enable_web_search = true;
     }
-    if (toolsEnabled) {
-      baseRequestBody.tools = BUILTIN_TOOLS;
-      applyToolChainingGuidanceToRequestBody(baseRequestBody);
-    }
   }
   if (compactedHistorySummary) {
     baseRequestBody.history_compaction_summary = compactedHistorySummary;
@@ -14182,6 +14298,8 @@ async function send() {
   let answerStarted = false;
   let assistantStreamStarted = false;
   let pendingToolCalls = [];
+  let allowedBuiltinToolNames = new Set();
+  let activeBuiltinToolContext = { userText: text, intent: fallbackIntent, allowedToolNames: allowedBuiltinToolNames };
   let webSearchVisualActive = false;
   let smoothAnswerStream = false;
   let visibleAnswerText = "";
@@ -14591,6 +14709,13 @@ async function send() {
       const toolCallId = tc && tc.id
         ? String(tc.id)
         : `call_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const toolName = getToolCallName(tc);
+      if (allowedBuiltinToolNames.size && !allowedBuiltinToolNames.has(toolName)) {
+        appendWorkTraceStep(`Ignored ${toolName.replace(/_/g, " ")}`, {
+          detail: "That tool is not enabled for this request."
+        });
+        continue;
+      }
       pendingToolCalls.push({ ...tc, id: toolCallId, _assistantContent: visibleAssistantContent });
     }
     handleStatusUpdate(getToolStatusText(toolCalls));
@@ -14828,6 +14953,8 @@ async function send() {
     hasWorkspaceContext = false;
     requestedOutputType = intent.outputType || inferWorkspaceOutputType("", text);
     applyIntentRoutingToRequestBody(baseRequestBody, intent);
+    allowedBuiltinToolNames = new Set(applyBuiltinToolsToRequestBody(baseRequestBody, text, intent));
+    activeBuiltinToolContext = { userText: text, intent, allowedToolNames: allowedBuiltinToolNames };
     assistantEvidence = buildAssistantEvidenceSnapshot({
       requestBody: baseRequestBody,
       model: sessionModel
@@ -15000,7 +15127,7 @@ async function send() {
       finalizeThinkingPanel(Boolean(partialText), false);
 
       // --- Auto-execute built-in tool calls and loop ---
-      if (pendingToolCalls.length > 0 && toolsEnabled) {
+      if (pendingToolCalls.length > 0 && toolsEnabled && allowedBuiltinToolNames.size) {
         let toolLoopCount = 0;
         let toolHistory = [...recentHistory];
         // Add the original user message to tool history if not already there
@@ -15039,7 +15166,7 @@ async function send() {
               args = typeof argsRaw === "string" ? JSON.parse(argsRaw) : (argsRaw || {});
             } catch (_) { args = {}; }
 
-            const toolResult = executeBuiltinTool(toolName, args);
+            const toolResult = executeBuiltinTool(toolName, args, activeBuiltinToolContext);
             const callId = tc.id;
             const resultContent = toolResult.ok
               ? JSON.stringify(toolResult.result)
@@ -15047,7 +15174,10 @@ async function send() {
 
             handleStatusUpdate(toolResult.ok
               ? `Ran ${toolName.replace(/_/g, " ")}`
-              : `Tool ${toolName.replace(/_/g, " ")} failed`);
+              : (toolResult.skipped ? `Skipped ${toolName.replace(/_/g, " ")}` : `Tool ${toolName.replace(/_/g, " ")} failed`));
+            if (toolResult.skipped) {
+              appendWorkTraceStep(`Skipped ${toolName.replace(/_/g, " ")}`, { detail: toolResult.error || "Not appropriate for this request." });
+            }
 
             toolHistory.push({
               role: "tool",
@@ -15066,11 +15196,17 @@ async function send() {
               history: toolHistory,
               model: sessionModel,
               max_tokens: requestBudget.maxTokens,
-              enable_thinking: requestShouldThink,
-              tools: BUILTIN_TOOLS
+              enable_thinking: requestShouldThink
             });
             applyIntentRoutingToRequestBody(followupBody, intent);
-            applyToolChainingGuidanceToRequestBody(followupBody);
+            if (Array.isArray(baseRequestBody.tools) && baseRequestBody.tools.length) {
+              followupBody.tools = baseRequestBody.tools;
+              applyToolChainingGuidanceToRequestBody(followupBody, {
+                text,
+                intent,
+                selectedTools: baseRequestBody.tools
+              });
+            }
             if (isWebSearchActiveForRequest()) {
               followupBody.enable_web_search = true;
             }
@@ -15401,7 +15537,7 @@ async function send() {
     finalizeThinkingPanel(Boolean(partialText), false);
 
     // --- Auto-execute built-in tool calls and loop ---
-    if (pendingToolCalls.length > 0 && toolsEnabled) {
+    if (pendingToolCalls.length > 0 && toolsEnabled && allowedBuiltinToolNames.size) {
       let toolLoopCount = 0;
       let toolHistory = [...recentHistory];
       if (!toolHistory.length || toolHistory[toolHistory.length - 1].role !== "user") {
@@ -15437,7 +15573,7 @@ async function send() {
             args = typeof argsRaw === "string" ? JSON.parse(argsRaw) : (argsRaw || {});
           } catch (_) { args = {}; }
 
-          const toolResult = executeBuiltinTool(toolName, args);
+          const toolResult = executeBuiltinTool(toolName, args, activeBuiltinToolContext);
           const callId = tc.id;
           const resultContent = toolResult.ok
             ? JSON.stringify(toolResult.result)
@@ -15445,7 +15581,10 @@ async function send() {
 
           handleStatusUpdate(toolResult.ok
             ? `Ran ${toolName.replace(/_/g, " ")}`
-            : `Tool ${toolName.replace(/_/g, " ")} failed`);
+            : (toolResult.skipped ? `Skipped ${toolName.replace(/_/g, " ")}` : `Tool ${toolName.replace(/_/g, " ")} failed`));
+          if (toolResult.skipped) {
+            appendWorkTraceStep(`Skipped ${toolName.replace(/_/g, " ")}`, { detail: toolResult.error || "Not appropriate for this request." });
+          }
 
           toolHistory.push({
             role: "tool",
@@ -15463,11 +15602,17 @@ async function send() {
             history: toolHistory,
             model: sessionModel,
             max_tokens: requestBudget.maxTokens,
-            enable_thinking: requestShouldThink,
-            tools: BUILTIN_TOOLS
+            enable_thinking: requestShouldThink
           });
           applyIntentRoutingToRequestBody(followupBody, intent);
-          applyToolChainingGuidanceToRequestBody(followupBody);
+          if (Array.isArray(baseRequestBody.tools) && baseRequestBody.tools.length) {
+            followupBody.tools = baseRequestBody.tools;
+            applyToolChainingGuidanceToRequestBody(followupBody, {
+              text,
+              intent,
+              selectedTools: baseRequestBody.tools
+            });
+          }
           if (isWebSearchActiveForRequest()) followupBody.enable_web_search = true;
           incrementEvidenceFollowupCount(assistantEvidence);
 
@@ -16076,7 +16221,7 @@ if (webToggleBtn) {
 if (toolsToggleBtn) {
   toolsToggleBtn.addEventListener("click", () => {
     if (isSending || isIntentClassificationLoading) return;
-    setToolsEnabled(true);
+    setToolsEnabled(!toolsEnabled);
   });
 }
 
