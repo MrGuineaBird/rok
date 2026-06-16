@@ -14632,7 +14632,7 @@ async function send() {
   };
   const renderAssistantStatusBubble = (value, kind) => {
     const statusCopy = {
-      web: ["Searching the web", "Checking sources and pulling the useful bits"],
+      web: ["Looking that up", "Checking sources and pulling the useful bits"],
       image: ["Analyzing image", "Reading the visual details"],
       generating: ["Generating response", "The model is working on your answer"],
       thinking: ["Thinking", "Working through the request step by step"],
@@ -14692,10 +14692,10 @@ async function send() {
       ? toolCalls.map((toolCall) => getToolCallName(toolCall)).filter(Boolean)
       : [];
     if (toolNames.length && toolNames.every((name) => name === "web_search" || name === "web_fetch")) {
-      return "Searching the web...";
+      return "Looking that up...";
     }
     const callNames = toolNames.length ? toolNames.join(", ") : "unknown";
-    return `Calling tool${toolCalls.length > 1 ? "s" : ""}: ${callNames}`;
+    return `Working on ${callNames.replace(/_/g, " ")}...`;
   };
   const handleToolCalls = (toolCalls, assistantContent) => {
     if (!Array.isArray(toolCalls) || !toolCalls.length) return;
