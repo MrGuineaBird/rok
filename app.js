@@ -11696,6 +11696,15 @@ function buildAttachmentsPayload() {
         content_base64: item.contentBase64 || ""
       };
     }
+    if (item.kind === "binary") {
+      return {
+        type: "binary",
+        name: item.name,
+        size: item.size,
+        mime_type: item.mimeType || "application/octet-stream",
+        content_base64: item.contentBase64 || ""
+      };
+    }
     return {
       type: "text",
       name: item.name,
@@ -12339,7 +12348,29 @@ async function addSelectedFiles(fileList) {
       continue;
     }
 
-    addMessage("system", `${file.name} is not a supported text or image file.`);
+    // Generic file — read as base64 binary attachment
+    try {
+      const displayName = String(file.webkitRelativePath || file.name || "file").trim() || file.name;
+      const reader = new FileReader();
+      const base64Content = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+        reader.readAsDataURL(file);
+      });
+      const base64 = String(base64Content || "").split(",")[1] || "";
+      attachments.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        kind: "binary",
+        name: displayName,
+        size: file.size,
+        mimeType: file.type || "application/octet-stream",
+        contentBase64: base64
+      });
+      renderAttachments();
+      resetAttachmentInputs();
+    } catch (error) {
+      addMessage("system", error && error.message ? error.message : `Could not read ${file.name}.`);
+    }
   }
 
   renderAttachments();
@@ -12362,15 +12393,25 @@ async function addSelectedSandboxFiles(fileList) {
       setSandboxStatus(`ROK CODE limit reached (${SANDBOX_MAX_FILES} files).`, "error");
       break;
     }
-    if (!isTextLikeFile(file)) {
-      continue;
-    }
     try {
       const path = normalizeSandboxFilePath(file.webkitRelativePath || file.name);
       if (!path) {
         continue;
       }
-      const content = truncateText(await file.text(), SANDBOX_MAX_FILE_CHARS);
+      let content;
+      try {
+        content = truncateText(await file.text(), SANDBOX_MAX_FILE_CHARS);
+      } catch {
+        // Binary file — read as base64 and store with a marker
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+          reader.readAsDataURL(file);
+        });
+        const base64 = String(dataUrl || "").split(",")[1] || "";
+        content = truncateText(`[binary:${file.type || "application/octet-stream"}]\n${base64}`, SANDBOX_MAX_FILE_CHARS);
+      }
       const existing = sandbox.files.find((item) => item.path.toLowerCase() === path.toLowerCase());
       if (existing) {
         existing.content = content;
@@ -13626,6 +13667,71 @@ const UTILITY_BUILTIN_TOOLS = [
   }
 ];
 
+// --- File tools (Claude Code / Cursor style) ---
+const FILE_TOOL_DEFINITIONS = [
+  {
+    type: "function",
+    function: {
+      name: "list_files",
+      description: "List all files in the workspace. Returns file paths, sizes, and line counts. Use this to discover what files exist before reading or editing them.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Optional directory prefix to filter results, e.g. 'src/' to list only src/ files" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read the contents of a file in the workspace. Use start_line and end_line to read a specific range (1-based). Without them, reads the entire file.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. 'src/index.js'" },
+          start_line: { type: "integer", description: "Optional 1-based line number to start reading from" },
+          end_line: { type: "integer", description: "Optional 1-based line number to stop reading at (inclusive)" }
+        },
+        required: ["path"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "write_file",
+      description: "Create a new file or completely overwrite an existing file. Use this for new files. For modifying existing files, prefer edit_file instead.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. 'src/utils.js'" },
+          content: { type: "string", description: "The complete file contents to write" }
+        },
+        required: ["path", "content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Surgically edit a file by replacing a specific string. Find the exact old_string in the file and replace it with new_string. The old_string must appear EXACTLY ONCE in the file — if it appears multiple times, include more surrounding context to make it unique.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. 'src/index.js'" },
+          old_string: { type: "string", description: "The exact string to find and replace. Must appear exactly once in the file." },
+          new_string: { type: "string", description: "The replacement string" }
+        },
+        required: ["path", "old_string", "new_string"]
+      }
+    }
+  }
+];
+
 const SKETCH_BOARD_BUILTIN_TOOL = {
   type: "function",
   function: {
@@ -13702,7 +13808,7 @@ function selectBuiltinToolsForRequest(text = "", intent = null) {
   if (requestLooksLikeCodingRequest(text, intent)) {
     return [];
   }
-  const selected = [...UTILITY_BUILTIN_TOOLS];
+  const selected = [...UTILITY_BUILTIN_TOOLS, ...FILE_TOOL_DEFINITIONS];
   if (requestLooksLikeExplicitImageGeneration(text)) {
     selected.push(GENERATE_IMAGE_BUILTIN_TOOL);
   }
@@ -13831,6 +13937,78 @@ function executeBuiltinTool(name, args, context = {}) {
       case "sketch_board": {
         const board = createSketchBoardMessage(a);
         return { ok: true, result: { created: true, title: board.title, nodes: board.nodes, edges: board.edges } };
+      }
+      case "list_files": {
+        const sandbox = getCurrentSandboxState();
+        const filterPath = String(a.path || "").trim().toLowerCase();
+        const files = (sandbox.files || []).filter((f) => {
+          if (!filterPath) return true;
+          return f.path.toLowerCase().includes(filterPath);
+        }).map((f) => ({
+          path: f.path,
+          lines: countLines(f.content),
+          size: String(f.content || "").length
+        }));
+        return { ok: true, result: { files, count: files.length } };
+      }
+      case "read_file": {
+        const filePath = normalizeSandboxFilePath(a.path || "");
+        if (!filePath) return { ok: false, error: "Missing file path." };
+        const sandbox = getCurrentSandboxState();
+        const file = sandbox.files.find((f) => f.path.toLowerCase() === filePath.toLowerCase());
+        if (!file) return { ok: false, error: `File not found: ${filePath}` };
+        let content = String(file.content || "");
+        const startLine = Number(a.start_line) || 1;
+        const endLine = Number(a.end_line) || 0;
+        if (startLine > 1 || endLine > 0) {
+          const lines = content.split("\n");
+          const start = Math.max(0, startLine - 1);
+          const end = endLine > 0 ? Math.min(lines.length, endLine) : lines.length;
+          content = lines.slice(start, end).join("\n");
+        }
+        return { ok: true, result: { path: file.path, content, lines: countLines(content) } };
+      }
+      case "write_file": {
+        const writePath = normalizeSandboxFilePath(a.path || "");
+        if (!writePath) return { ok: false, error: "Missing file path." };
+        const writeContent = String(a.content || "");
+        const sandbox = getCurrentSandboxState();
+        const existing = sandbox.files.find((f) => f.path.toLowerCase() === writePath.toLowerCase());
+        if (existing) {
+          existing.content = writeContent;
+          existing.updatedAt = Date.now();
+        } else {
+          sandbox.files.push(createSandboxFile(writePath, writeContent));
+        }
+        sandbox.selectedFileId = sandbox.files.find((f) => f.path.toLowerCase() === writePath.toLowerCase())?.id || sandbox.selectedFileId;
+        clearSandboxUndoSnapshot(sandbox);
+        sandbox.statusText = `File saved: ${writePath}`;
+        syncCurrentSessionFromHistory();
+        loadSandboxDraftFromSelectedFile(true);
+        if (isSandboxSessionActive()) renderSandboxUI();
+        return { ok: true, result: { path: writePath, created: !existing, lines: countLines(writeContent) } };
+      }
+      case "edit_file": {
+        const editPath = normalizeSandboxFilePath(a.path || "");
+        if (!editPath) return { ok: false, error: "Missing file path." };
+        const oldStr = String(a.old_string || "");
+        const newStr = String(a.new_string || "");
+        if (!oldStr) return { ok: false, error: "Missing old_string to find." };
+        const sandbox = getCurrentSandboxState();
+        const editFile = sandbox.files.find((f) => f.path.toLowerCase() === editPath.toLowerCase());
+        if (!editFile) return { ok: false, error: `File not found: ${editPath}` };
+        const fileContent = String(editFile.content || "");
+        const occurrences = fileContent.split(oldStr).length - 1;
+        if (occurrences === 0) return { ok: false, error: `old_string not found in ${editPath}` };
+        if (occurrences > 1) return { ok: false, error: `old_string appears ${occurrences} times in ${editPath}. Add more context to make it unique.` };
+        editFile.content = fileContent.replace(oldStr, newStr);
+        editFile.updatedAt = Date.now();
+        clearSandboxUndoSnapshot(sandbox);
+        sandbox.statusText = `File edited: ${editPath}`;
+        syncCurrentSessionFromHistory();
+        loadSandboxDraftFromSelectedFile(true);
+        if (isSandboxSessionActive()) renderSandboxUI();
+        return { ok: true, result: { path: editPath, replacements: 1, newLines: countLines(editFile.content) } };
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` };
@@ -16066,6 +16244,94 @@ if (sandboxUploadFolderBtn && sandboxFolderInput) {
     sandboxFolderInput.click();
   });
   sandboxFolderInput.addEventListener("change", (e) => addSelectedSandboxFiles(e.target.files));
+}
+
+// --- Sandbox drag-and-drop folder/file support ---
+if (sandboxPanel) {
+  sandboxPanel.addEventListener("dragover", (e) => {
+    if (isSending) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+    sandboxPanel.classList.add("sandbox-drop-active");
+  });
+  sandboxPanel.addEventListener("dragleave", (e) => {
+    if (isSending) return;
+    e.preventDefault();
+    e.stopPropagation();
+    sandboxPanel.classList.remove("sandbox-drop-active");
+  });
+  sandboxPanel.addEventListener("drop", async (e) => {
+    if (isSending) return;
+    e.preventDefault();
+    e.stopPropagation();
+    sandboxPanel.classList.remove("sandbox-drop-active");
+
+    if (!e.dataTransfer || !e.dataTransfer.items || !e.dataTransfer.items.length) return;
+
+    const collectedFiles = [];
+
+    async function traverseEntry(entry, pathPrefix) {
+      if (entry.isFile) {
+        await new Promise((resolve, reject) => {
+          const fileEntry = entry;
+          fileEntry.file((file) => {
+            // Preserve the directory structure in the file's internal name
+            Object.defineProperty(file, "webkitRelativePath", {
+              value: pathPrefix + file.name,
+              writable: false,
+            });
+            collectedFiles.push(file);
+            resolve();
+          }, () => {
+            resolve(); // skip unreadable files
+          });
+        });
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const entries = await new Promise((resolve) => {
+          const allEntries = [];
+          const readBatch = () => {
+            dirReader.readEntries((batch) => {
+              if (batch.length === 0) {
+                resolve(allEntries);
+              } else {
+                allEntries.push(...batch);
+                readBatch();
+              }
+            }, () => {
+              resolve(allEntries);
+            });
+          };
+          readBatch();
+        });
+        for (const child of entries) {
+          await traverseEntry(child, pathPrefix + entry.name + "/");
+        }
+      }
+    }
+
+    try {
+      for (const item of e.dataTransfer.items) {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+          await traverseEntry(entry, "");
+        } else {
+          // Fallback: treat as regular files
+          const file = item.getAsFile();
+          if (file) collectedFiles.push(file);
+        }
+      }
+    } catch (err) {
+      console.warn("Sandbox folder traversal failed:", err);
+    }
+
+    if (collectedFiles.length) {
+      addSelectedSandboxFiles(collectedFiles);
+    }
+  });
 }
 
 if (sandboxNewFileBtn) {
